@@ -1,7 +1,14 @@
-# pet-tools
+<p align="center">
+  <img src="img/logo.png" alt="PET Project logo" width="360">
+</p>
+
+# PET Project
 
 AI-oriented toolset for developing and debugging Commodore PET software
 (Commodore BASIC and 6502 assembly) on the VICE emulator.
+
+> The Python package is imported as `petlib`, installed as `pet-tools`, and
+> driven by the `pet` command-line tool.
 
 ## Requirements
 
@@ -24,7 +31,7 @@ interface for AI agents.
 
 ## Status
 
-Control plane complete (this plan: sessions, screen, memory, registers).
+Control plane complete (sessions, screen, memory, registers).
 Coming next: build pipeline (ca65/petcat), symbolic debugging, disk images,
 test runner, MCP server, Claude skills. Design: `docs/superpowers/specs/`.
 

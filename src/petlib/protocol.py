@@ -129,3 +129,64 @@ def memory_set_body(
 def parse_memory_get(body: bytes) -> bytes:
     (length,) = struct.unpack_from("<H", body)
     return body[2 : 2 + length]
+
+
+def parse_registers_available(body: bytes) -> dict[int, str]:
+    (count,) = struct.unpack_from("<H", body)
+    out: dict[int, str] = {}
+    off = 2
+    for _ in range(count):
+        item_size = body[off]
+        reg_id = body[off + 1]
+        name_len = body[off + 3]
+        name = body[off + 4 : off + 4 + name_len].decode("ascii")
+        out[reg_id] = name
+        off += 1 + item_size
+    return out
+
+
+def parse_registers_get(body: bytes) -> dict[int, int]:
+    (count,) = struct.unpack_from("<H", body)
+    out: dict[int, int] = {}
+    off = 2
+    for _ in range(count):
+        item_size = body[off]
+        reg_id = body[off + 1]
+        (value,) = struct.unpack_from("<H", body, off + 2)
+        out[reg_id] = value
+        off += 1 + item_size
+    return out
+
+
+def registers_set_body(values: dict[int, int], memspace: int = MEMSPACE_MAIN) -> bytes:
+    out = struct.pack("<BH", memspace, len(values))
+    for reg_id, value in values.items():
+        out += struct.pack("<BBH", 3, reg_id, value)
+    return out
+
+
+def parse_display_get(body: bytes) -> tuple[int, int, bytes]:
+    (fields_len,) = struct.unpack_from("<I", body)
+    debug_w, debug_h, off_x, off_y, inner_w, inner_h, _bpp = struct.unpack_from(
+        "<HHHHHHB", body, 4
+    )
+    buf_off = 4 + fields_len
+    (buf_len,) = struct.unpack_from("<I", body, buf_off)
+    pixels = body[buf_off + 4 : buf_off + 4 + buf_len]
+    rows = []
+    for y in range(off_y, off_y + inner_h):
+        row_start = y * debug_w + off_x
+        rows.append(pixels[row_start : row_start + inner_w])
+    return inner_w, inner_h, b"".join(rows)
+
+
+def parse_palette_get(body: bytes) -> list[tuple[int, int, int]]:
+    (count,) = struct.unpack_from("<H", body)
+    out: list[tuple[int, int, int]] = []
+    off = 2
+    for _ in range(count):
+        item_size = body[off]
+        r, g, b = body[off + 1], body[off + 2], body[off + 3]
+        out.append((r, g, b))
+        off += 1 + item_size
+    return out

@@ -20,7 +20,12 @@ from .protocol import (
     encode_command,
     memory_get_body,
     memory_set_body,
+    parse_display_get,
     parse_memory_get,
+    parse_palette_get,
+    parse_registers_available,
+    parse_registers_get,
+    registers_set_body,
 )
 
 
@@ -113,3 +118,46 @@ class MonitorClient:
 
     def resume(self) -> None:
         self.request(Command.EXIT)
+
+    def _register_map(self) -> dict[int, str]:
+        if not hasattr(self, "_regmap"):
+            body = self.request(Command.REGISTERS_AVAILABLE, b"\x00").body
+            self._regmap = parse_registers_available(body)
+        return self._regmap
+
+    def registers(self) -> dict[str, int]:
+        regmap = self._register_map()
+        raw = parse_registers_get(self.request(Command.REGISTERS_GET, b"\x00").body)
+        return {regmap[i].upper(): v for i, v in raw.items() if i in regmap}
+
+    def set_register(self, name: str, value: int) -> None:
+        regmap = self._register_map()
+        by_name = {n.upper(): i for i, n in regmap.items()}
+        reg_id = by_name[name.upper()]  # KeyError on unknown name is the contract
+        self.request(Command.REGISTERS_SET, registers_set_body({reg_id: value}))
+
+    def reset(self, hard: bool = False) -> None:
+        self.request(Command.RESET, b"\x01" if hard else b"\x00")
+
+    def keyboard_feed(self, petscii: bytes) -> None:
+        for i in range(0, len(petscii), 200):
+            chunk = petscii[i : i + 200]
+            self.request(Command.KEYBOARD_FEED, bytes([len(chunk)]) + chunk)
+
+    def display(self) -> tuple[int, int, bytes]:
+        # body: use_vic flag (ignored for PET), format 0 = indexed 8bpp
+        return parse_display_get(self.request(Command.DISPLAY_GET, b"\x00\x00").body)
+
+    def palette(self) -> list[tuple[int, int, int]]:
+        return parse_palette_get(self.request(Command.PALETTE_GET, b"\x00").body)
+
+    def vice_info(self) -> str:
+        body = self.request(Command.VICE_INFO).body
+        n = body[0]
+        return ".".join(str(b) for b in body[1 : 1 + n]).rstrip(".0") or "0"
+
+    def quit(self) -> None:
+        try:
+            self.request(Command.QUIT)
+        except (ConnectionError, TimeoutError, OSError):
+            pass  # VICE may exit before replying

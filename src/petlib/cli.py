@@ -573,3 +573,73 @@ def until_cmd(ctx, ref, timeout):
             return
         regs = mon.registers()
     _emit_stopped_regs(ctx, labels, regs)
+
+
+@main.command("wait")
+@click.option("--text", "text_cond", default=None, help="Wait for screen text.")
+@click.option("--mem", "mem_cond", default=None, help="ADDR=VALUE, e.g. '$1000=42'.")
+@click.option("--break", "break_cond", is_flag=True, help="Wait for a checkpoint hit.")
+@click.option("--timeout", default=30.0, show_default=True)
+@click.pass_context
+def wait_cmd(ctx, text_cond, mem_cond, break_cond, timeout):
+    """Block until a condition fires; reports which one in JSON."""
+    if sum(bool(x) for x in (text_cond, mem_cond, break_cond)) != 1:
+        fail(ctx, "give exactly one of --text, --mem, --break")
+        return
+    s = attach(ctx)
+    labels = session_labels(s)
+    start_t = time.monotonic()
+    deadline = start_t + timeout
+
+    if break_cond:
+        with s.monitor() as mon:
+            hit = next((ck for ck in mon.checkpoint_list() if ck.hit), None)
+            if hit is not None:
+                regs = mon.registers()
+                emit(ctx, {"fired": "break", "checkpoint": hit.number,
+                           "pc": regs.get("PC"), "pc_symbol": _pc_symbol(labels, regs),
+                           "elapsed": round(time.monotonic() - start_t, 3)},
+                     f"breakpoint #{hit.number} already hit at "
+                     f"{format_addr(labels, regs.get('PC', hit.start))}")
+                return
+            mon.resume()
+            info = mon.wait_for_stop(timeout)
+            if info is None:
+                fail(ctx, f"timeout: no checkpoint hit within {timeout}s")
+                return
+            regs = mon.registers()
+        emit(ctx, {"fired": "break", "checkpoint": info.checkpoint,
+                   "pc": info.pc, "pc_symbol": _pc_symbol(labels, regs),
+                   "elapsed": round(time.monotonic() - start_t, 3)},
+             f"breakpoint #{info.checkpoint} hit at {format_addr(labels, info.pc)}")
+        return
+
+    if mem_cond:
+        try:
+            addr_s, _, val_s = mem_cond.partition("=")
+            addr = resolve_ref(ctx, labels, addr_s.strip())
+            want = parse_number(val_s.strip())
+        except ValueError:
+            fail(ctx, f"bad --mem condition {mem_cond!r}; use ADDR=VALUE")
+            return
+    last_screen = ""
+    while time.monotonic() < deadline:
+        with s.monitor() as mon:
+            try:
+                if text_cond:
+                    last_screen = read_screen_text(mon, s.profile)
+                    fired = text_cond in last_screen
+                else:
+                    fired = mon.memory_read(addr, 1)[0] == want
+            finally:
+                mon.resume()
+        if fired:
+            kind = "text" if text_cond else "mem"
+            emit(ctx, {"fired": kind,
+                       "elapsed": round(time.monotonic() - start_t, 3)},
+                 f"{kind} condition met")
+            return
+        time.sleep(0.4)
+    detail = f"; last screen:\n{last_screen}" if text_cond else ""
+    fail(ctx, f"timeout after {timeout}s waiting for "
+              f"{'--text ' + text_cond if text_cond else '--mem ' + mem_cond}{detail}")

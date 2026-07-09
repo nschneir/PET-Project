@@ -77,3 +77,17 @@ def test_launch_missing_binary_message(home, monkeypatch):
 def test_launch_unknown_model(home):
     with pytest.raises(KeyError):
         Session.launch(model="amiga500")
+
+
+def test_labels_path_persists(home):
+    proc = _live_pid()
+    try:
+        _write_record("alpha", proc.pid)
+        s = Session.attach("alpha")
+        assert s.labels is None
+        s.set_labels_path("/tmp/prog.lbl")
+        again = Session.attach("alpha")
+        # set_labels_path resolves; macOS resolves /tmp -> /private/tmp
+        assert again.labels.endswith("/tmp/prog.lbl")
+    finally:
+        proc.kill()

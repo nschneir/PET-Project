@@ -52,6 +52,7 @@ class Session:
     pid: int
     port: int
     model: str
+    labels: str | None = None
 
     @property
     def profile(self) -> MachineProfile:
@@ -66,16 +67,21 @@ class Session:
         self._record_path().write_text(
             json.dumps(
                 {"name": self.name, "pid": self.pid, "port": self.port,
-                 "model": self.model, "created": time.time()}
+                 "model": self.model, "labels": self.labels, "created": time.time()}
             )
         )
+
+    def set_labels_path(self, path: str) -> None:
+        self.labels = str(Path(path).resolve())
+        self._save()
 
     @staticmethod
     def _load_all() -> list["Session"]:
         out = []
         for f in sorted(sessions_dir().glob("*.json")):
             r = json.loads(f.read_text())
-            s = Session(name=r["name"], pid=r["pid"], port=r["port"], model=r["model"])
+            s = Session(name=r["name"], pid=r["pid"], port=r["port"],
+                        model=r["model"], labels=r.get("labels"))
             if s.is_alive():
                 out.append(s)
             else:

@@ -5,9 +5,11 @@ from __future__ import annotations
 
 import json as _json
 import sys
+from pathlib import Path
 
 import click
 
+from .build import BuildError, build_asm
 from .machines import get_profile
 from .screen import read_screen_text, save_screenshot_png
 from .session import Session, SessionError
@@ -208,3 +210,20 @@ def reg_set(ctx, name, value):
             mon.resume()
     emit(ctx, {"register": name.upper(), "value": v},
          f"{name.upper()} = ${v:04x}")
+
+
+@main.command("build")
+@click.argument("source", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option("-o", "--output", type=click.Path(dir_okay=False, path_type=Path), default=None)
+@click.option("--model", default="pet4032", show_default=True)
+@click.pass_context
+def build_cmd(ctx, source, output, model):
+    """Assemble 6502 source to a .prg (+ VICE label file) with ca65/ld65."""
+    try:
+        profile = get_profile(model)
+        res = build_asm(source, out_prg=output, basic_start=profile.basic_start)
+    except (BuildError, KeyError) as e:
+        fail(ctx, str(e))
+        return
+    emit(ctx, {"prg": str(res.prg), "labels": str(res.labels)},
+         f"built {res.prg} (labels: {res.labels})")

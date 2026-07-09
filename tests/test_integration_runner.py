@@ -1,0 +1,63 @@
+"""Live test-runner integration: YAML tests and demos-as-tests on real xpet."""
+
+import os
+import shutil
+from pathlib import Path
+
+import pytest
+from click.testing import CliRunner
+
+from petlib.cli import main
+from petlib.testing import demo_test, load_test, run_test
+
+pytestmark = [
+    pytest.mark.vice,
+    pytest.mark.skipif(
+        not (shutil.which("xpet") or os.environ.get("PET_TOOLS_XPET")),
+        reason="xpet not installed",
+    ),
+]
+
+
+@pytest.fixture(autouse=True)
+def home(tmp_path, monkeypatch):
+    monkeypatch.setenv("PET_TOOLS_HOME", str(tmp_path))
+
+
+def test_yaml_autorun_passes():
+    result = run_test(load_test(Path("tests/data/hello-autorun.yaml")))
+    assert result.passed, [s.detail for s in result.steps]
+    assert len(result.steps) == 4
+
+
+def test_yaml_loadrun_passes():
+    result = run_test(load_test(Path("tests/data/hello-loadrun.yaml")))
+    assert result.passed, [s.detail for s in result.steps]
+
+
+def test_failing_wait_reports_screen():
+    spec = load_test(Path("tests/data/hello-autorun.yaml"))
+    spec["steps"] = [{"wait": {"text": "THIS NEVER APPEARS", "timeout": 3}}]
+    result = run_test(spec)
+    assert result.passed is False
+    assert "READY." in result.screen          # failure screen captured
+
+
+def test_demo_as_test_hello_basic():
+    result = run_test(demo_test(Path("demos/hello-basic")))
+    assert result.passed, [s.detail for s in result.steps]
+
+
+@pytest.mark.skipif(
+    shutil.which("ca65") is None and not os.environ.get("PET_TOOLS_CA65"),
+    reason="cc65 not installed",
+)
+def test_demo_as_test_hello_asm():
+    result = run_test(demo_test(Path("demos/hello-asm")))
+    assert result.passed, [s.detail for s in result.steps]
+
+
+def test_cli_end_to_end():
+    r = CliRunner().invoke(main, ["--json", "test", "run",
+                                  "tests/data/hello-autorun.yaml"])
+    assert r.exit_code == 0, r.output

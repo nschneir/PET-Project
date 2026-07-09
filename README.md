@@ -36,6 +36,9 @@ AI-oriented toolset for developing and debugging Commodore PET software
     pet rom disasm CHROUT 16               # annotated live disassembly
     pet session stop
 
+    pet test run mytest.yaml               # declarative YAML test (spec §8)
+    pet test demos                         # run every demo as a test
+
 Every command takes `--json` for machine-readable output — the intended
 interface for AI agents.
 
@@ -43,17 +46,19 @@ interface for AI agents.
 
 `demos/` holds one-shot prompts paired with reference BASIC and assembly
 solutions and expected screen output. The integration suite builds and runs
-each demo on an emulated PET, so they double as end-to-end tests.
+each demo on an emulated PET, so they double as end-to-end tests. Run them
+all with `pet test demos` — demos and YAML tests share one execution engine.
 
 ## Status
 
-Control plane, build pipeline, debugging surface, and disk/ROM tooling
-complete: sessions, screen, memory, registers, `pet build` (ca65/ld65),
-`pet basic` (petcat), `pet load`/`pet run`, symbolic breakpoints and
-watchpoints with conditions, `pet step`/`finish`/`continue`/`until`, the
-`pet wait` synchronization primitive, `pet disk` (create/ls/put/get/boot via
-c1541), and `pet rom info`/`disasm`. Coming next: the scripted test runner,
-then the MCP server and Claude skills. Design: `docs/superpowers/specs/`.
+Control plane, build pipeline, debugging surface, disk/ROM tooling, and the
+scripted test runner complete: sessions, screen, memory, registers,
+`pet build` (ca65/ld65), `pet basic` (petcat), `pet load`/`pet run`, symbolic
+breakpoints and watchpoints with conditions, `pet step`/`finish`/`continue`/
+`until`, the `pet wait` synchronization primitive, `pet disk` (create/ls/put/
+get/boot via c1541), `pet rom info`/`disasm`, and `pet test` (declarative
+YAML tests + demos). Coming next: the MCP server and Claude skills.
+Design: `docs/superpowers/specs/`.
 
 ROM tooling reads ROM bytes from your running emulator and ships only
 original label annotations — no Commodore-copyrighted code lives in this repo.

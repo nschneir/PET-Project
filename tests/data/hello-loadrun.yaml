@@ -1,0 +1,8 @@
+name: hello-loadrun
+machine: pet4032
+program: ../../demos/hello-basic/program.bas
+autorun: false
+timeout: 30
+steps:
+  - key: "run\n"
+  - wait: { text: "2+2= 4", timeout: 15 }

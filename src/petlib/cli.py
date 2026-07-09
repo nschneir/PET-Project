@@ -9,18 +9,26 @@ from pathlib import Path
 
 import click
 
-import time
-
 from .basic import BasicError, detokenize, tokenize
 from .build import BuildError, build_asm
 from .disasm import disassemble
 from .disk import DiskError, create_image, get_file, list_files, put_file
 from .machines import get_profile
+from .ops import (
+    parse_number,
+    parse_ref,
+    pc_symbol as _pc_symbol,
+    run_until,
+    session_labels,
+    wait_for_break,
+    wait_for_mem,
+    wait_for_text,
+)
 from .romdoc import identify, rom_labels
 from .protocol import CP_EXEC, CP_LOAD, CP_STORE
 from .screen import read_screen_text, save_screenshot_png
 from .session import Session, SessionError
-from .symbols import format_addr, load_labels, nearest, resolve
+from .symbols import format_addr
 from .testing import TestError, demo_test, load_test, run_test
 from .text import ascii_to_petscii
 
@@ -48,20 +56,9 @@ def attach(ctx: click.Context) -> Session:
         raise AssertionError("unreachable")
 
 
-def session_labels(s: Session) -> dict[str, int]:
-    if isinstance(s.labels, str) and s.labels:
-        try:
-            return load_labels(s.labels)
-        except OSError:
-            return {}
-    return {}
-
-
 def resolve_ref(ctx: click.Context, labels: dict[str, int], ref: str) -> int:
-    if ref.startswith(("$", "0x", "0X")) or ref.isdigit():
-        return parse_number(ref)
     try:
-        return resolve(labels, ref)
+        return parse_ref(labels, ref)
     except KeyError as e:
         fail(ctx, str(e))
         raise AssertionError("unreachable")
@@ -132,15 +129,6 @@ def session_reset(ctx, hard):
         mon.resume()
     emit(ctx, {"reset": s.name, "hard": hard},
          f"{'hard' if hard else 'soft'} reset {s.name!r} (machine running)")
-
-
-def parse_number(s: str) -> int:
-    s = s.strip()
-    if s.startswith("$"):
-        return int(s[1:], 16)
-    if s.lower().startswith("0x"):
-        return int(s, 16)
-    return int(s, 10)
 
 
 def _hexdump(addr: int, data: bytes) -> str:
@@ -506,17 +494,6 @@ def watch_add(ctx, ref, on_load, on_store, length):
          f"watchpoint #{ck.number} at {format_addr(labels, addr)} len={length} ({_op_name(op)})")
 
 
-def _pc_symbol(labels: dict[str, int], regs: dict[str, int]) -> str | None:
-    pc = regs.get("PC")
-    if pc is None or not labels:
-        return None
-    hit = nearest(labels, pc)
-    if hit is None:
-        return None
-    name, off = hit
-    return f"{name}+{off}" if off else name
-
-
 def _emit_stopped_regs(ctx, labels, regs):
     sym = _pc_symbol(labels, regs)
     human = "  ".join(f"{k}={v:04x}" for k, v in sorted(regs.items()))
@@ -569,14 +546,10 @@ def until_cmd(ctx, ref, timeout):
     s = attach(ctx)
     labels = session_labels(s)
     addr = resolve_ref(ctx, labels, ref)
-    with s.monitor() as mon:
-        mon.checkpoint_set(addr, op=CP_EXEC, temporary=True)
-        mon.resume()
-        info = mon.wait_for_stop(timeout)
-        if info is None:
-            fail(ctx, f"timeout: {format_addr(labels, addr)} not reached in {timeout}s")
-            return
-        regs = mon.registers()
+    regs = run_until(s, addr, timeout)
+    if regs is None:
+        fail(ctx, f"timeout: {format_addr(labels, addr)} not reached in {timeout}s")
+        return
     _emit_stopped_regs(ctx, labels, regs)
 
 
@@ -593,61 +566,39 @@ def wait_cmd(ctx, text_cond, mem_cond, break_cond, timeout):
         return
     s = attach(ctx)
     labels = session_labels(s)
-    start_t = time.monotonic()
-    deadline = start_t + timeout
 
     if break_cond:
-        with s.monitor() as mon:
-            hit = next((ck for ck in mon.checkpoint_list() if ck.hit), None)
-            if hit is not None:
-                regs = mon.registers()
-                emit(ctx, {"fired": "break", "checkpoint": hit.number,
-                           "pc": regs.get("PC"), "pc_symbol": _pc_symbol(labels, regs),
-                           "elapsed": round(time.monotonic() - start_t, 3)},
-                     f"breakpoint #{hit.number} already hit at "
-                     f"{format_addr(labels, regs.get('PC', hit.start))}")
-                return
-            mon.resume()
-            info = mon.wait_for_stop(timeout)
-            if info is None:
-                fail(ctx, f"timeout: no checkpoint hit within {timeout}s")
-                return
-            regs = mon.registers()
-        emit(ctx, {"fired": "break", "checkpoint": info.checkpoint,
-                   "pc": info.pc, "pc_symbol": _pc_symbol(labels, regs),
-                   "elapsed": round(time.monotonic() - start_t, 3)},
-             f"breakpoint #{info.checkpoint} hit at {format_addr(labels, info.pc)}")
+        out = wait_for_break(s, timeout)
+        if not out.get("fired"):
+            fail(ctx, f"timeout: no checkpoint hit within {timeout}s")
+            return
+        sym = _pc_symbol(labels, out.pop("registers"))
+        emit(ctx, {"fired": "break", "checkpoint": out["checkpoint"],
+                   "pc": out["pc"], "pc_symbol": sym, "elapsed": out["elapsed"]},
+             f"breakpoint #{out['checkpoint']} hit at {format_addr(labels, out['pc'])}")
         return
 
-    if mem_cond:
-        try:
-            addr_s, _, val_s = mem_cond.partition("=")
-            addr = resolve_ref(ctx, labels, addr_s.strip())
-            want = parse_number(val_s.strip())
-        except ValueError:
-            fail(ctx, f"bad --mem condition {mem_cond!r}; use ADDR=VALUE")
+    if text_cond:
+        out = wait_for_text(s, text_cond, timeout)
+        if out["fired"]:
+            emit(ctx, {"fired": "text", "elapsed": out["elapsed"]}, "text condition met")
             return
-    last_screen = ""
-    while time.monotonic() < deadline:
-        with s.monitor() as mon:
-            try:
-                if text_cond:
-                    last_screen = read_screen_text(mon, s.profile)
-                    fired = text_cond in last_screen
-                else:
-                    fired = mon.memory_read(addr, 1)[0] == want
-            finally:
-                mon.resume()
-        if fired:
-            kind = "text" if text_cond else "mem"
-            emit(ctx, {"fired": kind,
-                       "elapsed": round(time.monotonic() - start_t, 3)},
-                 f"{kind} condition met")
-            return
-        time.sleep(0.4)
-    detail = f"; last screen:\n{last_screen}" if text_cond else ""
-    fail(ctx, f"timeout after {timeout}s waiting for "
-              f"{'--text ' + text_cond if text_cond else '--mem ' + mem_cond}{detail}")
+        fail(ctx, f"timeout after {timeout}s waiting for --text {text_cond}"
+                  f"; last screen:\n{out['screen']}")
+        return
+
+    try:
+        addr_s, _, val_s = mem_cond.partition("=")
+        addr = resolve_ref(ctx, labels, addr_s.strip())
+        want = parse_number(val_s.strip())
+    except ValueError:
+        fail(ctx, f"bad --mem condition {mem_cond!r}; use ADDR=VALUE")
+        return
+    out = wait_for_mem(s, addr, want, timeout)
+    if out["fired"]:
+        emit(ctx, {"fired": "mem", "elapsed": out["elapsed"]}, "mem condition met")
+        return
+    fail(ctx, f"timeout after {timeout}s waiting for --mem {mem_cond}")
 
 
 @main.group()

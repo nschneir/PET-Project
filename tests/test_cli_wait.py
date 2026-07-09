@@ -30,7 +30,7 @@ def test_wait_requires_exactly_one_condition():
 def test_wait_text_fires():
     fake, mon = _fake()
     with patch("petlib.cli.Session") as S, \
-         patch("petlib.cli.read_screen_text", side_effect=["LOADING", "READY."]):
+         patch("petlib.ops.read_screen_text", side_effect=["LOADING", "READY."]):
         S.attach.return_value = fake
         r = CliRunner().invoke(main, ["--json", "wait", "--text", "READY.", "--timeout", "5"])
     assert r.exit_code == 0, r.output
@@ -42,8 +42,8 @@ def test_wait_text_fires():
 def test_wait_text_timeout_includes_screen():
     fake, mon = _fake()
     with patch("petlib.cli.Session") as S, \
-         patch("petlib.cli.read_screen_text", return_value="STUCK"), \
-         patch("petlib.cli.time.sleep"):
+         patch("petlib.ops.read_screen_text", return_value="STUCK"), \
+         patch("petlib.ops.time.sleep"):
         S.attach.return_value = fake
         r = CliRunner().invoke(main, ["--json", "wait", "--text", "NEVER", "--timeout", "0.5"])
     assert r.exit_code == 1
@@ -53,7 +53,7 @@ def test_wait_text_timeout_includes_screen():
 def test_wait_mem_fires():
     fake, mon = _fake()
     mon.memory_read.side_effect = [b"\x00", b"\x2a"]
-    with patch("petlib.cli.Session") as S, patch("petlib.cli.time.sleep"):
+    with patch("petlib.cli.Session") as S, patch("petlib.ops.time.sleep"):
         S.attach.return_value = fake
         r = CliRunner().invoke(main, ["--json", "wait", "--mem", "$1000=42", "--timeout", "5"])
     assert r.exit_code == 0, r.output

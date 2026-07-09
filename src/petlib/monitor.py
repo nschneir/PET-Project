@@ -151,6 +151,10 @@ class MonitorClient:
         self.request(Command.MEMORY_SET, memory_set_body(start, data, memspace, bank))
 
     def resume(self) -> None:
+        # Once running, any queued stop-state event (e.g. the unsolicited
+        # STOPPED VICE emits when a client connects) is stale; drop it so a
+        # subsequent wait_for_stop() only sees events from this resume onward.
+        self.events.clear()
         self.request(Command.EXIT)
 
     def _register_map(self) -> dict[int, str]:

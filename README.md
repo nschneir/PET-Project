@@ -25,6 +25,10 @@ AI-oriented toolset for developing and debugging Commodore PET software
     pet screen                             # read the screen as text
     pet basic type prog.bas --run          # type a program via the keyboard
     pet mem read '$8000' 64                # hex dump of screen RAM
+    pet break add start                    # symbolic breakpoint (uses .lbl symbols)
+    pet wait --break                       # block until it fires
+    pet step 5 && pet reg                  # single-step, inspect (PC annotated)
+    pet continue                           # resume
     pet reg                                # CPU registers
     pet session stop
 
@@ -39,10 +43,12 @@ each demo on an emulated PET, so they double as end-to-end tests.
 
 ## Status
 
-Control plane and build pipeline complete: sessions, screen, memory,
-registers, `pet build` (ca65/ld65), `pet basic` (petcat), `pet load`/`pet run`.
-Coming next: symbolic debugging (breakpoints/step/wait), disk images,
-test runner, MCP server, Claude skills. Design: `docs/superpowers/specs/`.
+Control plane, build pipeline, and debugging surface complete: sessions,
+screen, memory, registers, `pet build` (ca65/ld65), `pet basic` (petcat),
+`pet load`/`pet run`, symbolic breakpoints and watchpoints with conditions,
+`pet step`/`finish`/`continue`/`until`, and the `pet wait` synchronization
+primitive. Coming next: disk images + ROM tooling, test runner, MCP server,
+Claude skills. Design: `docs/superpowers/specs/`.
 
 ## License
 

@@ -21,7 +21,7 @@ def test_session_start_json():
     out = json.loads(r.output)
     assert out["name"] == "pet4032" and out["port"] == 6502
     S.launch.assert_called_once_with(
-        model="pet4032", name=None, headless=False, warp=False
+        model="pet4032", name=None, headless=False, warp=False, disk8=None
     )
 
 

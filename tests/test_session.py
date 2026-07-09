@@ -91,3 +91,44 @@ def test_labels_path_persists(home):
         assert again.labels.endswith("/tmp/prog.lbl")
     finally:
         proc.kill()
+
+
+def test_launch_disk8_args(home, tmp_path, monkeypatch):
+    captured = {}
+
+    class FakeProc:
+        pid = 999_999_990  # never a live pid, so record pruning stays deterministic
+
+        def terminate(self):
+            pass
+
+    def fake_popen(args, **kw):
+        captured["args"] = args
+        return FakeProc()
+
+    monkeypatch.setattr("petlib.session.subprocess.Popen", fake_popen)
+    monkeypatch.setattr("petlib.session.shutil.which", lambda n: "/usr/bin/xpet")
+
+    class FakeMon:
+        def __init__(self, *a, **k): ...
+        def __enter__(self): return self
+        def __exit__(self, *a): ...
+        def connect(self, deadline=0): ...
+        def ping(self): ...
+        def resume(self): ...
+
+    monkeypatch.setattr("petlib.session.MonitorClient", FakeMon)
+
+    d80 = tmp_path / "big.d80"
+    d80.write_bytes(b"x")
+    Session.launch(model="pet8032", name="dsk", disk8=str(d80))
+    args = captured["args"]
+    assert "-8" in args and str(d80.resolve()) in args
+    i = args.index("-drive8type")
+    assert args[i + 1] == "8050"
+
+    d64 = tmp_path / "small.d64"
+    d64.write_bytes(b"x")
+    Session.launch(model="pet4032", name="dsk2", disk8=str(d64))
+    assert "-drive8type" not in captured["args"]      # 2031 is the default
+    assert "-8" in captured["args"]

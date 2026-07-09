@@ -13,6 +13,7 @@ import time
 
 from .basic import BasicError, detokenize, tokenize
 from .build import BuildError, build_asm
+from .disk import DiskError
 from .machines import get_profile
 from .protocol import CP_EXEC, CP_LOAD, CP_STORE
 from .screen import read_screen_text, save_screenshot_png
@@ -82,11 +83,12 @@ def session() -> None:
 @click.option("--name", default=None)
 @click.option("--headless", is_flag=True)
 @click.option("--warp", is_flag=True)
+@click.option("--disk", "disk8", default=None, help="Attach a d64/d80/d82 image to drive 8.")
 @click.pass_context
-def session_start(ctx, model, name, headless, warp):
+def session_start(ctx, model, name, headless, warp, disk8):
     try:
-        s = Session.launch(model=model, name=name, headless=headless, warp=warp)
-    except (SessionError, KeyError) as e:
+        s = Session.launch(model=model, name=name, headless=headless, warp=warp, disk8=disk8)
+    except (SessionError, DiskError, KeyError) as e:
         fail(ctx, str(e))
         return
     emit(ctx, {"name": s.name, "model": s.model, "pid": s.pid, "port": s.port},

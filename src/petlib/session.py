@@ -15,6 +15,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from .disk import drive_type_for
 from .machines import MachineProfile, get_profile
 from .monitor import MonitorClient
 
@@ -98,6 +99,7 @@ class Session:
         headless: bool = False,
         warp: bool = False,
         binary: str | None = None,
+        disk8: str | None = None,
     ) -> "Session":
         profile = get_profile(model)
         exe = binary or os.environ.get("PET_TOOLS_XPET") or shutil.which(profile.vice_emulator)
@@ -117,6 +119,12 @@ class Session:
                 "-binarymonitor", "-binarymonitoraddress", f"ip4://127.0.0.1:{port}"]
         if warp:
             args.append("-warp")
+        if disk8:
+            disk_path = Path(disk8).resolve()
+            dtype = drive_type_for(disk_path)
+            if dtype != 2031:  # 2031 is xpet's default; d80/d82 need the switch
+                args += ["-drive8type", str(dtype)]
+            args += ["-8", str(disk_path)]
         env = dict(os.environ)
         if headless:
             env["SDL_VIDEODRIVER"] = "dummy"

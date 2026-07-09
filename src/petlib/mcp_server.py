@@ -10,9 +10,20 @@ from __future__ import annotations
 
 from mcp.server.fastmcp import FastMCP
 
-from .ops import parse_number, parse_ref, pc_symbol, session_labels
+from .ops import (
+    parse_number,
+    parse_ref,
+    pc_symbol,
+    run_until,
+    session_labels,
+    wait_for_break,
+    wait_for_mem,
+    wait_for_text,
+)
+from .protocol import CP_EXEC, CP_LOAD, CP_STORE
 from .screen import read_screen_text, save_screenshot_png
 from .session import Session
+from .symbols import format_addr
 
 srv = FastMCP("pet-tools")
 
@@ -137,6 +148,148 @@ def pet_reg_set(name: str, value: str, session: str | None = None) -> dict:
         finally:
             mon.resume()
     return {"register": name.upper(), "value": v}
+
+
+@srv.tool()
+def pet_break_add(ref: str, condition: str | None = None,
+                  temporary: bool = False, session: str | None = None) -> dict:
+    """Set a breakpoint at an address or symbol. Machine keeps running;
+    use pet_wait_break to block until it fires."""
+    s = _attach(session)
+    labels = session_labels(s)
+    addr = parse_ref(labels, ref)
+    with s.monitor() as mon:
+        try:
+            ck = mon.checkpoint_set(addr, op=CP_EXEC, temporary=temporary)
+            if condition:
+                mon.condition_set(ck.number, condition)
+        finally:
+            mon.resume()
+    return {"id": ck.number, "address": format_addr(labels, addr),
+            "condition": condition, "temporary": temporary}
+
+
+@srv.tool()
+def pet_break_list(session: str | None = None) -> dict:
+    """List breakpoints/watchpoints with hit counts."""
+    s = _attach(session)
+    labels = session_labels(s)
+    with s.monitor() as mon:
+        try:
+            cks = mon.checkpoint_list()
+        finally:
+            mon.resume()
+    return {"breakpoints": [
+        {"id": ck.number, "address": format_addr(labels, ck.start), "end": ck.end,
+         "op": ck.op, "enabled": ck.enabled, "hits": ck.hit_count,
+         "has_condition": ck.has_condition}
+        for ck in cks
+    ]}
+
+
+@srv.tool()
+def pet_break_remove(checkpoint_id: int, session: str | None = None) -> dict:
+    """Remove a breakpoint/watchpoint by id."""
+    s = _attach(session)
+    with s.monitor() as mon:
+        try:
+            mon.checkpoint_delete(checkpoint_id)
+        finally:
+            mon.resume()
+    return {"removed": checkpoint_id}
+
+
+@srv.tool()
+def pet_watch_add(ref: str, on_load: bool = False, on_store: bool = False,
+                  length: int = 1, session: str | None = None) -> dict:
+    """Set a watchpoint on a memory range (default: both load and store)."""
+    s = _attach(session)
+    labels = session_labels(s)
+    addr = parse_ref(labels, ref)
+    op = (CP_LOAD if on_load else 0) | (CP_STORE if on_store else 0)
+    if not op:
+        op = CP_LOAD | CP_STORE
+    with s.monitor() as mon:
+        try:
+            ck = mon.checkpoint_set(addr, addr + length - 1, op=op)
+        finally:
+            mon.resume()
+    return {"id": ck.number, "address": format_addr(labels, addr), "length": length}
+
+
+def _stopped_regs(s, regs: dict) -> dict:
+    return {"registers": regs, "pc_symbol": pc_symbol(session_labels(s), regs),
+            "stopped": True}
+
+
+@srv.tool()
+def pet_step(count: int = 1, over: bool = False, session: str | None = None) -> dict:
+    """Execute N instructions. The machine STAYS STOPPED afterwards; use
+    pet_continue to resume."""
+    s = _attach(session)
+    with s.monitor() as mon:
+        regs = mon.step(count, over=over)
+    return _stopped_regs(s, regs)
+
+
+@srv.tool()
+def pet_finish(session: str | None = None) -> dict:
+    """Run until the current subroutine returns. Machine stays stopped."""
+    s = _attach(session)
+    with s.monitor() as mon:
+        regs = mon.finish()
+    return _stopped_regs(s, regs)
+
+
+@srv.tool()
+def pet_continue(session: str | None = None) -> dict:
+    """Resume execution after a breakpoint/step."""
+    s = _attach(session)
+    with s.monitor() as mon:
+        mon.resume()
+    return {"running": True}
+
+
+@srv.tool()
+def pet_until(ref: str, timeout: float = 30.0, session: str | None = None) -> dict:
+    """Run until an address/symbol is executed; machine stays stopped there."""
+    s = _attach(session)
+    labels = session_labels(s)
+    addr = parse_ref(labels, ref)
+    regs = run_until(s, addr, timeout)
+    if regs is None:
+        raise RuntimeError(
+            f"timeout: {format_addr(labels, addr)} not reached in {timeout}s")
+    return _stopped_regs(s, regs)
+
+
+@srv.tool()
+def pet_wait_text(text: str, timeout: float = 30.0,
+                  session: str | None = None) -> dict:
+    """Block until TEXT appears on the screen. A timeout returns
+    {"fired": null, "screen": ...} (not an error) so you can inspect what
+    the program actually displayed."""
+    return wait_for_text(_attach(session), text, timeout)
+
+
+@srv.tool()
+def pet_wait_mem(addr: str, equals: str, timeout: float = 30.0,
+                 session: str | None = None) -> dict:
+    """Block until the byte at addr equals the value ($hex/decimal accepted)."""
+    s = _attach(session)
+    return wait_for_mem(s, parse_ref(session_labels(s), addr),
+                        parse_number(equals), timeout)
+
+
+@srv.tool()
+def pet_wait_break(timeout: float = 30.0, session: str | None = None) -> dict:
+    """Block until a breakpoint/watchpoint fires; reports checkpoint id, PC,
+    and registers. Machine is left stopped when it fires."""
+    s = _attach(session)
+    out = wait_for_break(s, timeout)
+    if out.get("fired"):
+        out["pc_symbol"] = pc_symbol(session_labels(s), out.pop("registers"))
+    return out
 
 
 def main() -> None:

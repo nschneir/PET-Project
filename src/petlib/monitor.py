@@ -10,6 +10,7 @@ from __future__ import annotations
 import collections
 import itertools
 import socket
+import struct
 import time
 
 from .protocol import (
@@ -161,3 +162,13 @@ class MonitorClient:
             self.request(Command.QUIT)
         except (ConnectionError, TimeoutError, OSError):
             pass  # VICE may exit before replying
+
+    def autostart(self, path, run: bool = True) -> None:
+        """Load-and-optionally-RUN a program file via VICE's autostart.
+
+        VICE mounts the file as a virtual drive and types LOAD/RUN itself;
+        pass an absolute path. Loading takes a few emulated seconds.
+        """
+        name = str(path).encode()
+        body = struct.pack("<BHB", int(run), 0, len(name)) + name
+        self.request(Command.AUTOSTART, body)

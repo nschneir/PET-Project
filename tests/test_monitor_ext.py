@@ -91,3 +91,11 @@ def test_reset_hard_flag():
     with _client(fake) as c:
         c.reset(hard=True)
     assert fake.received[0][1] == b"\x01"
+
+
+def test_autostart_body():
+    fake = FakeVice({Command.AUTOSTART: lambda b, rid: [resp_frame(0xDD, 0, rid)]})
+    with _client(fake) as c:
+        c.autostart("/tmp/demo.prg", run=True)
+    path = b"/tmp/demo.prg"
+    assert fake.received[0][1] == struct.pack("<BHB", 1, 0, len(path)) + path

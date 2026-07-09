@@ -13,8 +13,10 @@ import time
 
 from .basic import BasicError, detokenize, tokenize
 from .build import BuildError, build_asm
+from .disasm import disassemble
 from .disk import DiskError, create_image, get_file, list_files, put_file
 from .machines import get_profile
+from .romdoc import identify, rom_labels
 from .protocol import CP_EXEC, CP_LOAD, CP_STORE
 from .screen import read_screen_text, save_screenshot_png
 from .session import Session, SessionError
@@ -726,3 +728,44 @@ def disk_boot(ctx, image):
         finally:
             mon.resume()
     emit(ctx, {"booted": str(image.resolve())}, f"booting {image}")
+
+
+@main.group()
+def rom() -> None:
+    """Identify and disassemble the machine's ROMs (read from the live machine)."""
+
+
+@rom.command("info")
+@click.pass_context
+def rom_info(ctx):
+    s = attach(ctx)
+    with s.monitor() as mon:
+        try:
+            info = identify(mon)
+        finally:
+            mon.resume()
+    human = "\n".join(
+        [f"basic:  {info['basic']}", f"kernal: {info['kernal']}",
+         f"editor: {info['editor']}"]
+        + [f"hash {k}: {v}" for k, v in info["hashes"].items()]
+    )
+    emit(ctx, info, human)
+
+
+@rom.command("disasm")
+@click.argument("start")
+@click.argument("length", default="32")
+@click.pass_context
+def rom_disasm(ctx, start, length):
+    """Disassemble live memory with ROM + session label annotations."""
+    s = attach(ctx)
+    labels = {**rom_labels(s.profile.basic_version), **session_labels(s)}
+    addr = resolve_ref(ctx, labels, start)
+    n = parse_number(length)
+    with s.monitor() as mon:
+        try:
+            data = mon.memory_read(addr, n)
+        finally:
+            mon.resume()
+    lines = disassemble(data, addr, labels)
+    emit(ctx, {"start": addr, "length": n, "lines": lines}, "\n".join(lines))

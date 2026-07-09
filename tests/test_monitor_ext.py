@@ -99,3 +99,17 @@ def test_autostart_body():
         c.autostart("/tmp/demo.prg", run=True)
     path = b"/tmp/demo.prg"
     assert fake.received[0][1] == struct.pack("<BHB", 1, 0, len(path)) + path
+
+
+def test_resource_get_string_and_int():
+    def handle(b, rid):
+        name = b[1 : 1 + b[0]].decode()
+        if name == "BasicName":
+            val = b"basic-4.bin"
+            return [resp_frame(0x51, 0, rid, bytes([0, len(val)]) + val)]
+        return [resp_frame(0x51, 0, rid, bytes([1, 4]) + (2031).to_bytes(4, "little"))]
+
+    fake = FakeVice({Command.RESOURCE_GET: handle})
+    with _client(fake) as c:
+        assert c.resource_get("BasicName") == "basic-4.bin"
+        assert c.resource_get("Drive8Type") == 2031

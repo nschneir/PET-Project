@@ -36,7 +36,9 @@ from .protocol import (
     parse_palette_get,
     parse_registers_available,
     parse_registers_get,
+    parse_resource,
     registers_set_body,
+    resource_get_body,
 )
 
 
@@ -199,6 +201,11 @@ class MonitorClient:
             self.request(Command.QUIT)
         except (ConnectionError, TimeoutError, OSError):
             pass  # VICE may exit before replying
+
+    def resource_get(self, name: str) -> str | int:
+        return parse_resource(
+            self.request(Command.RESOURCE_GET, resource_get_body(name)).body
+        )
 
     def autostart(self, path, run: bool = True) -> None:
         """Load-and-optionally-RUN a program file via VICE's autostart.

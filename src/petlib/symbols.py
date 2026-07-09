@@ -11,13 +11,17 @@ from pathlib import Path
 _LABEL_RE = re.compile(r"^al\s+(?:C:)?([0-9A-Fa-f]+)\s+\.?(\S+)", re.IGNORECASE)
 
 
-def load_labels(path: str | Path) -> dict[str, int]:
+def parse_labels(text: str) -> dict[str, int]:
     labels: dict[str, int] = {}
-    for line in Path(path).read_text().splitlines():
+    for line in text.splitlines():
         m = _LABEL_RE.match(line.strip())
         if m:
             labels[m.group(2)] = int(m.group(1), 16)
     return labels
+
+
+def load_labels(path: str | Path) -> dict[str, int]:
+    return parse_labels(Path(path).read_text())
 
 
 def save_labels(path: str | Path, labels: dict[str, int]) -> None:

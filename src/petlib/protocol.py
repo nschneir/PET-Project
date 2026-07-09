@@ -249,3 +249,16 @@ def condition_set_body(number: int, expr: str) -> bytes:
 
 def advance_body(count: int, step_over: bool) -> bytes:
     return struct.pack("<BH", int(step_over), count)
+
+
+def resource_get_body(name: str) -> bytes:
+    raw = name.encode("ascii")
+    return bytes([len(raw)]) + raw
+
+
+def parse_resource(body: bytes) -> str | int:
+    rtype, length = body[0], body[1]
+    value = body[2 : 2 + length]
+    if rtype == 0:
+        return value.decode("ascii")
+    return int.from_bytes(value, "little")

@@ -8,8 +8,15 @@ tool errors with their actionable messages intact.
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from mcp.server.fastmcp import FastMCP
 
+from .basic import tokenize
+from .build import build_asm
+from .disasm import disassemble
+from .disk import create_image, get_file, list_files, put_file
+from .machines import get_profile
 from .ops import (
     parse_number,
     parse_ref,
@@ -21,9 +28,12 @@ from .ops import (
     wait_for_text,
 )
 from .protocol import CP_EXEC, CP_LOAD, CP_STORE
+from .romdoc import identify, rom_labels
 from .screen import read_screen_text, save_screenshot_png
 from .session import Session
 from .symbols import format_addr
+from .testing import demo_test, load_test, run_test
+from .text import ascii_to_petscii
 
 srv = FastMCP("pet-tools")
 
@@ -290,6 +300,160 @@ def pet_wait_break(timeout: float = 30.0, session: str | None = None) -> dict:
     if out.get("fired"):
         out["pc_symbol"] = pc_symbol(session_labels(s), out.pop("registers"))
     return out
+
+
+@srv.tool()
+def pet_build(source: str, model: str = "pet4032") -> dict:
+    """Assemble 6502 source (ca65 syntax) to a .prg + VICE label file."""
+    profile = get_profile(model)
+    res = build_asm(Path(source), basic_start=profile.basic_start)
+    return {"prg": str(res.prg), "labels": str(res.labels)}
+
+
+@srv.tool()
+def pet_run(source: str, session: str | None = None) -> dict:
+    """Build/tokenize a .bas/.s/.prg as needed, then load and RUN it on the
+    running PET. Registers assembly symbols on the session automatically."""
+    s = _attach(session)
+    src = Path(source).resolve()
+    ext = src.suffix.lower()
+    labels_path = None
+    if ext == ".prg":
+        prg = src
+    elif ext == ".bas":
+        prg = tokenize(src, src.with_suffix(".prg"), s.profile.basic_version)
+    elif ext == ".s":
+        res = build_asm(src, basic_start=s.profile.basic_start)
+        prg, labels_path = res.prg, res.labels
+    else:
+        raise ValueError(f"cannot run {ext!r} files (use .bas, .s, or .prg)")
+    with s.monitor() as mon:
+        try:
+            mon.autostart(Path(prg).resolve(), run=True)
+        finally:
+            mon.resume()
+    if labels_path:
+        s.set_labels_path(str(labels_path))
+    return {"source": str(src), "prg": str(prg),
+            "symbols": str(labels_path) if labels_path else None}
+
+
+@srv.tool()
+def pet_load(prg: str, run: bool = True, symbols: str | None = None,
+             session: str | None = None) -> dict:
+    """Load a .prg via autostart (optionally without RUN); optionally
+    register a VICE label file for symbolic debugging."""
+    s = _attach(session)
+    p = Path(prg).resolve()
+    with s.monitor() as mon:
+        try:
+            mon.autostart(p, run=run)
+        finally:
+            mon.resume()
+    if symbols:
+        s.set_labels_path(str(Path(symbols).resolve()))
+    return {"loaded": str(p), "run": run, "symbols": symbols}
+
+
+@srv.tool()
+def pet_basic_type(text: str, run: bool = False,
+                   session: str | None = None) -> dict:
+    """Type BASIC program text into the running PET via the keyboard
+    (keywords may be upper or lower case; each line ends with \\n).
+    Set run=true to type RUN afterwards."""
+    s = _attach(session)
+    if not text.endswith("\n"):
+        text += "\n"
+    if run:
+        text += "run\n"
+    petscii = ascii_to_petscii(text)
+    with s.monitor() as mon:
+        try:
+            mon.keyboard_feed(petscii)
+        finally:
+            mon.resume()
+    return {"typed_chars": len(petscii), "run": run}
+
+
+@srv.tool()
+def pet_disk_create(image: str, label: str = "disk", disk_id: str = "00") -> dict:
+    """Create a blank d64/d80/d82 disk image."""
+    return {"image": str(create_image(Path(image), label=label, disk_id=disk_id))}
+
+
+@srv.tool()
+def pet_disk_ls(image: str) -> dict:
+    """List the directory of a disk image."""
+    return list_files(Path(image))
+
+
+@srv.tool()
+def pet_disk_put(image: str, file: str, name: str | None = None) -> dict:
+    """Copy a host file onto a disk image."""
+    return {"image": image, "name": put_file(Path(image), Path(file), name)}
+
+
+@srv.tool()
+def pet_disk_get(image: str, name: str, dest: str) -> dict:
+    """Copy a file off a disk image to the host."""
+    return {"dest": str(get_file(Path(image), name, Path(dest)))}
+
+
+@srv.tool()
+def pet_disk_boot(image: str, session: str | None = None) -> dict:
+    """Attach a disk image to the running PET and LOAD+RUN its first file."""
+    s = _attach(session)
+    p = Path(image).resolve()
+    with s.monitor() as mon:
+        try:
+            mon.autostart(p, run=True)
+        finally:
+            mon.resume()
+    return {"booted": str(p)}
+
+
+@srv.tool()
+def pet_rom_info(session: str | None = None) -> dict:
+    """Identify the loaded ROM set (names + content hashes)."""
+    s = _attach(session)
+    with s.monitor() as mon:
+        try:
+            return identify(mon)
+        finally:
+            mon.resume()
+
+
+@srv.tool()
+def pet_rom_disasm(start: str, length: int = 32,
+                   session: str | None = None) -> dict:
+    """Disassemble live memory with ROM + session symbol annotations.
+    start accepts $hex/0xhex/decimal or a symbol (e.g. CHROUT)."""
+    s = _attach(session)
+    labels = {**rom_labels(s.profile.basic_version), **session_labels(s)}
+    addr = parse_ref(labels, start)
+    with s.monitor() as mon:
+        try:
+            data = mon.memory_read(addr, length)
+        finally:
+            mon.resume()
+    return {"start": addr, "length": length,
+            "lines": disassemble(data, addr, labels)}
+
+
+@srv.tool()
+def pet_test_run(yaml_file: str) -> dict:
+    """Run a declarative YAML test (boots its own fresh PET; see spec §8)."""
+    return run_test(load_test(Path(yaml_file))).to_dict()
+
+
+@srv.tool()
+def pet_test_demos(directory: str = "demos") -> dict:
+    """Run every demo directory as a generated test."""
+    results = [run_test(demo_test(d))
+               for d in sorted(Path(directory).iterdir())
+               if (d / "expect.txt").exists()]
+    return {"passed": all(r.passed for r in results),
+            "tests": [r.to_dict() for r in results]}
 
 
 def main() -> None:

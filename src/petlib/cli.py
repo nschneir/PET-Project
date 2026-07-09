@@ -13,7 +13,7 @@ import time
 
 from .basic import BasicError, detokenize, tokenize
 from .build import BuildError, build_asm
-from .disk import DiskError
+from .disk import DiskError, create_image, get_file, list_files, put_file
 from .machines import get_profile
 from .protocol import CP_EXEC, CP_LOAD, CP_STORE
 from .screen import read_screen_text, save_screenshot_png
@@ -645,3 +645,84 @@ def wait_cmd(ctx, text_cond, mem_cond, break_cond, timeout):
     detail = f"; last screen:\n{last_screen}" if text_cond else ""
     fail(ctx, f"timeout after {timeout}s waiting for "
               f"{'--text ' + text_cond if text_cond else '--mem ' + mem_cond}{detail}")
+
+
+@main.group()
+def disk() -> None:
+    """Create and manipulate d64/d80/d82 disk images."""
+
+
+@disk.command("create")
+@click.argument("image", type=click.Path(dir_okay=False, path_type=Path))
+@click.option("--label", default="disk", show_default=True)
+@click.option("--id", "disk_id", default="00", show_default=True)
+@click.pass_context
+def disk_create(ctx, image, label, disk_id):
+    try:
+        img = create_image(image, label=label, disk_id=disk_id)
+    except DiskError as e:
+        fail(ctx, str(e))
+        return
+    emit(ctx, {"image": str(img), "label": label}, f"created {img} (label {label!r})")
+
+
+@disk.command("ls")
+@click.argument("image", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.pass_context
+def disk_ls(ctx, image):
+    try:
+        d = list_files(image)
+    except DiskError as e:
+        fail(ctx, str(e))
+        return
+    human = "\n".join(
+        [f'"{d["label"]}"']
+        + [f"{f['blocks']:>4}  {f['name']:<18} {f['type']}" for f in d["files"]]
+        + [f"{d['blocks_free']} blocks free"]
+    )
+    emit(ctx, d, human)
+
+
+@disk.command("put")
+@click.argument("image", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.argument("file", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.argument("name", required=False, default=None)
+@click.pass_context
+def disk_put(ctx, image, file, name):
+    try:
+        cbm = put_file(image, file, name)
+    except DiskError as e:
+        fail(ctx, str(e))
+        return
+    emit(ctx, {"image": str(image), "name": cbm}, f"wrote {file} as {cbm!r}")
+
+
+@disk.command("get")
+@click.argument("image", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.argument("name")
+@click.argument("dest", required=False, default=None,
+                type=click.Path(dir_okay=False, path_type=Path))
+@click.pass_context
+def disk_get(ctx, image, name, dest):
+    dest = dest or Path(f"{name}.prg")
+    try:
+        out = get_file(image, name, dest)
+    except DiskError as e:
+        fail(ctx, str(e))
+        return
+    emit(ctx, {"image": str(image), "name": name, "dest": str(out)},
+         f"read {name!r} to {out}")
+
+
+@disk.command("boot")
+@click.argument("image", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.pass_context
+def disk_boot(ctx, image):
+    """Attach IMAGE to the running PET and LOAD+RUN its first file."""
+    s = attach(ctx)
+    with s.monitor() as mon:
+        try:
+            mon.autostart(image.resolve(), run=True)
+        finally:
+            mon.resume()
+    emit(ctx, {"booted": str(image.resolve())}, f"booting {image}")

@@ -21,6 +21,7 @@ from .protocol import CP_EXEC, CP_LOAD, CP_STORE
 from .screen import read_screen_text, save_screenshot_png
 from .session import Session, SessionError
 from .symbols import format_addr, load_labels, nearest, resolve
+from .testing import TestError, demo_test, load_test, run_test
 from .text import ascii_to_petscii
 
 
@@ -769,3 +770,60 @@ def rom_disasm(ctx, start, length):
             mon.resume()
     lines = disassemble(data, addr, labels)
     emit(ctx, {"start": addr, "length": n, "lines": lines}, "\n".join(lines))
+
+
+@main.group("test")
+def test_() -> None:
+    """Run declarative YAML tests and demos on a fresh emulated PET."""
+
+
+def _emit_test_results(ctx, results) -> None:
+    all_pass = all(r.passed for r in results)
+    lines = []
+    for r in results:
+        lines.append(f"{'PASS' if r.passed else 'FAIL'}  {r.name}  "
+                     f"({r.machine}, {r.elapsed}s)")
+        for st in r.steps:
+            lines.append(f"  {'ok  ' if st.ok else 'FAIL'} step {st.index} "
+                         f"{st.kind}: {st.detail}")
+        if not r.passed:
+            lines.append("  --- screen at failure ---")
+            lines.extend(f"  | {ln}" for ln in r.screen.splitlines())
+    emit(ctx, {"passed": all_pass, "tests": [r.to_dict() for r in results]},
+         "\n".join(lines))
+    if not all_pass:
+        sys.exit(1)
+
+
+@test_.command("run")
+@click.argument("yaml_file", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.pass_context
+def test_run(ctx, yaml_file):
+    """Run one YAML test file (spec §8 format)."""
+    try:
+        spec = load_test(yaml_file)
+        result = run_test(spec)
+    except (TestError, KeyError, BasicError, BuildError, SessionError) as e:
+        fail(ctx, str(e))
+        return
+    _emit_test_results(ctx, [result])
+
+
+@test_.command("demos")
+@click.argument("directory", default="demos",
+                type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.pass_context
+def test_demos(ctx, directory):
+    """Run every demo in DIRECTORY as a generated test."""
+    demo_dirs = sorted(d for d in directory.iterdir() if (d / "expect.txt").exists())
+    if not demo_dirs:
+        fail(ctx, f"no demos found in {directory}")
+        return
+    results = []
+    for d in demo_dirs:
+        try:
+            results.append(run_test(demo_test(d)))
+        except (TestError, KeyError, BasicError, BuildError, SessionError) as e:
+            fail(ctx, f"{d.name}: {e}")
+            return
+    _emit_test_results(ctx, results)

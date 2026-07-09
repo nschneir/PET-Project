@@ -58,6 +58,17 @@ then the MCP server and Claude skills. Design: `docs/superpowers/specs/`.
 ROM tooling reads ROM bytes from your running emulator and ships only
 original label annotations — no Commodore-copyrighted code lives in this repo.
 
+## AI Disclosure
+
+PET Project is developed primarily by AI — Anthropic's Claude, working
+through Claude Code — under human direction: a human sets the goals,
+reviews the designs and plans, and approves the work; the AI writes the
+specs, plans, code, tests, and documentation. Every change is verified by
+the automated test suite, including integration tests that run against a
+real VICE emulator, before it lands. The project also exists *for* AI use —
+these tools are built so AI agents can write and debug Commodore PET
+software — making it a working example of AI-built developer tooling.
+
 ## License
 
 MIT. VICE is a separate GPLv2+ program invoked as a subprocess; it is not

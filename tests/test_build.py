@@ -44,7 +44,9 @@ def test_build_asm_invokes_toolchain(tmp_path, monkeypatch):
     assert isinstance(res, BuildResult)
     assert res.prg == tmp_path / "prog.prg" and res.prg.read_bytes()[:2] == b"\x01\x04"
     assert res.labels == tmp_path / "prog.lbl" and "start" in res.labels.read_text()
-    assert str(src) in (tmp_path / "ca65.args").read_text()
+    ca65_args = (tmp_path / "ca65.args").read_text()
+    assert str(src) in ca65_args
+    assert "-g" in ca65_args.split()
     ld_args = (tmp_path / "ld65.args").read_text()
     assert "-C" in ld_args and "-Ln" in ld_args
 

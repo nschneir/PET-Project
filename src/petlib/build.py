@@ -73,6 +73,6 @@ def build_asm(
         obj = Path(td) / (source.stem + ".o")
         cfg = Path(td) / "pet.cfg"
         cfg.write_text(linker_config(basic_start))
-        _run([ca65, str(source), "-o", str(obj)])
+        _run([ca65, "-g", str(source), "-o", str(obj)])
         _run([ld65, "-o", str(prg), "-C", str(cfg), "-Ln", str(labels), str(obj)])
     return BuildResult(prg=prg, labels=labels)

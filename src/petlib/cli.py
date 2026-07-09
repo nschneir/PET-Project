@@ -9,10 +9,12 @@ from pathlib import Path
 
 import click
 
+from .basic import BasicError, detokenize, tokenize
 from .build import BuildError, build_asm
 from .machines import get_profile
 from .screen import read_screen_text, save_screenshot_png
 from .session import Session, SessionError
+from .text import ascii_to_petscii
 
 
 def emit(ctx: click.Context, data: dict, human: str) -> None:
@@ -227,3 +229,64 @@ def build_cmd(ctx, source, output, model):
         return
     emit(ctx, {"prg": str(res.prg), "labels": str(res.labels)},
          f"built {res.prg} (labels: {res.labels})")
+
+
+@main.group()
+def basic() -> None:
+    """Tokenize, detokenize, and type Commodore BASIC programs."""
+
+
+@basic.command("tokenize")
+@click.argument("source", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option("-o", "--output", type=click.Path(dir_okay=False, path_type=Path), default=None)
+@click.option("--model", default="pet4032", show_default=True)
+@click.pass_context
+def basic_tokenize(ctx, source, output, model):
+    out = output or source.with_suffix(".prg")
+    try:
+        profile = get_profile(model)
+        prg = tokenize(source, out, profile.basic_version)
+    except (BasicError, KeyError) as e:
+        fail(ctx, str(e))
+        return
+    emit(ctx, {"prg": str(prg)}, f"tokenized to {prg}")
+
+
+@basic.command("detokenize")
+@click.argument("prg", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option("--model", default="pet4032", show_default=True)
+@click.pass_context
+def basic_detokenize(ctx, prg, model):
+    try:
+        profile = get_profile(model)
+        listing = detokenize(prg, profile.basic_version)
+    except (BasicError, KeyError) as e:
+        fail(ctx, str(e))
+        return
+    emit(ctx, {"listing": listing}, listing.rstrip("\n"))
+
+
+@basic.command("type")
+@click.argument("source", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option("--run", "do_run", is_flag=True, help="Type RUN after the program.")
+@click.pass_context
+def basic_type(ctx, source, do_run):
+    """Type a BASIC program into the running PET via the keyboard."""
+    s = attach(ctx)
+    text = source.read_text()
+    if not text.endswith("\n"):
+        text += "\n"
+    if do_run:
+        text += "run\n"
+    try:
+        petscii = ascii_to_petscii(text)
+    except ValueError as e:
+        fail(ctx, str(e))
+        return
+    with s.monitor() as mon:
+        try:
+            mon.keyboard_feed(petscii)
+        finally:
+            mon.resume()
+    emit(ctx, {"typed": str(source), "run": do_run},
+         f"typed {source}{' and RUN' if do_run else ''}")

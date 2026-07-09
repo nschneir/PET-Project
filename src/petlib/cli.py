@@ -290,3 +290,58 @@ def basic_type(ctx, source, do_run):
             mon.resume()
     emit(ctx, {"typed": str(source), "run": do_run},
          f"typed {source}{' and RUN' if do_run else ''}")
+
+
+@main.command("load")
+@click.argument("prg", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option("--run/--no-run", "do_run", default=True, show_default=True)
+@click.option("--symbols", type=click.Path(exists=True, dir_okay=False, path_type=Path), default=None)
+@click.pass_context
+def load_cmd(ctx, prg, do_run, symbols):
+    """Load (and by default RUN) a .prg on the running PET via autostart."""
+    s = attach(ctx)
+    with s.monitor() as mon:
+        try:
+            mon.autostart(prg.resolve(), run=do_run)
+        finally:
+            mon.resume()
+    if symbols:
+        s.set_labels_path(str(symbols.resolve()))
+    emit(ctx, {"loaded": str(prg.resolve()), "run": do_run,
+               "symbols": str(symbols.resolve()) if symbols else None},
+         f"autostarted {prg}{'' if do_run else ' (no RUN)'}")
+
+
+@main.command("run")
+@click.argument("source", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.pass_context
+def run_cmd(ctx, source):
+    """Build/tokenize SOURCE as needed, then load and RUN it."""
+    s = attach(ctx)
+    src = source.resolve()
+    ext = src.suffix.lower()
+    labels = None
+    try:
+        if ext == ".prg":
+            prg = src
+        elif ext == ".bas":
+            prg = tokenize(src, src.with_suffix(".prg"), s.profile.basic_version)
+        elif ext == ".s":
+            res = build_asm(src, basic_start=s.profile.basic_start)
+            prg, labels = res.prg, res.labels
+        else:
+            fail(ctx, f"don't know how to run {ext!r} files (use .bas, .s, or .prg)")
+            return
+    except (BasicError, BuildError) as e:
+        fail(ctx, str(e))
+        return
+    with s.monitor() as mon:
+        try:
+            mon.autostart(prg, run=True)
+        finally:
+            mon.resume()
+    if labels:
+        s.set_labels_path(str(labels))
+    emit(ctx, {"source": str(src), "prg": str(prg),
+               "symbols": str(labels) if labels else None},
+         f"running {prg}")

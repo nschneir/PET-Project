@@ -42,6 +42,18 @@ AI-oriented toolset for developing and debugging Commodore PET software
 Every command takes `--json` for machine-readable output — the intended
 interface for AI agents.
 
+## MCP server
+
+For MCP-native clients, `pet-tools-mcp` exposes the same operations as MCP
+tools over stdio (sharing the session registry with the CLI — use either,
+interchangeably). Example client config:
+
+    {
+      "mcpServers": {
+        "pet-tools": { "command": "pet-tools-mcp" }
+      }
+    }
+
 ## Demos
 
 `demos/` holds one-shot prompts paired with reference BASIC and assembly
@@ -51,14 +63,15 @@ all with `pet test demos` — demos and YAML tests share one execution engine.
 
 ## Status
 
-Control plane, build pipeline, debugging surface, disk/ROM tooling, and the
-scripted test runner complete: sessions, screen, memory, registers,
-`pet build` (ca65/ld65), `pet basic` (petcat), `pet load`/`pet run`, symbolic
-breakpoints and watchpoints with conditions, `pet step`/`finish`/`continue`/
-`until`, the `pet wait` synchronization primitive, `pet disk` (create/ls/put/
-get/boot via c1541), `pet rom info`/`disasm`, and `pet test` (declarative
-YAML tests + demos). Coming next: the MCP server and Claude skills.
-Design: `docs/superpowers/specs/`.
+Control plane, build pipeline, debugging surface, disk/ROM tooling, the
+scripted test runner, and the MCP server complete: sessions, screen, memory,
+registers, `pet build` (ca65/ld65), `pet basic` (petcat), `pet load`/`pet run`,
+symbolic breakpoints and watchpoints with conditions, `pet step`/`finish`/
+`continue`/`until`, the `pet wait` synchronization primitive, `pet disk`
+(create/ls/put/get/boot via c1541), `pet rom info`/`disasm`, `pet test`
+(declarative YAML tests + demos), and `pet-tools-mcp` (MCP server). Coming
+next: Claude skills + reference docs (and the install/agent-onboarding
+README section). Design: `docs/superpowers/specs/`.
 
 ROM tooling reads ROM bytes from your running emulator and ships only
 original label annotations — no Commodore-copyrighted code lives in this repo.

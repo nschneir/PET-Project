@@ -64,3 +64,19 @@ def load_test(path: str | Path) -> dict:
                 f"{path}: step {i} must be a single {'/'.join(_STEP_KINDS)} mapping"
             )
     return spec
+
+
+def demo_test(demo_dir: str | Path) -> dict:
+    demo_dir = Path(demo_dir)
+    prog = next(
+        (demo_dir / n for n in ("program.bas", "program.s") if (demo_dir / n).exists()),
+        None,
+    )
+    expect = demo_dir / "expect.txt"
+    if prog is None or not expect.exists():
+        raise TestError(
+            f"{demo_dir}: not a demo directory (needs program.bas/.s and expect.txt)"
+        )
+    steps = [{"wait": {"text": ln}} for ln in expect.read_text().splitlines() if ln.strip()]
+    return {"name": demo_dir.name, "machine": "pet4032", "timeout": 45,
+            "autorun": True, "program": str(prog.resolve()), "steps": steps}

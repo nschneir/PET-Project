@@ -23,3 +23,33 @@ def load_labels(path: str | Path) -> dict[str, int]:
 def save_labels(path: str | Path, labels: dict[str, int]) -> None:
     lines = [f"al C:{addr:04x} .{name}" for name, addr in sorted(labels.items(), key=lambda kv: kv[1])]
     Path(path).write_text("\n".join(lines) + "\n")
+
+
+def resolve(labels: dict[str, int], ref: str) -> int:
+    if ref in labels:
+        return labels[ref]
+    folded = {n.lower(): a for n, a in labels.items()}
+    if ref.lower() in folded:
+        return folded[ref.lower()]
+    close = [n for n in labels if ref.lower() in n.lower() or n.lower() in ref.lower()]
+    hint = f"; did you mean: {', '.join(sorted(close))}" if close else ""
+    raise KeyError(f"unknown symbol {ref!r}{hint}; known: {', '.join(sorted(labels))}")
+
+
+def nearest(labels: dict[str, int], addr: int) -> tuple[str, int] | None:
+    best: tuple[str, int] | None = None
+    for name, a in labels.items():
+        if name.startswith("__") and name.endswith("__"):
+            continue
+        off = addr - a
+        if 0 <= off < 256 and (best is None or off < best[1]):
+            best = (name, off)
+    return best
+
+
+def format_addr(labels: dict[str, int], addr: int) -> str:
+    hit = nearest(labels, addr)
+    if hit is None:
+        return f"${addr:04x}"
+    name, off = hit
+    return f"${addr:04x} ({name}+{off})" if off else f"${addr:04x} ({name})"

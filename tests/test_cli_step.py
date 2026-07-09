@@ -1,0 +1,109 @@
+import json
+from unittest.mock import Mock, patch
+
+from click.testing import CliRunner
+
+from petlib.cli import main
+from petlib.monitor import StopInfo
+
+
+def _fake(labels=None):
+    fake = Mock()
+    fake.name, fake.model, fake.labels = "pet4032", "pet4032", labels
+    mon = Mock()
+    fake.monitor.return_value.__enter__ = Mock(return_value=mon)
+    fake.monitor.return_value.__exit__ = Mock(return_value=False)
+    return fake, mon
+
+
+def _labels_file(tmp_path):
+    lbl = tmp_path / "p.lbl"
+    lbl.write_text("al C:040d .start\nal C:040f .loop\n")
+    return str(lbl)
+
+
+def test_step_leaves_stopped_and_annotates(tmp_path):
+    fake, mon = _fake(labels=_labels_file(tmp_path))
+    mon.step.return_value = {"PC": 0x0411, "A": 0}
+    with patch("petlib.cli.Session") as S:
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["--json", "step", "2"])
+    assert r.exit_code == 0, r.output
+    mon.step.assert_called_once_with(2, over=False)
+    out = json.loads(r.output)
+    assert out["registers"]["PC"] == 0x0411
+    assert out["pc_symbol"] == "loop+2"
+    mon.resume.assert_not_called()      # stays stopped
+
+
+def test_step_over_flag():
+    fake, mon = _fake()
+    mon.step.return_value = {"PC": 0x0410}
+    with patch("petlib.cli.Session") as S:
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["step", "--over"])
+    assert r.exit_code == 0
+    mon.step.assert_called_once_with(1, over=True)
+
+
+def test_finish():
+    fake, mon = _fake()
+    mon.finish.return_value = {"PC": 0x1234}
+    with patch("petlib.cli.Session") as S:
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["finish"])
+    assert r.exit_code == 0
+    mon.finish.assert_called_once()
+    mon.resume.assert_not_called()
+
+
+def test_continue_resumes():
+    fake, mon = _fake()
+    with patch("petlib.cli.Session") as S:
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["continue"])
+    assert r.exit_code == 0
+    mon.resume.assert_called_once()
+
+
+def test_until_symbol(tmp_path):
+    fake, mon = _fake(labels=_labels_file(tmp_path))
+    from petlib.protocol import CP_EXEC, Checkpoint
+    mon.checkpoint_set.return_value = Checkpoint(
+        number=9, hit=False, start=0x040F, end=0x040F, stop=True, enabled=True,
+        op=CP_EXEC, temporary=True, hit_count=0, ignore_count=0,
+        has_condition=False, memspace=0)
+    mon.wait_for_stop.return_value = StopInfo(pc=0x040F, checkpoint=9)
+    mon.registers.return_value = {"PC": 0x040F}
+    with patch("petlib.cli.Session") as S:
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["--json", "until", "loop"])
+    assert r.exit_code == 0, r.output
+    mon.checkpoint_set.assert_called_once_with(0x040F, op=CP_EXEC, temporary=True)
+    mon.resume.assert_called_once()     # resumed to run TO the target
+    assert json.loads(r.output)["pc_symbol"] == "loop"
+
+
+def test_until_timeout_fails():
+    fake, mon = _fake()
+    from petlib.protocol import CP_EXEC, Checkpoint
+    mon.checkpoint_set.return_value = Checkpoint(
+        number=9, hit=False, start=0x2000, end=0x2000, stop=True, enabled=True,
+        op=CP_EXEC, temporary=True, hit_count=0, ignore_count=0,
+        has_condition=False, memspace=0)
+    mon.wait_for_stop.return_value = None
+    with patch("petlib.cli.Session") as S:
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["--json", "until", "$2000", "--timeout", "1"])
+    assert r.exit_code == 1
+    assert "timeout" in json.loads(r.output)["error"].lower()
+
+
+def test_reg_pc_annotation(tmp_path):
+    fake, mon = _fake(labels=_labels_file(tmp_path))
+    mon.registers.return_value = {"PC": 0x040D, "A": 0x2A}
+    with patch("petlib.cli.Session") as S:
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["--json", "reg"])
+    out = json.loads(r.output)
+    assert out["pc_symbol"] == "start"

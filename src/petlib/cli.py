@@ -45,7 +45,7 @@ def attach(ctx: click.Context) -> Session:
 
 
 def session_labels(s: Session) -> dict[str, int]:
-    if s.labels:
+    if isinstance(s.labels, str) and s.labels:
         try:
             return load_labels(s.labels)
         except OSError:
@@ -217,8 +217,11 @@ def reg(ctx) -> None:
             regs = mon.registers()
         finally:
             mon.resume()
+    sym = _pc_symbol(session_labels(s), regs)
     human = "  ".join(f"{k}={v:04x}" for k, v in sorted(regs.items()))
-    emit(ctx, {"registers": regs}, human)
+    if sym:
+        human += f"  ({sym})"
+    emit(ctx, {"registers": regs, "pc_symbol": sym}, human)
 
 
 @reg.command("set")
@@ -496,3 +499,77 @@ def watch_add(ctx, ref, on_load, on_store, length):
     emit(ctx, {"id": ck.number, "address": format_addr(labels, addr),
                "length": length, "op": _op_name(op)},
          f"watchpoint #{ck.number} at {format_addr(labels, addr)} len={length} ({_op_name(op)})")
+
+
+def _pc_symbol(labels: dict[str, int], regs: dict[str, int]) -> str | None:
+    pc = regs.get("PC")
+    if pc is None or not labels:
+        return None
+    hit = nearest(labels, pc)
+    if hit is None:
+        return None
+    name, off = hit
+    return f"{name}+{off}" if off else name
+
+
+def _emit_stopped_regs(ctx, labels, regs):
+    sym = _pc_symbol(labels, regs)
+    human = "  ".join(f"{k}={v:04x}" for k, v in sorted(regs.items()))
+    if sym:
+        human += f"  ({sym})"
+    emit(ctx, {"registers": regs, "pc_symbol": sym, "stopped": True},
+         human + "  [stopped]")
+
+
+@main.command("step")
+@click.argument("count", default="1")
+@click.option("--over", is_flag=True, help="Step over JSR subroutines.")
+@click.pass_context
+def step_cmd(ctx, count, over):
+    """Execute N instructions; the machine stays stopped."""
+    s = attach(ctx)
+    labels = session_labels(s)
+    with s.monitor() as mon:
+        regs = mon.step(parse_number(count), over=over)
+    _emit_stopped_regs(ctx, labels, regs)
+
+
+@main.command("finish")
+@click.pass_context
+def finish_cmd(ctx):
+    """Run until the current subroutine returns; stays stopped."""
+    s = attach(ctx)
+    labels = session_labels(s)
+    with s.monitor() as mon:
+        regs = mon.finish()
+    _emit_stopped_regs(ctx, labels, regs)
+
+
+@main.command("continue")
+@click.pass_context
+def continue_cmd(ctx):
+    """Resume execution."""
+    s = attach(ctx)
+    with s.monitor() as mon:
+        mon.resume()
+    emit(ctx, {"running": True}, "running")
+
+
+@main.command("until")
+@click.argument("ref")
+@click.option("--timeout", default=30.0, show_default=True)
+@click.pass_context
+def until_cmd(ctx, ref, timeout):
+    """Run until REF (address or symbol) is executed; stays stopped there."""
+    s = attach(ctx)
+    labels = session_labels(s)
+    addr = resolve_ref(ctx, labels, ref)
+    with s.monitor() as mon:
+        mon.checkpoint_set(addr, op=CP_EXEC, temporary=True)
+        mon.resume()
+        info = mon.wait_for_stop(timeout)
+        if info is None:
+            fail(ctx, f"timeout: {format_addr(labels, addr)} not reached in {timeout}s")
+            return
+        regs = mon.registers()
+    _emit_stopped_regs(ctx, labels, regs)

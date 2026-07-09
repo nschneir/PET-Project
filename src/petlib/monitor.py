@@ -12,15 +12,25 @@ import itertools
 import socket
 import struct
 import time
+from dataclasses import dataclass
 
 from .protocol import (
+    CP_EXEC,
+    Checkpoint,
     Command,
     ErrorCode,
     FrameDecoder,
     Response,
+    ResponseType,
+    advance_body,
+    checkpoint_delete_body,
+    checkpoint_set_body,
+    checkpoint_toggle_body,
+    condition_set_body,
     encode_command,
     memory_get_body,
     memory_set_body,
+    parse_checkpoint,
     parse_display_get,
     parse_memory_get,
     parse_palette_get,
@@ -28,6 +38,12 @@ from .protocol import (
     parse_registers_get,
     registers_set_body,
 )
+
+
+@dataclass(frozen=True)
+class StopInfo:
+    pc: int | None
+    checkpoint: int | None
 
 
 class MonitorError(Exception):
@@ -78,18 +94,32 @@ class MonitorClient:
     def __exit__(self, *exc) -> None:
         self.close()
 
-    def request(self, command: int, body: bytes = b"") -> Response:
+    def _transact(
+        self, command: int, body: bytes = b"", collect_type: int | None = None
+    ) -> tuple[Response, list[Response]]:
+        """Send a command; return (final response, same-rid intermediates).
+
+        CHECKPOINT_LIST-style commands send intermediate responses (e.g. 0x11
+        checkpoint infos) carrying the SAME request id before the final
+        response whose type matches the command. collect_type gathers those.
+        """
         assert self._sock is not None, "not connected"
         rid = next(self._ids)
         self._sock.sendall(encode_command(command, body, request_id=rid))
+        collected: list[Response] = []
         deadline = time.monotonic() + self.timeout
         while True:
-            for resp in self._pending:
-                if resp.request_id == rid:
-                    self._pending.remove(resp)
-                    if resp.error_code != ErrorCode.OK:
-                        raise MonitorError(command, resp.error_code)
-                    return resp
+            for resp in list(self._pending):
+                if resp.request_id != rid:
+                    continue
+                self._pending.remove(resp)
+                if collect_type is not None and resp.response_type == collect_type \
+                        and resp.response_type != command:
+                    collected.append(resp)
+                    continue
+                if resp.error_code != ErrorCode.OK:
+                    raise MonitorError(command, resp.error_code)
+                return resp, collected
             if time.monotonic() > deadline:
                 raise TimeoutError(f"no response to {Command(command).name}")
             data = self._sock.recv(65536)
@@ -100,6 +130,9 @@ class MonitorClient:
                     self.events.append(resp)
                 else:
                     self._pending.append(resp)
+
+    def request(self, command: int, body: bytes = b"") -> Response:
+        return self._transact(command, body)[0]
 
     # --- high-level operations -------------------------------------------
 
@@ -172,3 +205,80 @@ class MonitorClient:
         name = str(path).encode()
         body = struct.pack("<BHB", int(run), 0, len(name)) + name
         self.request(Command.AUTOSTART, body)
+
+    # --- checkpoints and stepping -----------------------------------------
+
+    def checkpoint_set(
+        self, start: int, end: int | None = None, *,
+        op: int = CP_EXEC, stop: bool = True, temporary: bool = False,
+    ) -> Checkpoint:
+        body = checkpoint_set_body(
+            start, end if end is not None else start,
+            op=op, stop=stop, temporary=temporary,
+        )
+        return parse_checkpoint(self.request(Command.CHECKPOINT_SET, body).body)
+
+    def checkpoint_delete(self, number: int) -> None:
+        self.request(Command.CHECKPOINT_DELETE, checkpoint_delete_body(number))
+
+    def checkpoint_toggle(self, number: int, enabled: bool) -> None:
+        self.request(Command.CHECKPOINT_TOGGLE, checkpoint_toggle_body(number, enabled))
+
+    def checkpoint_list(self) -> list[Checkpoint]:
+        _final, infos = self._transact(
+            Command.CHECKPOINT_LIST, collect_type=Command.CHECKPOINT_GET
+        )
+        return [parse_checkpoint(r.body) for r in infos]
+
+    def condition_set(self, number: int, expr: str) -> None:
+        self.request(Command.CONDITION_SET, condition_set_body(number, expr))
+
+    def step(self, count: int = 1, over: bool = False) -> dict[str, int]:
+        """Advance N instructions (synchronous); machine stays stopped."""
+        self.request(Command.ADVANCE_INSTRUCTIONS, advance_body(count, over))
+        return self.registers()
+
+    def finish(self) -> dict[str, int]:
+        """Run until the current subroutine returns; machine stays stopped."""
+        self.request(Command.EXECUTE_UNTIL_RETURN)
+        self.wait_for_stop(timeout=self.timeout)
+        return self.registers()
+
+    # --- events -------------------------------------------------------------
+
+    def poll_events(self, timeout: float) -> list[Response]:
+        """Return queued events plus any that arrive within timeout."""
+        seen = list(self.events)
+        self.events.clear()
+        assert self._sock is not None, "not connected"
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            self._sock.settimeout(max(0.05, deadline - time.monotonic()))
+            try:
+                data = self._sock.recv(65536)
+            except (TimeoutError, socket.timeout):
+                break
+            if not data:
+                raise ConnectionError("VICE closed the monitor connection")
+            for resp in self._decoder.feed(data):
+                if resp.is_event:
+                    seen.append(resp)
+                else:
+                    self._pending.append(resp)
+        self._sock.settimeout(self.timeout)
+        return seen
+
+    def wait_for_stop(self, timeout: float) -> StopInfo | None:
+        """Wait for a STOPPED event; report the hit checkpoint if one fired."""
+        deadline = time.monotonic() + timeout
+        checkpoint = None
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                return None
+            for ev in self.poll_events(min(remaining, 0.5)):
+                if ev.response_type == Command.CHECKPOINT_GET and ev.body[4]:
+                    checkpoint = int.from_bytes(ev.body[0:4], "little")
+                if ev.response_type == ResponseType.STOPPED:
+                    (pc,) = struct.unpack_from("<H", ev.body)
+                    return StopInfo(pc=pc, checkpoint=checkpoint)

@@ -1,0 +1,93 @@
+"""Live disk and ROM tooling tests against real xpet + c1541."""
+
+import os
+import shutil
+from pathlib import Path
+
+import pytest
+
+from petlib.basic import tokenize
+from petlib.disasm import disassemble
+from petlib.disk import create_image, get_file, list_files, put_file
+from petlib.romdoc import identify, rom_labels
+from petlib.session import Session
+from petlib.text import ascii_to_petscii
+from tests.vice_helpers import wait_for_text
+
+pytestmark = [
+    pytest.mark.vice,
+    pytest.mark.skipif(
+        not (shutil.which("xpet") or os.environ.get("PET_TOOLS_XPET")),
+        reason="xpet not installed",
+    ),
+    pytest.mark.skipif(shutil.which("c1541") is None, reason="c1541 not installed"),
+]
+
+
+def _make_disk(tmp_path, image_name):
+    prg = tokenize(Path("demos/hello-basic/program.bas"), tmp_path / "d.prg", "4.0")
+    img = create_image(tmp_path / image_name, label="work", disk_id="01")
+    put_file(img, prg, "demo")
+    return img, prg
+
+
+def _load_and_run(s):
+    with s.monitor() as mon:
+        try:
+            mon.keyboard_feed(ascii_to_petscii('LOAD"DEMO",8\nRUN\n'))
+        finally:
+            mon.resume()
+    wait_for_text(s, "HELLO FROM BASIC", timeout=45.0)
+
+
+@pytest.mark.parametrize("image_name,model", [("t.d64", "pet4032"), ("t.d80", "pet8032")])
+def test_disk_attach_at_launch(tmp_path, monkeypatch, image_name, model):
+    monkeypatch.setenv("PET_TOOLS_HOME", str(tmp_path))
+    img, prg = _make_disk(tmp_path, image_name)
+    s = Session.launch(model=model, name="dsk", headless=True, warp=True,
+                       disk8=str(img))
+    try:
+        wait_for_text(s, "READY.")
+        _load_and_run(s)
+    finally:
+        s.stop()
+    # host round-trip: read the file back out and compare
+    out = get_file(img, "demo", tmp_path / "back.prg")
+    assert out.read_bytes() == prg.read_bytes()
+    assert list_files(img)["files"][0]["name"] == "demo"
+
+
+def test_disk_boot_mid_session(tmp_path, monkeypatch):
+    monkeypatch.setenv("PET_TOOLS_HOME", str(tmp_path))
+    img, _ = _make_disk(tmp_path, "boot.d64")
+    s = Session.launch(model="pet4032", name="boot", headless=True, warp=True)
+    try:
+        wait_for_text(s, "READY.")
+        with s.monitor() as mon:
+            try:
+                mon.autostart(img.resolve(), run=True)
+            finally:
+                mon.resume()
+        wait_for_text(s, "HELLO FROM BASIC", timeout=45.0)
+    finally:
+        s.stop()
+
+
+def test_rom_identify_and_disasm(tmp_path, monkeypatch):
+    monkeypatch.setenv("PET_TOOLS_HOME", str(tmp_path))
+    s = Session.launch(model="pet4032", name="rom", headless=True, warp=True)
+    try:
+        wait_for_text(s, "READY.")
+        with s.monitor() as mon:
+            try:
+                info = identify(mon)
+                data = mon.memory_read(0xFFD2, 3)
+            finally:
+                mon.resume()
+        assert info["basic"].endswith(".bin") and "4" in info["basic"]
+        assert len(info["hashes"]["kernal"]) == 12
+        lines = disassemble(data, 0xFFD2, rom_labels("4.0"))
+        assert lines[0] == "CHROUT:"
+        assert "jmp" in lines[1]
+    finally:
+        s.stop()

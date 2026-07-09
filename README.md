@@ -29,7 +29,11 @@ AI-oriented toolset for developing and debugging Commodore PET software
     pet wait --break                       # block until it fires
     pet step 5 && pet reg                  # single-step, inspect (PC annotated)
     pet continue                           # resume
-    pet reg                                # CPU registers
+    pet disk create work.d64 && pet disk put work.d64 game.prg game
+    pet session start --disk work.d64      # boot with the disk attached
+    pet disk boot work.d64                 # or attach+run mid-session
+    pet rom info                           # identify the loaded ROM set
+    pet rom disasm CHROUT 16               # annotated live disassembly
     pet session stop
 
 Every command takes `--json` for machine-readable output — the intended
@@ -43,12 +47,16 @@ each demo on an emulated PET, so they double as end-to-end tests.
 
 ## Status
 
-Control plane, build pipeline, and debugging surface complete: sessions,
-screen, memory, registers, `pet build` (ca65/ld65), `pet basic` (petcat),
-`pet load`/`pet run`, symbolic breakpoints and watchpoints with conditions,
-`pet step`/`finish`/`continue`/`until`, and the `pet wait` synchronization
-primitive. Coming next: disk images + ROM tooling, test runner, MCP server,
-Claude skills. Design: `docs/superpowers/specs/`.
+Control plane, build pipeline, debugging surface, and disk/ROM tooling
+complete: sessions, screen, memory, registers, `pet build` (ca65/ld65),
+`pet basic` (petcat), `pet load`/`pet run`, symbolic breakpoints and
+watchpoints with conditions, `pet step`/`finish`/`continue`/`until`, the
+`pet wait` synchronization primitive, `pet disk` (create/ls/put/get/boot via
+c1541), and `pet rom info`/`disasm`. Coming next: the scripted test runner,
+then the MCP server and Claude skills. Design: `docs/superpowers/specs/`.
+
+ROM tooling reads ROM bytes from your running emulator and ships only
+original label annotations — no Commodore-copyrighted code lives in this repo.
 
 ## License
 

@@ -190,3 +190,62 @@ def parse_palette_get(body: bytes) -> list[tuple[int, int, int]]:
         out.append((r, g, b))
         off += 1 + item_size
     return out
+
+
+CP_LOAD = 0x01
+CP_STORE = 0x02
+CP_EXEC = 0x04
+
+_CKPT_INFO = struct.Struct("<IBHHBBBBIIBB")
+
+
+@dataclass(frozen=True)
+class Checkpoint:
+    number: int
+    hit: bool
+    start: int
+    end: int
+    stop: bool
+    enabled: bool
+    op: int
+    temporary: bool
+    hit_count: int
+    ignore_count: int
+    has_condition: bool
+    memspace: int
+
+
+def checkpoint_set_body(
+    start: int, end: int, *, op: int, stop: bool = True,
+    enabled: bool = True, temporary: bool = False,
+) -> bytes:
+    return struct.pack(
+        "<HHBBBB", start, end, int(stop), int(enabled), op, int(temporary)
+    )
+
+
+def parse_checkpoint(body: bytes) -> Checkpoint:
+    (num, hit, start, end, stop, enabled, op, temp,
+     hits, ignores, has_cond, memspace) = _CKPT_INFO.unpack_from(body)
+    return Checkpoint(
+        number=num, hit=bool(hit), start=start, end=end, stop=bool(stop),
+        enabled=bool(enabled), op=op, temporary=bool(temp), hit_count=hits,
+        ignore_count=ignores, has_condition=bool(has_cond), memspace=memspace,
+    )
+
+
+def checkpoint_delete_body(number: int) -> bytes:
+    return struct.pack("<I", number)
+
+
+def checkpoint_toggle_body(number: int, enabled: bool) -> bytes:
+    return struct.pack("<IB", number, int(enabled))
+
+
+def condition_set_body(number: int, expr: str) -> bytes:
+    raw = expr.encode("ascii")
+    return struct.pack("<IB", number, len(raw)) + raw
+
+
+def advance_body(count: int, step_over: bool) -> bytes:
+    return struct.pack("<BH", int(step_over), count)

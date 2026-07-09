@@ -9,11 +9,15 @@ from pathlib import Path
 
 import click
 
+import time
+
 from .basic import BasicError, detokenize, tokenize
 from .build import BuildError, build_asm
 from .machines import get_profile
+from .protocol import CP_EXEC, CP_LOAD, CP_STORE
 from .screen import read_screen_text, save_screenshot_png
 from .session import Session, SessionError
+from .symbols import format_addr, load_labels, nearest, resolve
 from .text import ascii_to_petscii
 
 
@@ -36,6 +40,25 @@ def attach(ctx: click.Context) -> Session:
     try:
         return Session.attach(ctx.obj["session"])
     except SessionError as e:
+        fail(ctx, str(e))
+        raise AssertionError("unreachable")
+
+
+def session_labels(s: Session) -> dict[str, int]:
+    if s.labels:
+        try:
+            return load_labels(s.labels)
+        except OSError:
+            return {}
+    return {}
+
+
+def resolve_ref(ctx: click.Context, labels: dict[str, int], ref: str) -> int:
+    if ref.startswith(("$", "0x", "0X")) or ref.isdigit():
+        return parse_number(ref)
+    try:
+        return resolve(labels, ref)
+    except KeyError as e:
         fail(ctx, str(e))
         raise AssertionError("unreachable")
 
@@ -345,3 +368,131 @@ def run_cmd(ctx, source):
     emit(ctx, {"source": str(src), "prg": str(prg),
                "symbols": str(labels) if labels else None},
          f"running {prg}")
+
+
+@main.group("break")
+def break_() -> None:
+    """Manage breakpoints (VICE exec checkpoints)."""
+
+
+@break_.command("add")
+@click.argument("ref")
+@click.option("--condition", default=None, help="VICE condition, e.g. 'A != 0'.")
+@click.option("--temporary", is_flag=True)
+@click.pass_context
+def break_add(ctx, ref, condition, temporary):
+    s = attach(ctx)
+    labels = session_labels(s)
+    addr = resolve_ref(ctx, labels, ref)
+    with s.monitor() as mon:
+        try:
+            ck = mon.checkpoint_set(addr, op=CP_EXEC, temporary=temporary)
+            if condition:
+                mon.condition_set(ck.number, condition)
+        finally:
+            mon.resume()
+    emit(ctx, {"id": ck.number, "address": format_addr(labels, addr),
+               "condition": condition, "temporary": temporary},
+         f"breakpoint #{ck.number} at {format_addr(labels, addr)}"
+         + (f" when {condition}" if condition else ""))
+
+
+def _op_name(op: int) -> str:
+    parts = []
+    if op & CP_EXEC:
+        parts.append("exec")
+    if op & CP_LOAD:
+        parts.append("load")
+    if op & CP_STORE:
+        parts.append("store")
+    return "|".join(parts)
+
+
+@break_.command("list")
+@click.pass_context
+def break_list(ctx):
+    s = attach(ctx)
+    labels = session_labels(s)
+    with s.monitor() as mon:
+        try:
+            cks = mon.checkpoint_list()
+        finally:
+            mon.resume()
+    rows = [{"id": ck.number, "address": format_addr(labels, ck.start),
+             "end": ck.end, "op": _op_name(ck.op), "enabled": ck.enabled,
+             "hits": ck.hit_count, "has_condition": ck.has_condition}
+            for ck in cks]
+    human = "\n".join(
+        f"#{r['id']}  {r['address']}  {r['op']}"
+        f"  {'on' if r['enabled'] else 'off'}  hits={r['hits']}"
+        + ("  [cond]" if r["has_condition"] else "")
+        for r in rows
+    ) or "no breakpoints"
+    emit(ctx, {"breakpoints": rows}, human)
+
+
+@break_.command("remove")
+@click.argument("ck_id", type=int)
+@click.pass_context
+def break_remove(ctx, ck_id):
+    s = attach(ctx)
+    with s.monitor() as mon:
+        try:
+            mon.checkpoint_delete(ck_id)
+        finally:
+            mon.resume()
+    emit(ctx, {"removed": ck_id}, f"removed #{ck_id}")
+
+
+@break_.command("enable")
+@click.argument("ck_id", type=int)
+@click.pass_context
+def break_enable(ctx, ck_id):
+    s = attach(ctx)
+    with s.monitor() as mon:
+        try:
+            mon.checkpoint_toggle(ck_id, True)
+        finally:
+            mon.resume()
+    emit(ctx, {"enabled": ck_id}, f"enabled #{ck_id}")
+
+
+@break_.command("disable")
+@click.argument("ck_id", type=int)
+@click.pass_context
+def break_disable(ctx, ck_id):
+    s = attach(ctx)
+    with s.monitor() as mon:
+        try:
+            mon.checkpoint_toggle(ck_id, False)
+        finally:
+            mon.resume()
+    emit(ctx, {"disabled": ck_id}, f"disabled #{ck_id}")
+
+
+@main.group()
+def watch() -> None:
+    """Manage watchpoints (VICE load/store checkpoints)."""
+
+
+@watch.command("add")
+@click.argument("ref")
+@click.option("--load", "on_load", is_flag=True)
+@click.option("--store", "on_store", is_flag=True)
+@click.option("--length", default=1, show_default=True)
+@click.pass_context
+def watch_add(ctx, ref, on_load, on_store, length):
+    s = attach(ctx)
+    labels = session_labels(s)
+    addr = resolve_ref(ctx, labels, ref)
+    op = (CP_LOAD if on_load else 0) | (CP_STORE if on_store else 0)
+    if not op:
+        op = CP_LOAD | CP_STORE
+    with s.monitor() as mon:
+        try:
+            ck = mon.checkpoint_set(addr, addr + length - 1, op=op)
+        finally:
+            mon.resume()
+    emit(ctx, {"id": ck.number, "address": format_addr(labels, addr),
+               "length": length, "op": _op_name(op)},
+         f"watchpoint #{ck.number} at {format_addr(labels, addr)} len={length} ({_op_name(op)})")

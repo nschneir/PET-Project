@@ -36,7 +36,7 @@ Boot a fresh emulated PET.
 
 - `--model MODEL` (default `pet4032`) — one of `pet2001`, `pet3032`,
   `pet4032`, `pet8032`, `pet8296`.
-- `--name NAME` — session name (defaults to the model name).
+- `-s, --name NAME` — session name (defaults to the model name).
 - `--headless` — suppress the VICE window (video/audio dummied).
 - `--warp` — run at maximum speed (recommended for automation).
 - `--disk PATH` — attach a `.d64`/`.d80`/`.d82` image to drive 8 at boot.
@@ -54,6 +54,8 @@ JSON: `{"sessions": [{"name", "model", "pid", "port"}, ...]}`.
 Stop a session and remove its registry record.
 
 - `NAME` (optional) — the session to stop; defaults to the current one.
+- `-s, --name NAME` — the same, as an option (the spelling every command
+  understands). Giving both forms with different names is an error.
 
 JSON: `{"stopped": NAME}`.
 

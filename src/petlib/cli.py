@@ -80,7 +80,7 @@ def session() -> None:
 
 @session.command("start")
 @click.option("--model", default="pet4032", show_default=True)
-@click.option("--name", default=None)
+@click.option("--name", "-s", default=None)
 @click.option("--headless", is_flag=True)
 @click.option("--warp", is_flag=True)
 @click.option("--disk", "disk8", default=None, help="Attach a d64/d80/d82 image to drive 8.")
@@ -108,10 +108,15 @@ def session_list(ctx):
 
 @session.command("stop")
 @click.argument("name", required=False)
+@click.option("--name", "-s", "name_opt", default=None,
+              help="Session to stop (same as the positional NAME).")
 @click.pass_context
-def session_stop(ctx, name):
+def session_stop(ctx, name, name_opt):
+    if name and name_opt and name != name_opt:
+        fail(ctx, f"conflicting session names: positional {name!r} vs --name {name_opt!r}")
+        return
     try:
-        s = Session.attach(name or ctx.obj["session"])
+        s = Session.attach(name or name_opt or ctx.obj["session"])
     except SessionError as e:
         fail(ctx, str(e))
         return

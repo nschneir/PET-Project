@@ -16,3 +16,13 @@ def test_every_command_documented_and_vice_versa():
 
 def test_inventory_size_sanity():
     assert len(all_command_paths()) >= 35
+
+
+def test_session_commands_share_name_option():
+    """WS4: one spelling (-s/--name) works on every session-targeting command."""
+    from petlib.cli import main as cli
+    for cmd_name in ("start", "stop"):
+        cmd = cli.commands["session"].commands[cmd_name]
+        names = {o for p in cmd.params for o in getattr(p, "opts", [])}
+        assert "--name" in names and "-s" in names, \
+            f"session {cmd_name} lacks -s/--name (has {sorted(names)})"

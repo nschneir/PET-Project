@@ -62,3 +62,40 @@ def test_session_reset_resumes():
     assert r.exit_code == 0
     mon.reset.assert_called_once_with(hard=True)
     mon.resume.assert_called_once()
+
+
+def test_session_stop_by_name_option():
+    fake = _fake_session()
+    with patch("petlib.cli.Session") as S:
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["session", "stop", "--name", "pet4032"])
+    assert r.exit_code == 0, r.output
+    S.attach.assert_called_once_with("pet4032")
+    fake.stop.assert_called_once()
+
+
+def test_session_stop_dash_s_option():
+    fake = _fake_session()
+    with patch("petlib.cli.Session") as S:
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["session", "stop", "-s", "pet4032"])
+    assert r.exit_code == 0, r.output
+    S.attach.assert_called_once_with("pet4032")
+
+
+def test_session_stop_conflicting_names_error():
+    with patch("petlib.cli.Session") as S:
+        r = CliRunner().invoke(main, ["--json", "session", "stop", "a", "--name", "b"])
+    assert r.exit_code == 1
+    assert "conflicting" in json.loads(r.output)["error"].lower()
+    S.attach.assert_not_called()
+
+
+def test_session_start_dash_s_alias():
+    with patch("petlib.cli.Session") as S:
+        S.launch.return_value = _fake_session(name="snake")
+        r = CliRunner().invoke(main, ["--json", "session", "start", "-s", "snake"])
+    assert r.exit_code == 0, r.output
+    S.launch.assert_called_once_with(
+        model="pet4032", name="snake", headless=False, warp=False, disk8=None
+    )

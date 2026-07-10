@@ -57,3 +57,45 @@ characters). See petscii.md.
   `INT(RND(1)*N)+1` rolls 1..N. `RND(-X)` reseeds deterministically (useful
   for reproducible tests); `RND(0)` derives a value from the jiffy clock.
   The seed/last value lives at `$88-$8C`.
+
+## Disk I/O from BASIC 4
+
+BASIC 4 has native disk commands (their kernal entry points are in
+rom-routines.md). The sequential-file pattern:
+
+```
+10 dopen#1,"names",w      : rem create+open for write (drive 0)
+20 print#1,"first record"
+30 dclose#1
+40 dopen#2,"names"        : rem open for read
+50 input#2,a$
+60 dclose#2
+```
+
+After every disk operation check the status: `DS` is the numeric error code
+and `DS$` the full message (`code, text, track, sector`). `0` and `1` mean
+success. Common codes (CBM DOS 2):
+
+| DS    | Meaning |
+|-------|---------|
+| 00    | OK |
+| 01    | FILES SCRATCHED (count in the track field) |
+| 20-24, 27 | READ ERROR (header/sync/data/checksum variants) |
+| 25    | WRITE ERROR (verify failed) |
+| 26    | WRITE PROTECT ON |
+| 29    | DISK ID MISMATCH |
+| 30-34 | SYNTAX ERROR in the DOS command (bad/long/no filename) |
+| 50-52 | RECORD errors (relative files) |
+| 60    | WRITE FILE OPEN (unclosed file — COLLECT the disk) |
+| 61    | FILE NOT OPEN |
+| 62    | FILE NOT FOUND *(live)* |
+| 63    | FILE EXISTS |
+| 64    | FILE TYPE MISMATCH |
+| 70    | NO CHANNEL |
+| 72    | DISK FULL |
+| 73    | DOS MISMATCH |
+| 74    | DRIVE NOT READY |
+
+The 62 row is asserted live against a real drive image by
+`tests/test_integration_disk.py`; the rest follow the standard CBM DOS 2
+table (cross-checked against two period references).

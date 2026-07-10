@@ -1,4 +1,4 @@
-# Sieve of Eratosthenes benchmark *(not yet dogfooded)*
+# Sieve of Eratosthenes benchmark *(dogfooded 2026-07-10 — pass; ~93x asm speedup)*
 
 Paste this prompt into your agent:
 

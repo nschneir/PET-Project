@@ -4,6 +4,10 @@
 
 # PET Project
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-green.svg)
+![Built with AI](https://img.shields.io/badge/built%20with-AI-green.svg)
+
 AI-oriented toolset for developing and debugging Commodore PET software
 (Commodore BASIC and 6502 assembly) on the VICE emulator.
 

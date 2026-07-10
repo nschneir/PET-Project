@@ -108,3 +108,13 @@ Prove a change works, don't assume it. Either assert on output with
 `pet test run mytest.yaml` (the YAML format is in the spec §8: a `program`,
 optional `autorun`, and `wait`/`key`/`assert` steps). Existing example
 programs can all be run as tests with `pet test demos`.
+
+## References
+
+Read the matching file when you need the detail:
+
+- `references/memory-maps.md` — per-model memory layout (RAM, screen, ROM, I/O).
+- `references/zero-page.md` — BASIC pointer chain and low-memory usage.
+- `references/rom-routines.md` — kernal jump table and hardware vectors.
+- `references/basic-internals.md` — program storage format and token table.
+- `references/petscii.md` — the three text encodings and the screen-code table.

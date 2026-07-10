@@ -86,25 +86,41 @@ def wait_for_mem(session, addr: int, value: int, timeout: float = 30.0) -> dict:
 
 
 def wait_for_break(session, timeout: float = 30.0) -> dict:
-    """Checkpoint-hit wait. Checks already-hit checkpoints first: if a hit
-    happened while no client was connected, the events are lost but the
-    machine sits stopped with the hit flag set (Plan 03 verified)."""
+    """Checkpoint-hit wait, robust under warp.
+
+    The hit flag on a stopped checkpoint is the durable source of truth:
+    a stop=True checkpoint freezes the machine until a client resumes it,
+    and the flag is visible in CHECKPOINT_LIST even when the STOPPED event
+    was lost (Plan 03 verified; the connect-stop/resume race destroys queued
+    events, which is what made event-only waiting flaky under --warp).
+    The STOPPED event is kept as a fast-path only; every loop iteration
+    re-polls the flags, so a missed event costs at most one poll slice.
+    Timeout leaves the machine RUNNING (the documented contract)."""
     start = time.monotonic()
-    with session.monitor() as mon:
-        hit = next((ck for ck in mon.checkpoint_list() if ck.hit), None)
-        if hit is not None:
-            regs = mon.registers()
-            return {"fired": "break", "checkpoint": hit.number,
-                    "pc": regs.get("PC"), "registers": regs,
-                    "elapsed": round(time.monotonic() - start, 3)}
-        mon.resume()
-        info = mon.wait_for_stop(timeout)
-        if info is None:
-            return {"fired": None, "timeout": timeout}
+    deadline = start + timeout
+
+    def _fired(mon, number, pc=None):
         regs = mon.registers()
-        return {"fired": "break", "checkpoint": info.checkpoint,
-                "pc": info.pc, "registers": regs,
+        return {"fired": "break", "checkpoint": number,
+                "pc": pc if pc is not None else regs.get("PC"),
+                "registers": regs,
                 "elapsed": round(time.monotonic() - start, 3)}
+
+    with session.monitor() as mon:
+        while True:
+            hit = next((ck for ck in mon.checkpoint_list() if ck.hit), None)
+            if hit is not None:
+                return _fired(mon, hit.number)          # machine stays stopped
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                mon.resume()                             # timeout: leave it running
+                return {"fired": None, "timeout": timeout}
+            mon.resume()                                 # the list stopped the machine
+            info = mon.wait_for_stop(min(1.0, remaining))
+            if info is not None and info.checkpoint is not None:
+                return _fired(mon, info.checkpoint, info.pc)
+            # Slice elapsed, or a STOPPED with no checkpoint id (e.g. another
+            # client's connect-stop): loop — the flag poll decides.
 
 
 def run_until(session, addr: int, timeout: float = 30.0) -> dict | None:

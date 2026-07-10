@@ -57,3 +57,21 @@ def test_wait_for_break_listens():
     out = wait_for_break(s, timeout=1)
     assert out["checkpoint"] == 7 and out["pc"] == 0x1234
     mon.resume.assert_called_once()
+
+
+def test_wait_for_break_flag_poll_catches_missed_event():
+    """The STOPPED event can be lost to the connect-stop/resume race (demo-04
+    flake). The hit flag in CHECKPOINT_LIST is durable — polling it must
+    catch the halt even when no event is ever seen."""
+    s, mon = _fake_session()
+    ck_no = Checkpoint(number=3, hit=False, start=0x040D, end=0x040D, stop=True,
+                       enabled=True, op=CP_EXEC, temporary=False, hit_count=0,
+                       ignore_count=0, has_condition=False, memspace=0)
+    ck_hit = Checkpoint(number=3, hit=True, start=0x040D, end=0x040D, stop=True,
+                        enabled=True, op=CP_EXEC, temporary=False, hit_count=1,
+                        ignore_count=0, has_condition=False, memspace=0)
+    mon.checkpoint_list.side_effect = [[ck_no], [ck_hit]]
+    mon.wait_for_stop.return_value = None      # the event was lost
+    mon.registers.return_value = {"PC": 0x040D}
+    out = wait_for_break(s, timeout=5)
+    assert out["fired"] == "break" and out["checkpoint"] == 3

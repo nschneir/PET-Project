@@ -78,6 +78,11 @@ are in the `pet-development` skill's ROM-routines reference. CHROUT expects
   locations.
 - `jsr` pushes the return address **minus one**; `rts` compensates. This
   matters if you manipulate the stack directly.
+- **Carry discipline:** `adc`/`sbc` always include the carry — `clc` before
+  the first add and `sec` before the first subtract of each multi-byte chain.
+- **Decimal-mode trap:** `sed` switches `adc`/`sbc` to BCD, and on the NMOS
+  6502 an interrupt does *not* clear the D flag. `cld` once at program start
+  (and in any interrupt handler that does arithmetic) keeps you in binary.
 
 ## Reading the keyboard and timing (game loops)
 

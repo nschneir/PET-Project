@@ -79,6 +79,24 @@ are in the `pet-development` skill's ROM-routines reference. CHROUT expects
 - `jsr` pushes the return address **minus one**; `rts` compensates. This
   matters if you manipulate the stack directly.
 
+## Reading the keyboard and timing (game loops)
+
+- **Buffered keys:** `jsr GETIN` (`GETIN = $FFE4`) returns the next buffered
+  keypress in A, or **0 with the Z flag set when none** — poll it without
+  blocking. Flush type-ahead by storing 0 to `$9E` (the buffer count).
+- **Key-down state:** the IRQ's keyboard scan leaves the current key at `$97`
+  (`#$FF` = no key) and the shift flag at `$98` — read these for continuous
+  movement instead of waiting for key repeat. Details and the repeat-control
+  locations: the `pet-development` skill's hardware and zero-page references.
+- **Timing:** the jiffy clock at `$8D-$8F` (MSB first) increments 60×/second
+  in the IRQ — compare its low byte for frame pacing, or hook the interrupt
+  through the RAM vector at `($90)`.
+- **Screen writes:** screen RAM starts at `$8000`; the byte for column X of
+  row Y is at `$8000 + 40*Y + X` (80-column models: 80*Y). Store **screen
+  codes**, not PETSCII. `lda #$93 / jsr CHROUT` clears the screen.
+- **Sound:** three VIA registers (`$E84B`=`$10` on, `$E84A`=pattern,
+  `$E848`=pitch; zero `$E848`/`$E84B` to stop) — see the hardware reference.
+
 ## Debugging
 
 `pet run FILE.s` registers the labels, so you can `pet break add start`, then

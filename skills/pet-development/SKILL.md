@@ -9,6 +9,12 @@ This skill drives an emulated Commodore PET through the `pet` command line (or
 the equivalent `pet-tools` MCP tools). Full command reference: `docs/cli.md`.
 Every command takes `--json` for machine-readable output.
 
+**Using MCP instead of the CLI?** The tools map mechanically — `pet screen`
+→ `pet_screen_text`, `pet break add` → `pet_break_add`, and so on — with the
+same sessions, semantics, and stopped-state rule. Two differences: `pet wait`
+is split into `pet_wait_text` / `pet_wait_mem` / `pet_wait_break`, and wait
+timeouts return `{"fired": null, ...}` as data instead of an error.
+
 ## The loop
 
 Write → run → observe → fix:
@@ -101,18 +107,33 @@ source of bugs:
 - Assuming the machine is running after `pet step`/`finish`/`until` — it is
   stopped; `pet continue` to resume.
 
+## When something goes wrong — diagnosis table
+
+| Symptom | First move |
+|---------|------------|
+| Screen shows graphics glyphs instead of text | Uppercase in the `.bas` source — rewrite keywords AND strings lowercase. |
+| `pet wait --text` times out | `pet screen` and look. The program may be awaiting input (feed it with `pet basic type` or a `key` step), still loading, or crashed. |
+| Program seems to hang | Sample it: run `pet reg` two or three times and compare PC. PC stuck in your code = your loop is wrong; PC around $E4xx = the machine is idling in BASIC waiting for input. |
+| Assembly crashes or drops to READY immediately | The SYS stub math is off — `pet rom disasm 1037 16` and confirm your first instruction is at $040D. |
+| `?SYNTAX ERROR` when running a loaded program | Inspect what actually loaded: `pet basic detokenize file.prg`. |
+| Machine appears frozen after debugging | It's stopped (step/finish/until/wait --break leave it stopped) — `pet continue`. |
+| Program vanished after `pet run` | Autostart resets the machine first — that's normal; reload anything else you need. |
+| Disk command misbehaves | Check the drive status: `print ds$` (error table in references/basic-internals.md). |
+
 ## Verifying a change
 
 Prove a change works, don't assume it. Either assert on output with
 `pet wait --text "EXPECTED"`, or write a declarative test and run it with
-`pet test run mytest.yaml` (the YAML format is in the spec §8: a `program`,
-optional `autorun`, and `wait`/`key`/`assert` steps). Existing example
+`pet test run mytest.yaml` (a `program` plus `wait`/`key`/`assert` steps —
+full format under `pet test run` in docs/cli.md). Existing example
 programs can all be run as tests with `pet test programs`.
 
 ## References
 
 Read the matching file when you need the detail:
 
+- `references/cookbook.md` — **start here for a new program**: tested,
+  copy-adaptable recipes (game loops, screen pokes, sound) in BASIC and asm.
 - `references/memory-maps.md` — per-model memory layout (RAM, screen, ROM, I/O).
 - `references/zero-page.md` — BASIC pointer chain and low-memory usage.
 - `references/rom-routines.md` — kernal jump table and hardware vectors.

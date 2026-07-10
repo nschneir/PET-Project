@@ -367,11 +367,37 @@ JSON: `{"start", "length", "lines": [...]}`. Machine left running.
 
 ### `pet test run`
 
-Run one declarative YAML test (boots its own fresh session). See the test
-format in the spec (§8): a `program`, an optional `autorun`, and a list of
-`wait`/`key`/`assert` steps.
+Run one declarative YAML test. The runner boots its own fresh session
+(headless + warp), loads the program, executes the steps fail-fast, and
+reports pass/fail per step — capturing the screen at the point of failure.
 
 - `YAML_FILE` — the test file.
+
+The format:
+
+```yaml
+name: hello-world          # optional; defaults to the file name
+machine: pet4032           # optional; any pet model
+program: hello.bas         # .bas/.s/.prg, path relative to this file;
+                           #   built/tokenized as needed
+autorun: true              # default true: load and RUN. false = load only
+                           #   (then drive it yourself with key steps)
+timeout: 30                # default per-step timeout, seconds
+steps:
+  - wait:   { text: "READY." }              # screen text appears
+  - key:    "run\n"                         # type keys (\n = RETURN)
+  - wait:   { text: "HELLO", timeout: 5 }   # per-step timeout override
+  - wait:   { mem: "$1000", equals: 42 }    # byte reaches a value
+  - assert: { screen: "READY." }            # substring on screen now
+  - assert: { mem: "$8000", equals_text: "HELLO" }  # screen RAM as text
+  - assert: { mem: "$1000", equals: [1, 2, 3] }     # exact bytes
+  - assert: { reg: pc, in_range: ["$C000", "$E000"] }
+  - assert: { reg: a, equals: "$2A" }
+```
+
+Step kinds: `wait` (poll until true or timeout — fails the test on
+timeout), `key` (feed keyboard input), `assert` (check once, now).
+Addresses and values accept `$hex`/`0xhex`/decimal.
 
 JSON: `{"passed", "tests": [<report>]}`. Exit 1 if the test fails.
 

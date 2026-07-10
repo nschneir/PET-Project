@@ -67,3 +67,45 @@ def test_reg_get_and_set():
         r2 = CliRunner().invoke(main, ["reg", "set", "PC", "$2000"])
     assert r2.exit_code == 0
     mon.set_register.assert_called_once_with("PC", 0x2000)
+
+
+def _mem_fake(labels_path=None):
+    s = Mock()
+    s.labels = labels_path
+    mon = Mock()
+    s.monitor.return_value.__enter__ = Mock(return_value=mon)
+    s.monitor.return_value.__exit__ = Mock(return_value=False)
+    return s, mon
+
+
+def test_mem_read_accepts_symbol(tmp_path):
+    lbl = tmp_path / "t.lbl"
+    lbl.write_text("al 0006BC .SCORE\n")
+    fake, mon = _mem_fake(str(lbl))
+    mon.memory_read.return_value = b"\x2a"
+    with patch("petlib.cli.Session") as S:
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["--json", "mem", "read", "SCORE", "1"])
+    assert r.exit_code == 0, r.output
+    mon.memory_read.assert_called_once_with(0x06BC, 1)
+    assert json.loads(r.output)["hex"] == "2a"
+
+
+def test_mem_write_accepts_symbol(tmp_path):
+    lbl = tmp_path / "t.lbl"
+    lbl.write_text("al 0006BA .STEPMODE\n")
+    fake, mon = _mem_fake(str(lbl))
+    with patch("petlib.cli.Session") as S:
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["--json", "mem", "write", "STEPMODE", "0"])
+    assert r.exit_code == 0, r.output
+    mon.memory_write.assert_called_once_with(0x06BA, b"\x00")
+
+
+def test_mem_read_unknown_symbol_fails():
+    fake, _ = _mem_fake(None)
+    with patch("petlib.cli.Session") as S:
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["--json", "mem", "read", "NOSUCH", "1"])
+    assert r.exit_code == 1
+    assert "NOSUCH" in json.loads(r.output)["error"]

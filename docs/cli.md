@@ -111,7 +111,7 @@ left running.
 
 Write bytes to emulated memory.
 
-- `ADDR` — start address.
+- `ADDR` — start address (`$hex`/`0x`/decimal/symbol).
 - `VALUES...` — one or more byte values (`$hex`/`0x`/decimal).
 
 JSON: `{"addr", "written"}`. Machine left running.

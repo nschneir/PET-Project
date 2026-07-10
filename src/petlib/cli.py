@@ -171,7 +171,8 @@ def mem() -> None:
 @click.pass_context
 def mem_read(ctx, addr, length):
     s = attach(ctx)
-    start, n = parse_number(addr), parse_number(length)
+    start = resolve_ref(ctx, session_labels(s), addr)
+    n = parse_number(length)
     with s.monitor() as mon:
         try:
             data = mon.memory_read(start, n)
@@ -187,7 +188,7 @@ def mem_read(ctx, addr, length):
 @click.pass_context
 def mem_write(ctx, addr, values):
     s = attach(ctx)
-    start = parse_number(addr)
+    start = resolve_ref(ctx, session_labels(s), addr)
     data = bytes(parse_number(v) for v in values)
     with s.monitor() as mon:
         try:

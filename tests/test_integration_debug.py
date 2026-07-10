@@ -1,12 +1,17 @@
 """Live symbolic-debug-loop test: breakpoint in hello-asm, step, inspect, wait."""
 
+import json
 import os
 import shutil
+import time
 from pathlib import Path
 
 import pytest
+from click.testing import CliRunner
 
 from petlib.build import build_asm
+from petlib.cli import main as cli_main
+from petlib.ops import run_until, wait_for_break
 from petlib.session import Session
 from petlib.symbols import load_labels
 from tests.vice_helpers import wait_for_text
@@ -97,3 +102,15 @@ def test_watchpoint_on_screen_ram(session, tmp_path):
         mon.resume()
     finally:
         mon.close()
+
+
+def test_mem_symbol_roundtrip_live(session, tmp_path):
+    """cli.md promises mem ADDR takes a symbol; prove it against a live PET."""
+    res = build_asm(Path("tests/programs/hello-asm/program.s"),
+                    out_prg=tmp_path / "m.prg")
+    session.set_labels_path(str(res.labels))
+    r = CliRunner().invoke(cli_main, ["--json", "mem", "write", "msg", "$2A"])
+    assert r.exit_code == 0, r.output
+    r = CliRunner().invoke(cli_main, ["--json", "mem", "read", "msg", "1"])
+    assert r.exit_code == 0, r.output
+    assert json.loads(r.output)["hex"] == "2a"

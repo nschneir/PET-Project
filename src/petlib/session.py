@@ -47,6 +47,20 @@ def _free_port() -> int:
         return s.getsockname()[1]
 
 
+def _kill_proc(proc: "subprocess.Popen") -> None:
+    """Terminate a launched emulator and make sure it is actually gone —
+    SIGTERM, wait, then SIGKILL — so a failed launch never orphans an xpet."""
+    proc.terminate()
+    try:
+        proc.wait(timeout=3)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        try:
+            proc.wait(timeout=2)
+        except subprocess.TimeoutExpired:
+            pass
+
+
 @dataclass
 class Session:
     name: str
@@ -114,35 +128,50 @@ class Session:
             raise SessionError(
                 f"session {name!r} already running; stop it or pass a different --name"
             )
-        port = _free_port()
-        args = [exe, *profile.vice_args,
-                "-binarymonitor", "-binarymonitoraddress", f"ip4://127.0.0.1:{port}"]
+        base_args = [exe, *profile.vice_args]
         if warp:
-            args.append("-warp")
+            base_args.append("-warp")
         if disk8:
             disk_path = Path(disk8).resolve()
             dtype = drive_type_for(disk_path)
             if dtype != 2031:  # 2031 is xpet's default; d80/d82 need the switch
-                args += ["-drive8type", str(dtype)]
-            args += ["-8", str(disk_path)]
+                base_args += ["-drive8type", str(dtype)]
+            base_args += ["-8", str(disk_path)]
         env = dict(os.environ)
         if headless:
             env["SDL_VIDEODRIVER"] = "dummy"
             env["SDL_AUDIODRIVER"] = "dummy"
-        proc = subprocess.Popen(
-            args, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+
+        # A cold xpet under heavy system load can be slow to open its binary
+        # monitor; retry with a fresh port so a transient slow start self-heals
+        # instead of failing the whole operation (and never orphaning a proc).
+        attempts = int(os.environ.get("PET_TOOLS_LAUNCH_ATTEMPTS", "2"))
+        deadline = float(os.environ.get("PET_TOOLS_LAUNCH_DEADLINE", "20"))
+        last_err: Exception | None = None
+        for _ in range(max(1, attempts)):
+            port = _free_port()
+            args = base_args + [
+                "-binarymonitor", "-binarymonitoraddress", f"ip4://127.0.0.1:{port}",
+            ]
+            proc = subprocess.Popen(
+                args, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
+            try:
+                with MonitorClient(port=port) as mon:
+                    mon.connect(deadline=deadline)
+                    mon.ping()
+                    mon.resume()  # connecting/commands leave the machine stopped
+            except (ConnectionError, TimeoutError) as e:
+                last_err = e
+                _kill_proc(proc)
+                continue
+            session = cls(name=name, pid=proc.pid, port=port, model=model)
+            session._save()
+            return session
+        raise SessionError(
+            f"VICE started but its monitor never answered after {max(1, attempts)} "
+            f"attempt(s): {last_err}"
         )
-        session = cls(name=name, pid=proc.pid, port=port, model=model)
-        try:
-            with MonitorClient(port=port) as mon:
-                mon.connect(deadline=20.0)
-                mon.ping()
-                mon.resume()  # connecting/commands leave the machine stopped
-        except (ConnectionError, TimeoutError) as e:
-            proc.terminate()
-            raise SessionError(f"VICE started but its monitor never answered: {e}") from e
-        session._save()
-        return session
 
     @classmethod
     def attach(cls, name: str | None = None) -> "Session":

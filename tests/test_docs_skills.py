@@ -39,5 +39,10 @@ def test_referenced_files_exist():
         if not p.exists():
             continue
         text = p.read_text()
-        for ref in re.findall(r"references/[\w.-]+\.md", text):
+        # A repo-root-relative path (skills/.../references/x.md) is resolved
+        # from the repo root; a bare references/x.md is skill-local.
+        for full in re.findall(r"skills/[\w./-]+/references/[\w.-]+\.md", text):
+            assert Path(full).exists(), f"{p}: missing {full}"
+        text_wo_full = re.sub(r"skills/[\w./-]+/references/[\w.-]+\.md", "", text)
+        for ref in re.findall(r"references/[\w.-]+\.md", text_wo_full):
             assert (p.parent / ref).exists(), f"{p}: missing {ref}"

@@ -120,6 +120,24 @@ source of bugs:
 | Program vanished after `pet run` | Autostart resets the machine first — that's normal; reload anything else you need. |
 | Disk command misbehaves | Check the drive status: `print ds$` (error table in references/basic-internals.md). |
 
+## When the tooling itself misbehaves
+
+The `pet` CLI drives a real VICE emulator process, so occasionally an
+*operational* failure happens that has nothing to do with your program. Stay
+out of the weeds — do NOT read pet-tools' own source or launch `xpet` by
+hand. The fixes are simple:
+
+- **`pet session start` fails ("monitor never answered").** A cold emulator
+  under load can be slow to come up. Just run `pet session start` again
+  (add `--warp` for a faster boot). If it keeps failing, list what's running
+  with `pet session list`, `pet session stop` anything stale, and retry.
+- **"session already running" / a name is taken.** `pet session stop <name>`
+  (or pick a different `--name`), then start fresh.
+- **Commands say "no PET session running."** You have no session, or you're
+  not naming it — start one, or pass `--session <name>`.
+- **A session seems wedged.** `pet session stop <name>` and start a new one;
+  a fresh session is cheap.
+
 ## Verifying a change
 
 Prove a change works, don't assume it. Either assert on output with

@@ -84,8 +84,9 @@ are in the `pet-development` skill's ROM-routines reference. CHROUT expects
   6502 an interrupt does *not* clear the D flag. `cld` once at program start
   (and in any interrupt handler that does arithmetic) keeps you in binary.
 
-For complete, tested game-loop and sound programs to copy from, see the
-`pet-development` skill's cookbook reference.
+For complete, tested game-loop and sound programs to copy from, see
+`skills/pet-development/references/cookbook.md` (its assembly recipes are the
+fastest starting point for an action game).
 
 ## Reading the keyboard and timing (game loops)
 

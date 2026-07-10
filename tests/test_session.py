@@ -132,3 +132,88 @@ def test_launch_disk8_args(home, tmp_path, monkeypatch):
     Session.launch(model="pet4032", name="dsk2", disk8=str(d64))
     assert "-drive8type" not in captured["args"]      # 2031 is the default
     assert "-8" in captured["args"]
+
+
+def test_launch_retries_transient_monitor_failure(home, monkeypatch):
+    """A first slow/failed monitor connect should be retried, the failed proc
+    killed (no orphan), and a second attempt succeed."""
+    procs = []
+
+    class FakeProc:
+        _n = 0
+
+        def __init__(self):
+            FakeProc._n += 1
+            self.pid = 900000 + FakeProc._n
+            self.killed = False
+            procs.append(self)
+
+        def terminate(self):
+            self.killed = True
+
+        def wait(self, timeout=None):
+            return 0
+
+        def kill(self):
+            self.killed = True
+
+    monkeypatch.setattr("petlib.session.subprocess.Popen", lambda *a, **k: FakeProc())
+    monkeypatch.setattr("petlib.session.shutil.which", lambda n: "/usr/bin/xpet")
+
+    calls = {"n": 0}
+
+    class FakeMon:
+        def __init__(self, *a, **k): ...
+        def __enter__(self): return self
+        def __exit__(self, *a): ...
+        def connect(self, deadline=0):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise TimeoutError("monitor slow")
+        def ping(self): ...
+        def resume(self): ...
+
+    monkeypatch.setattr("petlib.session.MonitorClient", FakeMon)
+
+    s = Session.launch(model="pet4032", name="retry")
+    assert s.pid == procs[1].pid          # the second proc won
+    assert procs[0].killed is True        # the first was cleaned up
+    assert calls["n"] == 2                # exactly one retry
+
+
+def test_launch_exhausts_attempts_and_kills_all(home, monkeypatch):
+    procs = []
+
+    class FakeProc:
+        def __init__(self):
+            self.pid = 800000 + len(procs)
+            self.killed = False
+            procs.append(self)
+
+        def terminate(self):
+            self.killed = True
+
+        def wait(self, timeout=None):
+            return 0
+
+        def kill(self):
+            self.killed = True
+
+    monkeypatch.setenv("PET_TOOLS_LAUNCH_ATTEMPTS", "2")
+    monkeypatch.setattr("petlib.session.subprocess.Popen", lambda *a, **k: FakeProc())
+    monkeypatch.setattr("petlib.session.shutil.which", lambda n: "/usr/bin/xpet")
+
+    class FakeMon:
+        def __init__(self, *a, **k): ...
+        def __enter__(self): return self
+        def __exit__(self, *a): ...
+        def connect(self, deadline=0):
+            raise ConnectionError("never answers")
+        def ping(self): ...
+        def resume(self): ...
+
+    monkeypatch.setattr("petlib.session.MonitorClient", FakeMon)
+
+    with pytest.raises(SessionError, match="never answered after 2"):
+        Session.launch(model="pet4032", name="doomed")
+    assert len(procs) == 2 and all(p.killed for p in procs)   # both cleaned up

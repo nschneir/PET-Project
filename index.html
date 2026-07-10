@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PET PROJECT — agentic Commodore PET development</title>
+<meta name="description" content="A set of tools, skills, and an MCP that let AI agents write and debug Commodore PET software (BASIC and 6502 assembly) on the VICE emulator.">
+<style>
+  :root{
+    --room:#04070a;
+    --screen:#0a140c;
+    --screen-2:#0c1a0f;
+    --p:#3bf34b;           /* phosphor green */
+    --p-bright:#b9ffc4;    /* highlight */
+    --p-dim:#1f8a35;       /* muted */
+    --p-faint:#12561f;     /* faintest */
+    --glow:0 0 2px rgba(59,243,75,.55), 0 0 10px rgba(59,243,75,.22);
+    --mono:ui-monospace,"Cascadia Mono","Menlo","Consolas","Courier New",monospace;
+    --maxw:1080px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--room);color:var(--p);
+    font-family:var(--mono);font-size:16px;line-height:1.5;
+    letter-spacing:.02em;text-shadow:var(--glow);
+    -webkit-font-smoothing:none;
+  }
+  /* CRT room backdrop */
+  body::before{
+    content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background:radial-gradient(ellipse 80% 70% at 50% 30%, rgba(59,243,75,.05), transparent 70%);
+  }
+  a{color:var(--p-bright);text-decoration:none;border-bottom:1px solid var(--p-dim)}
+  a:hover,a:focus-visible{background:var(--p);color:var(--room);border-bottom-color:var(--p);outline:none;text-shadow:none}
+  :focus-visible{outline:2px solid var(--p-bright);outline-offset:2px}
+
+  .screen{
+    position:relative;z-index:1;max-width:var(--maxw);margin:0 auto;
+    min-height:100vh;background:linear-gradient(180deg,var(--screen),var(--screen-2));
+    padding:clamp(14px,3vw,34px);
+    box-shadow:0 0 0 2px #0d2413, 0 0 40px rgba(59,243,75,.10) inset, 0 0 60px rgba(0,0,0,.6);
+    border-radius:14px;
+  }
+  /* scanlines + subtle screen curvature vignette */
+  .screen::after{
+    content:"";position:fixed;inset:0;z-index:40;pointer-events:none;
+    background:
+      repeating-linear-gradient(0deg, rgba(0,0,0,.16) 0 1px, transparent 1px 3px),
+      radial-gradient(120% 120% at 50% 50%, transparent 62%, rgba(0,0,0,.55) 100%);
+    mix-blend-mode:multiply;
+    animation:flicker 5s steps(60) infinite;
+  }
+  @keyframes flicker{0%,100%{opacity:.96}48%{opacity:.99}50%{opacity:.9}52%{opacity:.99}}
+
+  .wrap{max-width:920px;margin:0 auto}
+
+  /* PETSCII-framed panel */
+  .panel{border:2px solid var(--p-dim);padding:clamp(14px,2.4vw,26px);margin:26px 0;position:relative;background:rgba(10,25,14,.35)}
+  .panel > .cap{position:absolute;top:-.75em;left:14px;background:var(--screen-2);padding:0 .5em;color:var(--p-bright);font-size:.82rem;letter-spacing:.18em}
+
+  /* header / boot */
+  header{padding:8px 0 4px;min-height:210px}
+  #boot{white-space:pre-wrap;font-size:clamp(.82rem,2.4vw,1rem);color:var(--p);min-height:120px;margin:0 0 6px}
+  .title{
+    font-weight:700;line-height:.98;margin:.1em 0 0;
+    font-size:clamp(2.1rem,9vw,5.2rem);letter-spacing:.02em;color:var(--p-bright);
+    text-shadow:0 0 4px rgba(185,255,196,.6),0 0 22px rgba(59,243,75,.45);
+  }
+  .tag{margin:.5em 0 1.1em;max-width:60ch;color:var(--p);font-size:clamp(.95rem,2.6vw,1.15rem)}
+  .cursor{display:inline-block;width:.62em;height:1.05em;background:var(--p);vertical-align:-.16em;animation:blink 1.06s steps(1) infinite;box-shadow:var(--glow)}
+  @keyframes blink{50%{opacity:0}}
+
+  .rule{color:var(--p-dim);white-space:nowrap;overflow:hidden;user-select:none;margin:40px 0 8px;font-size:1rem}
+  section{margin-top:clamp(52px,7.5vw,92px)}
+  section:first-of-type{margin-top:clamp(30px,4vw,48px)}
+  h2{font-size:clamp(1.1rem,3.4vw,1.5rem);color:var(--p-bright);letter-spacing:.12em;margin:.2em 0 1em}
+  h2 .mk{color:var(--p-dim)}
+  h3{color:var(--p-bright);letter-spacing:.06em;margin:1.1em 0 .3em;font-size:1rem}
+  p{margin:.55em 0}
+  .lead{font-size:clamp(1rem,2.8vw,1.2rem)}
+
+  ul.pet{list-style:none;padding:0;margin:.4em 0}
+  ul.pet li{padding-left:1.6em;position:relative;margin:.28em 0}
+  ul.pet li::before{content:"\25B8";position:absolute;left:0;color:var(--p-dim)}
+
+  /* buttons: authentic PET reverse-video */
+  .btns{display:flex;flex-wrap:wrap;gap:12px;margin:14px 0 2px}
+  .btn{display:inline-block;padding:.55em 1.1em;border:2px solid var(--p);background:transparent;color:var(--p-bright);
+       font-family:var(--mono);font-size:.95rem;letter-spacing:.08em;cursor:pointer;text-shadow:var(--glow)}
+  .btn:hover,.btn:focus-visible{background:var(--p);color:var(--room);text-shadow:none;outline:none}
+  .btn.primary{background:var(--p);color:var(--room);text-shadow:none}
+  .btn.primary:hover,.btn.primary:focus-visible{background:var(--p-bright);border-color:var(--p-bright)}
+
+  /* feature grid */
+  .grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));margin-top:8px}
+  .card{border:2px solid var(--p-faint);padding:14px 16px;background:rgba(12,26,15,.5);transition:border-color .15s,transform .15s}
+  .card:hover{border-color:var(--p);transform:translateY(-2px)}
+  .card b{color:var(--p-bright);display:block;letter-spacing:.06em;margin-bottom:.2em}
+  .card small{color:var(--p-dim);font-size:.82rem;letter-spacing:.04em}
+  .card p{font-size:.92rem;margin:.35em 0 0}
+
+  /* code blocks */
+  .code{position:relative;border:1px solid var(--p-faint);background:#071009;margin:12px 0}
+  .code pre{margin:0;padding:14px 46px 14px 16px;overflow-x:auto;font-size:.9rem;line-height:1.65;color:var(--p)}
+  .code .cm{color:var(--p-dim)}
+  .code .pr{color:var(--p-bright)}
+  .copy{position:absolute;top:8px;right:8px;border:1px solid var(--p-dim);background:var(--screen);color:var(--p);
+        font-family:var(--mono);font-size:.72rem;letter-spacing:.1em;padding:3px 8px;cursor:pointer}
+  .copy:hover,.copy:focus-visible{background:var(--p);color:var(--room);outline:none}
+
+  /* tabs */
+  .tabs{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 0}
+  .tab{border:2px solid var(--p-faint);background:transparent;color:var(--p);font-family:var(--mono);
+       font-size:.85rem;letter-spacing:.06em;padding:.4em .8em;cursor:pointer;border-bottom:none;text-shadow:var(--glow)}
+  .tab[aria-selected="true"]{background:var(--p);color:var(--room);border-color:var(--p);text-shadow:none}
+  .tab:focus-visible{outline:none;border-color:var(--p-bright)}
+  .tabpanel{border:2px solid var(--p);padding:16px}
+  .tabpanel[hidden]{display:none}
+  .tabpanel ol{margin:.2em 0;padding-left:1.4em}
+  .tabpanel li{margin:.4em 0}
+
+  /* demos table */
+  table{width:100%;border-collapse:collapse;margin:10px 0;font-size:.92rem}
+  th,td{border:1px solid var(--p-faint);padding:.5em .7em;text-align:left}
+  th{color:var(--p-bright);letter-spacing:.08em;font-weight:700;background:rgba(59,243,75,.06)}
+  .ok{color:var(--p-bright)}
+  .no{color:var(--p-dim)}
+
+  footer{margin:34px 0 8px;color:var(--p-dim);font-size:.86rem}
+  footer .links{display:flex;flex-wrap:wrap;gap:8px 22px;margin:.6em 0}
+  .ready{color:var(--p-bright);margin-top:22px;font-size:1.05rem}
+
+  .reveal{opacity:0;transform:translateY(14px)}
+  .reveal.in{opacity:1;transform:none;transition:opacity .5s ease,transform .5s ease}
+
+  @media (max-width:560px){
+    .rule{font-size:.7rem}
+    .screen{border-radius:0}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none!important;transition:none!important}
+    .reveal{opacity:1;transform:none}
+    .cursor{opacity:1}
+    html{scroll-behavior:auto}
+  }
+</style>
+</head>
+<body>
+<main class="screen">
+  <div class="wrap">
+
+    <header>
+      <div id="boot" aria-hidden="true"></div>
+      <div id="hero" hidden>
+        <h1 class="title">PET&nbsp;PROJECT</h1>
+        <p class="tag">A set of tools, skills, and an MCP that let AI agents write and
+          debug Commodore PET software &mdash; BASIC and 6502 assembly &mdash; on the
+          VICE emulator.</p>
+        <div class="btns">
+          <a class="btn primary" href="https://github.com/nschneir/PET-Project">VIEW ON GITHUB &#x25B8;</a>
+          <a class="btn" href="#start">QUICK START</a>
+          <a class="btn" href="#agents">USE WITH AI</a>
+        </div>
+      </div>
+    </header>
+
+    <div class="rule" aria-hidden="true">&#x2554;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2557;</div>
+
+    <section class="reveal" id="what">
+      <h2><span class="mk">&#x2500;&#x2500;</span> WHAT IS IT <span class="mk">&#x2500;&#x2500;</span></h2>
+      <p class="lead">The Commodore PET was where a generation learned to program. PET
+      Project brings it back &mdash; not just for nostalgia, but as a place an AI agent can
+      actually <b>build, run, and debug</b> real 8-bit software end to end.</p>
+      <p>It drives the open-source <b>VICE</b> emulator through a clean command line
+      (every command speaks JSON) and an <b>MCP server</b>, and includes the machine
+      knowledge &mdash; skills, memory maps, a tested cookbook &mdash; that an agent
+      needs to get it right. Point Claude Code, Codex, Cursor, Gemini, or Antigravity at it and
+      ask for a game.</p>
+    </section>
+
+    <section class="reveal" id="features">
+      <h2><span class="mk">&#x2500;&#x2500;</span> CAPABILITIES <span class="mk">&#x2500;&#x2500;</span></h2>
+      <div class="grid">
+        <div class="card"><b>&#x25B8; SESSIONS</b><small>pet session</small><p>Boot any PET model (2001&ndash;8296) headless, in warp, with a disk attached.</p></div>
+        <div class="card"><b>&#x25B8; BUILD</b><small>ca65 / petcat</small><p>Assemble 6502 with cc65 or tokenize BASIC; load and RUN in one step.</p></div>
+        <div class="card"><b>&#x25B8; DEBUG</b><small>break / step / watch</small><p>Symbolic breakpoints and watchpoints, single-step, memory and register inspection.</p></div>
+        <div class="card"><b>&#x25B8; WAIT</b><small>the sync primitive</small><p>Block until screen text appears, memory hits a value, or a checkpoint fires.</p></div>
+        <div class="card"><b>&#x25B8; DISK</b><small>d64 / d80 / d82</small><p>Create images, copy files in and out, attach and boot &mdash; via c1541.</p></div>
+        <div class="card"><b>&#x25B8; ROM TOOLS</b><small>info / disasm</small><p>Identify the ROM set and disassemble live memory with symbol annotations.</p></div>
+        <div class="card"><b>&#x25B8; TEST RUNNER</b><small>declarative YAML</small><p>Boot, load, feed input, assert on screen / memory / registers. CI-ready.</p></div>
+        <div class="card"><b>&#x25B8; MCP + SKILLS</b><small>agent-native</small><p>~30 MCP tools plus skills, memory maps, and a tested recipe cookbook.</p></div>
+      </div>
+    </section>
+
+    <section class="reveal" id="start">
+      <h2><span class="mk">&#x2500;&#x2500;</span> QUICK START <span class="mk">&#x2500;&#x2500;</span></h2>
+      <p>Needs Python 3.11+, VICE 3.5+, and the cc65 suite.</p>
+      <div class="code">
+        <button class="copy" type="button">COPY</button>
+<pre><span class="cm"># macOS</span>
+brew install vice cc65
+pip install -e .</pre>
+      </div>
+      <p>Then drive an emulated PET:</p>
+      <div class="code">
+        <button class="copy" type="button">COPY</button>
+<pre>pet session start --model pet4032 <span class="cm"># boot a PET 4032</span>
+pet run game.s                    <span class="cm"># assemble + load + RUN</span>
+pet screen                        <span class="cm"># read the screen as text</span>
+pet break add start               <span class="cm"># symbolic breakpoint</span>
+pet wait --break                  <span class="cm"># block until it fires</span>
+pet step 5 &amp;&amp; pet reg             <span class="cm"># single-step, inspect</span></pre>
+      </div>
+      <p>Every command takes <b>--json</b> &mdash; the interface an agent uses.</p>
+    </section>
+
+    <section class="reveal" id="agents">
+      <h2><span class="mk">&#x2500;&#x2500;</span> USE WITH AN AI AGENT <span class="mk">&#x2500;&#x2500;</span></h2>
+      <p><b>Any agent with a shell needs zero setup</b> &mdash; the CLI plus <code>--json</code>
+      is the whole integration. For MCP-native clients, <code>pet-tools-mcp</code> exposes
+      the same operations. Pick your agent:</p>
+
+      <div class="tabs" role="tablist" aria-label="AI agent setup">
+        <button class="tab" role="tab" id="t-claude" aria-controls="p-claude" aria-selected="true">Claude Code</button>
+        <button class="tab" role="tab" id="t-codex" aria-controls="p-codex" aria-selected="false">Codex</button>
+        <button class="tab" role="tab" id="t-cursor" aria-controls="p-cursor" aria-selected="false">Cursor</button>
+        <button class="tab" role="tab" id="t-gemini" aria-controls="p-gemini" aria-selected="false">Gemini CLI</button>
+        <button class="tab" role="tab" id="t-anti" aria-controls="p-anti" aria-selected="false">Antigravity</button>
+      </div>
+
+      <div class="tabpanel" role="tabpanel" id="p-claude" aria-labelledby="t-claude">
+        <ol>
+          <li>Install the skills: <code>mkdir -p .claude/skills &amp;&amp; cp -R skills/* .claude/skills/</code></li>
+          <li>Optional MCP: <code>claude mcp add pet-tools -- pet-tools-mcp</code></li>
+          <li>Ask for what you want &mdash; e.g. paste a prompt from <code>demos/</code>.</li>
+        </ol>
+        <p><small>No CLAUDE.md edits needed &mdash; installed skills load on demand.</small></p>
+      </div>
+      <div class="tabpanel" role="tabpanel" id="p-codex" aria-labelledby="t-codex" hidden>
+        <ol>
+          <li>Add the MCP: <code>codex mcp add pet-tools -- pet-tools-mcp</code></li>
+          <li>In <code>AGENTS.md</code>: &ldquo;For PET work, first read skills/pet-development/SKILL.md and docs/cli.md.&rdquo;</li>
+          <li>Paste a prompt from <code>demos/</code>.</li>
+        </ol>
+      </div>
+      <div class="tabpanel" role="tabpanel" id="p-cursor" aria-labelledby="t-cursor" hidden>
+        <ol>
+          <li>Add the standard <code>mcpServers</code> block to <code>.cursor/mcp.json</code>.</li>
+          <li>Add a rule (<code>.cursor/rules/pet.mdc</code>) pointing at skills/pet-development/SKILL.md.</li>
+          <li>Paste a prompt from <code>demos/</code>.</li>
+        </ol>
+      </div>
+      <div class="tabpanel" role="tabpanel" id="p-gemini" aria-labelledby="t-gemini" hidden>
+        <ol>
+          <li>Add the <code>mcpServers</code> block to <code>.gemini/settings.json</code>.</li>
+          <li>Add the read-the-skill one-liner to <code>GEMINI.md</code>.</li>
+          <li>Paste a prompt from <code>demos/</code>.</li>
+        </ol>
+      </div>
+      <div class="tabpanel" role="tabpanel" id="p-anti" aria-labelledby="t-anti" hidden>
+        <ol>
+          <li>MCP store &rarr; Manage MCP Servers &rarr; View raw config &rarr; add the <code>mcpServers</code> block.</li>
+          <li>Add the read-the-skill one-liner to <code>AGENTS.md</code>.</li>
+          <li>Paste a prompt from <code>demos/</code>.</li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="reveal" id="demos">
+      <h2><span class="mk">&#x2500;&#x2500;</span> DEMOS: TRY IT! <span class="mk">&#x2500;&#x2500;</span></h2>
+      <p>Ready-to-paste prompts, graded from a first BASIC program up to Snake in
+      assembly. Each is validated by handing it to a real agent and confirming the
+      result. <b>01&ndash;03 pass on the first attempt.</b></p>
+      <table>
+        <thead><tr><th>#</th><th>Demo</th><th>Language</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td>01</td><td>Guess the number</td><td>BASIC</td><td class="ok">[OK] passed</td></tr>
+          <tr><td>02</td><td>Bouncing ball</td><td>BASIC</td><td class="ok">[OK] passed</td></tr>
+          <tr><td>03</td><td>Sieve benchmark</td><td>BASIC + asm</td><td class="ok">[OK] passed (93x faster)</td></tr>
+          <tr><td>04</td><td>Snake</td><td>6502 assembly</td><td class="no">[  ] in progress</td></tr>
+          <tr><td>05</td><td>Debug hunt</td><td>BASIC + debugger</td><td class="no">[  ] queued</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <div class="rule" aria-hidden="true">&#x255A;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x2550;&#x255D;</div>
+
+    <footer class="reveal">
+      <p>MIT licensed. VICE is a separate GPLv2+ program invoked as a subprocess &mdash;
+      not bundled. No Commodore ROM code lives in this repo; ROM bytes are read only
+      from the emulator you install.</p>
+      <p><small>Built primarily by AI (Anthropic&rsquo;s Claude, via Claude Code) under
+      human direction &mdash; a working example of AI-built developer tooling.</small></p>
+      <div class="links">
+        <a href="https://github.com/nschneir/PET-Project">&#x25B8; GitHub</a>
+        <a href="https://github.com/nschneir/PET-Project/blob/main/docs/cli.md">&#x25B8; CLI reference</a>
+        <a href="https://github.com/nschneir/PET-Project/tree/main/demos">&#x25B8; Demos</a>
+        <a href="https://github.com/nschneir/PET-Project/blob/main/LICENSE">&#x25B8; License</a>
+      </div>
+      <p class="ready">READY.<span class="cursor" aria-hidden="true"></span></p>
+    </footer>
+
+  </div>
+</main>
+
+<script>
+(function(){
+  var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var boot = document.getElementById("boot");
+  var hero = document.getElementById("hero");
+  var lines = [
+    "*** PET PROJECT ***",
+    "",
+    " COMMODORE PET DEVELOPMENT TOOLKIT",
+    " 31743 BYTES FREE",
+    "",
+    "READY.",
+    "█"
+  ];
+
+  function reveals(){
+    var els = document.querySelectorAll(".reveal");
+    if(reduce || !("IntersectionObserver" in window)){
+      els.forEach(function(e){e.classList.add("in")});return;
+    }
+    var io = new IntersectionObserver(function(es){
+      es.forEach(function(en){ if(en.isIntersecting){ en.target.classList.add("in"); io.unobserve(en.target);} });
+    },{threshold:.12});
+    els.forEach(function(e){io.observe(e)});
+  }
+
+  function showHero(){ hero.hidden = false; reveals(); }
+
+  if(reduce){
+    boot.textContent = lines.join("\n").replace("█","");
+    showHero();
+  } else {
+    var full = lines.join("\n");
+    var i = 0;
+    (function type(){
+      boot.textContent = full.slice(0, i);
+      i++;
+      if(i <= full.length){ setTimeout(type, full[i-1] === "\n" ? 90 : 14); }
+      else { setTimeout(showHero, 260); }
+    })();
+  }
+
+  // Tabs
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('[role="tab"]'));
+  function select(tab){
+    tabs.forEach(function(t){
+      var sel = t === tab;
+      t.setAttribute("aria-selected", sel ? "true" : "false");
+      t.tabIndex = sel ? 0 : -1;
+      document.getElementById(t.getAttribute("aria-controls")).hidden = !sel;
+    });
+  }
+  tabs.forEach(function(t,idx){
+    t.tabIndex = idx === 0 ? 0 : -1;
+    t.addEventListener("click", function(){ select(t); });
+    t.addEventListener("keydown", function(e){
+      var d = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+      if(!d) return;
+      e.preventDefault();
+      var n = (idx + d + tabs.length) % tabs.length;
+      tabs[n].focus(); select(tabs[n]);
+    });
+  });
+
+  // Copy buttons
+  document.querySelectorAll(".copy").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var code = btn.parentElement.querySelector("pre").innerText;
+      navigator.clipboard.writeText(code).then(function(){
+        var old = btn.textContent; btn.textContent = "COPIED";
+        setTimeout(function(){ btn.textContent = old; }, 1200);
+      }).catch(function(){ btn.textContent = "✘"; });
+    });
+  });
+})();
+</script>
+</body>
+</html>

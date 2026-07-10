@@ -8,8 +8,8 @@
 ![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-green.svg)
 ![Built with AI](https://img.shields.io/badge/built%20with-AI-green.svg)
 
-AI-oriented toolset for developing and debugging Commodore PET software
-(Commodore BASIC and 6502 assembly) on the VICE emulator.
+PET Project is a set of tools, skills, and an MCP to enable agentic Commodore
+PET coding and debugging using the VICE emulator.
 
 > The Python package is imported as `petlib`, installed as `pet-tools`, and
 > driven by the `pet` command-line tool.

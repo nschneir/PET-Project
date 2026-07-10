@@ -114,3 +114,51 @@ def test_mem_symbol_roundtrip_live(session, tmp_path):
     r = CliRunner().invoke(cli_main, ["--json", "mem", "read", "msg", "1"])
     assert r.exit_code == 0, r.output
     assert json.loads(r.output)["hex"] == "2a"
+
+
+HOT_LOOP = """\
+        .segment "LOADADDR"
+        .word   $0401
+        .segment "EXEHDR"
+        .word   nextln
+        .word   10
+        .byte   $9E, "1037", $00
+nextln: .word   $0000
+        .segment "CODE"
+start:
+mainloop:
+        inc     $033A
+        jmp     mainloop
+"""
+
+
+def test_checkpoint_halt_reliability_under_warp(session, tmp_path):
+    """Regression for the demo-04 dogfooding failure (2026-07-10): under
+    --warp --headless, wait --break registered the hit but did not halt —
+    the connect-stop/resume event race in ops.wait_for_break swallowed
+    genuine checkpoint stops. Hammer it: every trial must halt."""
+    src = tmp_path / "hot.s"
+    src.write_text(HOT_LOOP)
+    res = build_asm(src)
+    labels = load_labels(res.labels)
+    with session.monitor() as mon:
+        try:
+            mon.autostart(res.prg.resolve(), run=True)
+        finally:
+            mon.resume()
+    time.sleep(3.0)  # autostart LOAD+RUN takes a few emulated seconds
+
+    with session.monitor() as mon:
+        ck = mon.checkpoint_set(labels["mainloop"])
+        mon.resume()
+    try:
+        for i in range(20):
+            out = wait_for_break(session, timeout=10.0)
+            assert out["fired"] == "break", f"trial {i}: wait --break timed out"
+            assert out["checkpoint"] == ck.number, f"trial {i}: wrong checkpoint"
+            with session.monitor() as mon:
+                mon.resume()  # run to the next hit
+    finally:
+        with session.monitor() as mon:
+            mon.checkpoint_delete(ck.number)
+            mon.resume()

@@ -1,9 +1,9 @@
 """Declarative YAML test runner (spec §8).
 
 A test boots a fresh warp session, optionally loads a program (autostart),
-then executes wait/key/assert steps. Demos (spec §8.1) run through the same
-engine via demo_test(). Fail-fast; the failure screen is captured for
-debugging.
+then executes wait/key/assert steps. The example programs (spec §8.1,
+tests/programs/) run through the same engine via program_test(). Fail-fast;
+the failure screen is captured for debugging.
 """
 
 from __future__ import annotations
@@ -66,19 +66,23 @@ def load_test(path: str | Path) -> dict:
     return spec
 
 
-def demo_test(demo_dir: str | Path) -> dict:
-    demo_dir = Path(demo_dir)
+def program_test(program_dir: str | Path) -> dict:
+    """Synthesize a test spec from an example-program directory
+    (program.bas/.s + expect.txt — see tests/programs/)."""
+    program_dir = Path(program_dir)
     prog = next(
-        (demo_dir / n for n in ("program.bas", "program.s") if (demo_dir / n).exists()),
+        (program_dir / n for n in ("program.bas", "program.s")
+         if (program_dir / n).exists()),
         None,
     )
-    expect = demo_dir / "expect.txt"
+    expect = program_dir / "expect.txt"
     if prog is None or not expect.exists():
         raise TestError(
-            f"{demo_dir}: not a demo directory (needs program.bas/.s and expect.txt)"
+            f"{program_dir}: not an example-program directory "
+            "(needs program.bas/.s and expect.txt)"
         )
     steps = [{"wait": {"text": ln}} for ln in expect.read_text().splitlines() if ln.strip()]
-    return {"name": demo_dir.name, "machine": "pet4032", "timeout": 45,
+    return {"name": program_dir.name, "machine": "pet4032", "timeout": 45,
             "autorun": True, "program": str(prog.resolve()), "steps": steps}
 
 

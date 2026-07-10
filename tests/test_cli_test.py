@@ -49,15 +49,15 @@ def test_run_load_error(tmp_path):
     assert "nosuch" in json.loads(r.output)["error"]
 
 
-def test_demos_runs_each_directory(tmp_path):
+def test_programs_runs_each_directory(tmp_path):
     for d, ok in (("alpha", True), ("beta", False)):
         (tmp_path / d).mkdir()
         (tmp_path / d / "expect.txt").write_text("X\n")
         (tmp_path / d / "program.bas").write_text("10 rem\n")
     results = {"alpha": _result(True, "alpha"), "beta": _result(False, "beta")}
-    with patch("petlib.cli.demo_test", side_effect=lambda p: {"name": Path(p).name}) as dt, \
+    with patch("petlib.cli.program_test", side_effect=lambda p: {"name": Path(p).name}) as dt, \
          patch("petlib.cli.run_test", side_effect=lambda s: results[s["name"]]):
-        r = CliRunner().invoke(main, ["--json", "test", "demos", str(tmp_path)])
+        r = CliRunner().invoke(main, ["--json", "test", "programs", str(tmp_path)])
     assert r.exit_code == 1          # beta failed
     out = json.loads(r.output)
     assert [t["name"] for t in out["tests"]] == ["alpha", "beta"]

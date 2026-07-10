@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from petlib.testing import TestError, demo_test, load_test
+from petlib.testing import TestError, load_test, program_test
 
 
 def _write(tmp_path, text, name="t.yaml"):
@@ -68,17 +68,17 @@ steps:
     assert len(spec["steps"]) == 5
 
 
-def test_demo_test_synthesis():
-    spec = demo_test(Path("demos/hello-basic"))
+def test_program_test_synthesis():
+    spec = program_test(Path("tests/programs/hello-basic"))
     assert spec["name"] == "hello-basic"
     assert spec["autorun"] is True
-    assert spec["program"].endswith("demos/hello-basic/program.bas")
+    assert spec["program"].endswith("tests/programs/hello-basic/program.bas")
     assert spec["steps"] == [
         {"wait": {"text": "HELLO FROM BASIC"}},
         {"wait": {"text": "2+2= 4"}},
     ]
 
 
-def test_demo_test_rejects_non_demo(tmp_path):
-    with pytest.raises(TestError, match="demo"):
-        demo_test(tmp_path)
+def test_program_test_rejects_non_program_dir(tmp_path):
+    with pytest.raises(TestError, match="example-program"):
+        program_test(tmp_path)

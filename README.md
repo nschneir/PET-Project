@@ -30,8 +30,8 @@ Debian / Ubuntu:
 
     pip install -e .
     pet session start --model pet4032      # boot an emulated PET 4032
-    pet run demos/hello-basic/program.bas  # tokenize + load + RUN
-    pet run demos/hello-asm/program.s      # assemble + load + RUN (needs cc65)
+    pet run tests/programs/hello-basic/program.bas   # tokenize + load + RUN
+    pet run tests/programs/hello-asm/program.s       # assemble + load + RUN (needs cc65)
     pet screen                             # read the screen as text
     pet basic type prog.bas --run          # type a program via the keyboard
     pet mem read '$8000' 64                # hex dump of screen RAM
@@ -47,7 +47,7 @@ Debian / Ubuntu:
     pet session stop
 
     pet test run mytest.yaml               # declarative YAML test (spec §8)
-    pet test demos                         # run every demo as a test
+    pet test programs                      # run every example program as a test
 
 Every command takes `--json` for machine-readable output — the intended
 interface for AI agents.
@@ -97,12 +97,15 @@ Whichever agent you use, point its instructions file (`CLAUDE.md` / `AGENTS.md`
 [`skills/pet-development/SKILL.md`](skills/pet-development/SKILL.md) so the agent
 learns the PET workflows and the machine references.
 
-## Demos
+## Demos — try it with your AI agent
 
-`demos/` holds one-shot prompts paired with reference BASIC and assembly
-solutions and expected screen output. The integration suite builds and runs
-each demo on an emulated PET, so they double as end-to-end tests. Run them
-all with `pet test demos` — demos and YAML tests share one execution engine.
+`demos/` is a collection of ready-to-paste prompts for exercising the toolset
+with an AI coding agent — from a first BASIC program up to writing a game in
+6502 assembly. Configure your agent (see "Using with AI coding agents" above),
+paste a prompt, and watch it build, run, and debug on the emulated PET.
+
+Reference example programs (with expected output, runnable as tests via
+`pet test programs`) live in `tests/programs/`.
 
 ## Status
 
@@ -111,7 +114,7 @@ registers, `pet build` (ca65/ld65), `pet basic` (petcat), `pet load`/`pet run`,
 symbolic breakpoints and watchpoints with conditions, `pet step`/`finish`/
 `continue`/`until`, the `pet wait` synchronization primitive, `pet disk`
 (create/ls/put/get/boot via c1541), `pet rom info`/`disasm`, `pet test`
-(declarative YAML tests + demos), the `pet-tools-mcp` MCP server, and the AI
+(declarative YAML tests + example programs), the `pet-tools-mcp` MCP server, and the AI
 enablement docs (the `pet-development` and `6502-assembly` skills, the machine
 references, and the [`docs/cli.md`](docs/cli.md) man pages). Design and phase
 history: `docs/superpowers/specs/`.

@@ -12,7 +12,7 @@ from petlib.session import Session
 from petlib.text import ascii_to_petscii
 from tests.vice_helpers import wait_for_text
 
-DEMOS = sorted(p.parent for p in Path("demos").glob("*/expect.txt"))
+PROGRAMS = sorted(p.parent for p in Path("tests/programs").glob("*/expect.txt"))
 
 pytestmark = [
     pytest.mark.vice,
@@ -45,7 +45,7 @@ def _build_demo(demo: Path, out_dir: Path) -> Path:
     return build_asm(demo / "program.s", out_prg=out_dir / f"{demo.name}.prg").prg
 
 
-@pytest.mark.parametrize("demo", DEMOS, ids=[d.name for d in DEMOS])
+@pytest.mark.parametrize("demo", PROGRAMS, ids=[d.name for d in PROGRAMS])
 def test_demo(demo, session, tmp_path):
     prg = _build_demo(demo, tmp_path)
     with session.monitor() as mon:
@@ -58,7 +58,7 @@ def test_demo(demo, session, tmp_path):
 
 
 def test_basic_type_path(session):
-    src = Path("demos/hello-basic/program.bas").read_text() + "run\n"
+    src = Path("tests/programs/hello-basic/program.bas").read_text() + "run\n"
     with session.monitor() as mon:
         try:
             mon.keyboard_feed(ascii_to_petscii(src))

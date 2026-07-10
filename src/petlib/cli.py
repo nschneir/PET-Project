@@ -29,7 +29,7 @@ from .protocol import CP_EXEC, CP_LOAD, CP_STORE
 from .screen import read_screen_text, save_screenshot_png
 from .session import Session, SessionError
 from .symbols import format_addr
-from .testing import TestError, demo_test, load_test, run_test
+from .testing import TestError, load_test, program_test, run_test
 from .text import ascii_to_petscii
 
 
@@ -725,7 +725,7 @@ def rom_disasm(ctx, start, length):
 
 @main.group("test")
 def test_() -> None:
-    """Run declarative YAML tests and demos on a fresh emulated PET."""
+    """Run declarative YAML tests and example programs on a fresh emulated PET."""
 
 
 def _emit_test_results(ctx, results) -> None:
@@ -760,20 +760,20 @@ def test_run(ctx, yaml_file):
     _emit_test_results(ctx, [result])
 
 
-@test_.command("demos")
-@click.argument("directory", default="demos",
+@test_.command("programs")
+@click.argument("directory", default="tests/programs",
                 type=click.Path(exists=True, file_okay=False, path_type=Path))
 @click.pass_context
-def test_demos(ctx, directory):
-    """Run every demo in DIRECTORY as a generated test."""
-    demo_dirs = sorted(d for d in directory.iterdir() if (d / "expect.txt").exists())
-    if not demo_dirs:
-        fail(ctx, f"no demos found in {directory}")
+def test_programs(ctx, directory):
+    """Run every example program in DIRECTORY as a generated test."""
+    program_dirs = sorted(d for d in directory.iterdir() if (d / "expect.txt").exists())
+    if not program_dirs:
+        fail(ctx, f"no example programs found in {directory}")
         return
     results = []
-    for d in demo_dirs:
+    for d in program_dirs:
         try:
-            results.append(run_test(demo_test(d)))
+            results.append(run_test(program_test(d)))
         except (TestError, KeyError, BasicError, BuildError, SessionError) as e:
             fail(ctx, f"{d.name}: {e}")
             return

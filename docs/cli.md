@@ -375,10 +375,11 @@ format in the spec (§8): a `program`, an optional `autorun`, and a list of
 
 JSON: `{"passed", "tests": [<report>]}`. Exit 1 if the test fails.
 
-### `pet test demos`
+### `pet test programs`
 
-Run every demo directory (one with an `expect.txt`) as a generated test.
+Run every example-program directory (one with an `expect.txt`) as a generated
+test.
 
-- `DIRECTORY` (default `demos`).
+- `DIRECTORY` (default `tests/programs`).
 
-JSON: `{"passed", "tests": [...]}`. Exit 1 if any demo fails.
+JSON: `{"passed", "tests": [...]}`. Exit 1 if any program fails.

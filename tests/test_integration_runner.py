@@ -1,4 +1,4 @@
-"""Live test-runner integration: YAML tests and demos-as-tests on real xpet."""
+"""Live test-runner integration: YAML tests and example programs on real xpet."""
 
 import os
 import shutil
@@ -8,7 +8,7 @@ import pytest
 from click.testing import CliRunner
 
 from petlib.cli import main
-from petlib.testing import demo_test, load_test, run_test
+from petlib.testing import load_test, program_test, run_test
 
 pytestmark = [
     pytest.mark.vice,
@@ -43,8 +43,8 @@ def test_failing_wait_reports_screen():
     assert "READY." in result.screen          # failure screen captured
 
 
-def test_demo_as_test_hello_basic():
-    result = run_test(demo_test(Path("demos/hello-basic")))
+def test_program_as_test_hello_basic():
+    result = run_test(program_test(Path("tests/programs/hello-basic")))
     assert result.passed, [s.detail for s in result.steps]
 
 
@@ -52,8 +52,8 @@ def test_demo_as_test_hello_basic():
     shutil.which("ca65") is None and not os.environ.get("PET_TOOLS_CA65"),
     reason="cc65 not installed",
 )
-def test_demo_as_test_hello_asm():
-    result = run_test(demo_test(Path("demos/hello-asm")))
+def test_program_as_test_hello_asm():
+    result = run_test(program_test(Path("tests/programs/hello-asm")))
     assert result.passed, [s.detail for s in result.steps]
 
 

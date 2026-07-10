@@ -107,7 +107,7 @@ Prove a change works, don't assume it. Either assert on output with
 `pet wait --text "EXPECTED"`, or write a declarative test and run it with
 `pet test run mytest.yaml` (the YAML format is in the spec §8: a `program`,
 optional `autorun`, and `wait`/`key`/`assert` steps). Existing example
-programs can all be run as tests with `pet test demos`.
+programs can all be run as tests with `pet test programs`.
 
 ## References
 

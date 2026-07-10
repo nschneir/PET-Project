@@ -35,7 +35,7 @@ def session(tmp_path, monkeypatch):
 
 def test_symbolic_debug_loop(session, tmp_path):
     # build with -g: local labels must be in the label file
-    res = build_asm(Path("demos/hello-asm/program.s"), out_prg=tmp_path / "dbg.prg")
+    res = build_asm(Path("tests/programs/hello-asm/program.s"), out_prg=tmp_path / "dbg.prg")
     labels = load_labels(res.labels)
     assert {"start", "loop", "msg"} <= set(labels)
     session.set_labels_path(str(res.labels))
@@ -76,7 +76,7 @@ def test_symbolic_debug_loop(session, tmp_path):
 
 
 def test_watchpoint_on_screen_ram(session, tmp_path):
-    res = build_asm(Path("demos/hello-asm/program.s"), out_prg=tmp_path / "w.prg")
+    res = build_asm(Path("tests/programs/hello-asm/program.s"), out_prg=tmp_path / "w.prg")
     from petlib.protocol import CP_STORE
 
     with session.monitor() as mon:

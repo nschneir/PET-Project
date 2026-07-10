@@ -25,7 +25,7 @@ pytestmark = [
 
 
 def _make_disk(tmp_path, image_name):
-    prg = tokenize(Path("demos/hello-basic/program.bas"), tmp_path / "d.prg", "4.0")
+    prg = tokenize(Path("tests/programs/hello-basic/program.bas"), tmp_path / "d.prg", "4.0")
     img = create_image(tmp_path / image_name, label="work", disk_id="01")
     put_file(img, prg, "demo")
     return img, prg

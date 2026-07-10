@@ -32,7 +32,7 @@ from .romdoc import identify, rom_labels
 from .screen import read_screen_text, save_screenshot_png
 from .session import Session
 from .symbols import format_addr
-from .testing import demo_test, load_test, run_test
+from .testing import load_test, program_test, run_test
 from .text import ascii_to_petscii
 
 srv = FastMCP("pet-tools")
@@ -447,9 +447,9 @@ def pet_test_run(yaml_file: str) -> dict:
 
 
 @srv.tool()
-def pet_test_demos(directory: str = "demos") -> dict:
-    """Run every demo directory as a generated test."""
-    results = [run_test(demo_test(d))
+def pet_test_programs(directory: str = "tests/programs") -> dict:
+    """Run every example-program directory (program + expect.txt) as a test."""
+    results = [run_test(program_test(d))
                for d in sorted(Path(directory).iterdir())
                if (d / "expect.txt").exists()]
     return {"passed": all(r.passed for r in results),

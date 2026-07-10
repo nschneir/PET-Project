@@ -15,7 +15,7 @@ skill's reference files (memory map, ROM routines, zero page, PETSCII).
 
 A PET program loads at `$0401` and needs a tiny BASIC stub so that `RUN`
 transfers control to your machine code. This skeleton assembles as-is (it is
-the project's `hello-asm` demo):
+the project’s `tests/programs/hello-asm` example):
 
 ```asm
 ; print a message via the ROM CHROUT routine, then return to BASIC.

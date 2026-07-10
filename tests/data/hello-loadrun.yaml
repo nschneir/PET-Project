@@ -1,6 +1,6 @@
 name: hello-loadrun
 machine: pet4032
-program: ../../demos/hello-basic/program.bas
+program: ../programs/hello-basic/program.bas
 autorun: false
 timeout: 30
 steps:

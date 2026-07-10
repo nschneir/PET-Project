@@ -10,11 +10,21 @@ AI-oriented toolset for developing and debugging Commodore PET software
 > The Python package is imported as `petlib`, installed as `pet-tools`, and
 > driven by the `pet` command-line tool.
 
-## Requirements
+## Install
 
-- Python 3.11+
-- VICE 3.5+ with `xpet` and `petcat` on PATH (macOS: `brew install vice`; Debian/Ubuntu: `apt install vice`)
-- cc65 suite (`ca65`/`ld65`) for assembling 6502 programs (macOS: `brew install cc65`; Debian/Ubuntu: `apt install cc65`)
+Requires **Python 3.11+**, **VICE 3.5+** (provides `xpet` and `petcat`), and
+the **cc65** suite (`ca65`/`ld65`, for assembling 6502 programs). Then install
+this package.
+
+macOS (Homebrew):
+
+    brew install vice cc65
+    pip install -e .
+
+Debian / Ubuntu:
+
+    sudo apt install vice cc65
+    pip install -e .
 
 ## Quickstart
 
@@ -42,17 +52,50 @@ AI-oriented toolset for developing and debugging Commodore PET software
 Every command takes `--json` for machine-readable output — the intended
 interface for AI agents.
 
-## MCP server
+## Using with AI coding agents
 
-For MCP-native clients, `pet-tools-mcp` exposes the same operations as MCP
-tools over stdio (sharing the session registry with the CLI — use either,
-interchangeably). Example client config:
+**Any agent with a shell needs zero setup.** Run `pet --help`, give every
+command `--json` for machine-readable output, and point the agent at the full
+reference in [`docs/cli.md`](docs/cli.md) and the skills in
+[`skills/`](skills/). That is the whole integration for a shell-capable agent.
 
-    {
-      "mcpServers": {
-        "pet-tools": { "command": "pet-tools-mcp" }
-      }
-    }
+**MCP.** For MCP-native clients, the `pet-tools-mcp` server exposes the same
+operations as MCP tools over stdio, sharing the session registry with the CLI —
+use either interchangeably. The standard config block is:
+
+```json
+{
+  "mcpServers": {
+    "pet-tools": { "command": "pet-tools-mcp" }
+  }
+}
+```
+
+Per-agent specifics (config file + where to put project instructions;
+**agent configs verified July 2026** — conventions change, so check current
+docs if something has moved):
+
+- **Claude Code** — instructions in `CLAUDE.md`; skills go in
+  `.claude/skills/<name>/` (copy or symlink this repo's `skills/*`). Add the
+  MCP with `claude mcp add pet-tools -- pet-tools-mcp`, or a project
+  `.mcp.json` holding the block above.
+- **OpenAI Codex** — instructions in `AGENTS.md`; add the MCP with
+  `codex mcp add pet-tools -- pet-tools-mcp`, or edit `~/.codex/config.toml`
+  (project-scoped `.codex/config.toml` for trusted projects) with
+  `[mcp_servers.pet_tools]` / `command = "pet-tools-mcp"`.
+- **Cursor** — rules in `.cursor/rules/*.mdc` (or a plain `AGENTS.md`); MCP in
+  `.cursor/mcp.json` (project) or `~/.cursor/mcp.json` (global) using the block
+  above.
+- **Gemini CLI** — instructions in `GEMINI.md`; MCP in `.gemini/settings.json`
+  (project) or `~/.gemini/settings.json` under `mcpServers`.
+- **Google Antigravity** — instructions via `AGENTS.md`; MCP in the shared
+  `~/.gemini/config/mcp_config.json` (or the MCP store → Manage MCP Servers →
+  View raw config), using the block above.
+
+Whichever agent you use, point its instructions file (`CLAUDE.md` / `AGENTS.md`
+/ `GEMINI.md` / Cursor rules) at
+[`skills/pet-development/SKILL.md`](skills/pet-development/SKILL.md) so the agent
+learns the PET workflows and the machine references.
 
 ## Demos
 

@@ -3,7 +3,7 @@ from pathlib import Path
 
 import yaml
 
-from tests.doc_helpers import all_command_paths, mentioned_commands
+from tests.doc_helpers import mentioned_commands, valid_mention_paths
 
 SKILLS = [Path("skills/pet-development/SKILL.md"), Path("skills/6502-assembly/SKILL.md")]
 
@@ -25,12 +25,12 @@ def test_frontmatter_parses_with_name_and_description():
 
 
 def test_pet_commands_in_skills_exist():
-    real = all_command_paths()
+    valid = valid_mention_paths()  # leaf commands plus bare group names
     for p in SKILLS:
         if not p.exists():
             continue
         _, text = _frontmatter(p)
-        unknown = {c for c in mentioned_commands(text) if c not in real}
+        unknown = {c for c in mentioned_commands(text) if c not in valid}
         assert not unknown, f"{p}: mentions nonexistent commands {sorted(unknown)}"
 
 

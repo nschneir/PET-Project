@@ -1,4 +1,4 @@
-# Bouncing ball *(not yet dogfooded)*
+# Bouncing ball *(dogfooded 2026-07-10 — first-try pass)*
 
 Paste this prompt into your agent:
 

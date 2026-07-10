@@ -118,3 +118,4 @@ Read the matching file when you need the detail:
 - `references/rom-routines.md` — kernal jump table and hardware vectors.
 - `references/basic-internals.md` — program storage format and token table.
 - `references/petscii.md` — the three text encodings and the screen-code table.
+- `references/hardware.md` — I/O chip base addresses (PIA/VIA/CRTC), IEEE-488.

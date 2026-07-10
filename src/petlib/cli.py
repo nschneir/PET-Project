@@ -778,3 +778,28 @@ def test_programs(ctx, directory):
             fail(ctx, f"{d.name}: {e}")
             return
     _emit_test_results(ctx, results)
+
+
+@main.group()
+def key() -> None:
+    """Feed keyboard input to the running PET."""
+
+
+@key.command("type")
+@click.argument("text")
+@click.pass_context
+def key_type(ctx, text):
+    """Type TEXT into the running PET (\\n = RETURN). For whole programs
+    prefer `pet basic type`; this is for interactive input and game keys."""
+    try:
+        petscii = ascii_to_petscii(text)
+    except ValueError as e:
+        fail(ctx, str(e))
+        return
+    s = attach(ctx)
+    with s.monitor() as mon:
+        try:
+            mon.keyboard_feed(petscii)
+        finally:
+            mon.resume()
+    emit(ctx, {"typed_chars": len(petscii)}, f"typed {text!r}")

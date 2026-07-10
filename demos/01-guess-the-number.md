@@ -1,4 +1,4 @@
-# Guess the number *(not yet dogfooded)*
+# Guess the number *(dogfooded 2026-07-10 — first-try pass)*
 
 Paste this prompt into your agent:
 

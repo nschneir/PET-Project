@@ -81,6 +81,20 @@ JSON (text): `{"text", "rows": [...]}`. JSON (`--png`): `{"png", "width",
 
 ---
 
+## Keyboard
+
+### `pet key type`
+
+Type text into the running PET's keyboard buffer (`\n` = RETURN). Use it to
+answer `INPUT` prompts, steer games, or drive menus; for typing in whole
+programs prefer `pet basic type`.
+
+- `TEXT` — the keystrokes (letters are case-folded to the PET's convention).
+
+JSON: `{"typed_chars"}`. Machine left running.
+
+---
+
 ## Memory
 
 ### `pet mem read`

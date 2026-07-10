@@ -17,7 +17,7 @@ They're graded — start at 01 if you're new:
 
 Dogfooding status: these prompts are validated against a real agent before a
 release; a prompt that hasn't been through a successful run yet is marked
-*(not yet dogfooded)* in its file.
+*(not yet dogfooded)* in its file; validated ones carry their dogfood date.
 
 Reference example programs with expected output (runnable as regression tests
 via `pet test programs`) live in `tests/programs/` — solutions that come out

@@ -13,3 +13,4 @@ dist/
 !src/petlib/data/rom_labels/*.lbl
 scratch/
 books/
+docs/superpowers/

@@ -46,7 +46,7 @@ Debian / Ubuntu:
     pet rom disasm CHROUT 16               # annotated live disassembly
     pet session stop
 
-    pet test run mytest.yaml               # declarative YAML test (spec §8)
+    pet test run mytest.yaml               # declarative YAML test (format in docs/cli.md)
     pet test programs                      # run every example program as a test
 
 Every command takes `--json` for machine-readable output — the intended
@@ -158,8 +158,7 @@ symbolic breakpoints and watchpoints with conditions, `pet step`/`finish`/
 (create/ls/put/get/boot via c1541), `pet rom info`/`disasm`, `pet test`
 (declarative YAML tests + example programs), the `pet-tools-mcp` MCP server, and the AI
 enablement docs (the `pet-development` and `6502-assembly` skills, the machine
-references, and the [`docs/cli.md`](docs/cli.md) man pages). Design and phase
-history: `docs/superpowers/specs/`.
+references, and the [`docs/cli.md`](docs/cli.md) man pages).
 
 ROM tooling reads ROM bytes from your running emulator and ships only
 original label annotations — no Commodore-copyrighted code lives in this repo.

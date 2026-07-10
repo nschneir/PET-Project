@@ -11,3 +11,4 @@ dist/
 *.d80
 *.d82
 !src/petlib/data/rom_labels/*.lbl
+scratch/

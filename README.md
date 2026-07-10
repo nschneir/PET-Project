@@ -106,15 +106,15 @@ all with `pet test demos` — demos and YAML tests share one execution engine.
 
 ## Status
 
-Control plane, build pipeline, debugging surface, disk/ROM tooling, the
-scripted test runner, and the MCP server complete: sessions, screen, memory,
+**v1 complete** — all planned phases shipped: sessions, screen, memory,
 registers, `pet build` (ca65/ld65), `pet basic` (petcat), `pet load`/`pet run`,
 symbolic breakpoints and watchpoints with conditions, `pet step`/`finish`/
 `continue`/`until`, the `pet wait` synchronization primitive, `pet disk`
 (create/ls/put/get/boot via c1541), `pet rom info`/`disasm`, `pet test`
-(declarative YAML tests + demos), and `pet-tools-mcp` (MCP server). Coming
-next: Claude skills + reference docs (and the install/agent-onboarding
-README section). Design: `docs/superpowers/specs/`.
+(declarative YAML tests + demos), the `pet-tools-mcp` MCP server, and the AI
+enablement docs (the `pet-development` and `6502-assembly` skills, the machine
+references, and the [`docs/cli.md`](docs/cli.md) man pages). Design and phase
+history: `docs/superpowers/specs/`.
 
 ROM tooling reads ROM bytes from your running emulator and ships only
 original label annotations — no Commodore-copyrighted code lives in this repo.

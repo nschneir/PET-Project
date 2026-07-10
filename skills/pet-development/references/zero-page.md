@@ -56,8 +56,20 @@ Ordering invariant: TXTTAB <= VARTAB <= ARYTAB <= STREND <= FRETOP.
 | 0200-0250   | BASIC input buffer (81 bytes; a line maxes at 80 chars + null) |
 | 026F-0278   | Keyboard type-ahead buffer (10 chars; count at $9E; max size configurable at $03EB on 40-col BASIC 4, $E3 on 80-col) |
 | 027A-0339   | Cassette buffer #1 (a favorite home for small ML routines) |
-| 033A-03F9   | Cassette buffer #2 / BASIC 4 DOS workspace |
+| 033A-03F9   | Cassette buffer #2 / BASIC 4 DOS workspace (192 bytes at 826 decimal — the classic `SYS 826` home for user ML if tape and BASIC 4 disk commands are unused) |
 | 03E9-03EE   | 40-col BASIC 4: key-repeat countdown/delay/flag ($03EE: 0 = repeat on, $40 = off) |
+
+## BASIC 1.0 (pet2001) differences
+
+BASIC 1 lays these out differently. The locations below are cross-validated
+between two period references (West; Abacus ML guide) and the clock is
+asserted live on a pet2001 by `tests/test_docs_memory.py`:
+
+| Addr (B1)   | Meaning |
+|-------------|---------|
+| 0200-0202   | TI jiffy clock (MSB first) — *not* $8D-$8F *(live)* |
+| 020D (525)  | Keyboard buffer count (POKE 525,0 flushes) |
+| 020F-0218   | Keyboard buffer |
 
 **Claiming zero page from your own ML:** everything above is owned by BASIC
 or the kernal while BASIC runs. The safe scratch areas for user machine code

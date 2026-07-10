@@ -95,3 +95,34 @@ def test_book_sourced_facts_live(tmp_path, monkeypatch):
         assert open_jmp == bytes([0x4C, 0x60, 0xF5])
     finally:
         s.stop()
+
+
+@pytest.mark.vice
+@pytest.mark.skipif(
+    not (shutil.which("xpet") or os.environ.get("PET_TOOLS_XPET")),
+    reason="xpet not installed",
+)
+def test_basic1_jiffy_clock_location_live(tmp_path, monkeypatch):
+    """BASIC 1 (pet2001) keeps TI at $0200-$0202, not $8D (doc: zero-page.md)."""
+    import time
+
+    monkeypatch.setenv("PET_TOOLS_HOME", str(tmp_path))
+    s = Session.launch(model="pet2001", name="b1", headless=True, warp=True)
+    try:
+        wait_for_text(s, "READY.")
+        with s.monitor() as mon:
+            try:
+                ti1 = mon.memory_read(0x0200, 3)
+            finally:
+                mon.resume()
+        time.sleep(0.5)
+        with s.monitor() as mon:
+            try:
+                ti2 = mon.memory_read(0x0200, 3)
+            finally:
+                mon.resume()
+        t1 = (ti1[0] << 16) | (ti1[1] << 8) | ti1[2]
+        t2 = (ti2[0] << 16) | (ti2[1] << 8) | ti2[2]
+        assert t2 > t1, f"BASIC 1 jiffy clock not ticking at $0200: {ti1.hex()} -> {ti2.hex()}"
+    finally:
+        s.stop()

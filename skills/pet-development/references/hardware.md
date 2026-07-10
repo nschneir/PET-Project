@@ -68,6 +68,10 @@ From BASIC:
 130 poke 59464,0 : poke 59467,0     : rem sound off
 ```
 
+Beyond sound, T2 is an ordinary VIA down-counter: `$E848` decrements once
+per microsecond (with `$E849` as the high byte), so reading it gives
+sub-jiffy timing when the shift register isn't in use.
+
 The timer decrements at 1 MHz, and a full wave is 16 shifts for a
 single-pulse pattern, so frequency ≈ 1,000,000 / (16 × T) Hz — e.g. T=125
 → ~500 Hz; each doubling of T drops the pitch an octave. A descending

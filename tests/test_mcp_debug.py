@@ -3,7 +3,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from petlib.monitor import StopInfo
-from petlib.protocol import CP_EXEC, CP_STORE, Checkpoint
+from petlib.protocol import CP_EXEC, CP_LOAD, CP_STORE, Checkpoint
 from tests.test_mcp_scaffold import call_tool
 
 
@@ -118,3 +118,19 @@ def test_wait_break_timeout_reports_running():
         err, out = call_tool("pet_wait_break", {"timeout": 0.1})
     assert err is False and out["fired"] is None
     assert out["machine"] == "running"
+
+
+def test_break_and_watch_clear_tools():
+    s, mon = _fake()
+    mon.checkpoint_list.return_value = [
+        _ck(number=1), _ck(number=2, op=CP_LOAD | CP_STORE)]
+    with patch("petlib.mcp_server.Session") as S:
+        S.attach.return_value = s
+        err, out = call_tool("pet_break_clear", {})
+    assert err is False and out == {"removed": [1], "count": 1}
+    mon.checkpoint_list.return_value = [
+        _ck(number=1), _ck(number=2, op=CP_LOAD | CP_STORE)]
+    with patch("petlib.mcp_server.Session") as S:
+        S.attach.return_value = s
+        err, out = call_tool("pet_watch_clear", {})
+    assert err is False and out == {"removed": [2], "count": 1}

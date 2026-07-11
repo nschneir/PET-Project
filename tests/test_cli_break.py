@@ -101,3 +101,26 @@ def test_break_enable_and_disable():
     mon.checkpoint_toggle.assert_any_call(3, True)
     mon.checkpoint_toggle.assert_any_call(3, False)
     assert mon.release.call_count == 2
+
+
+def test_break_clear_removes_exec_only():
+    fake, mon = _fake()
+    mon.checkpoint_list.return_value = [
+        _ck(number=1), _ck(number=2, op=CP_LOAD | CP_STORE), _ck(number=3)]
+    with patch("petlib.cli.Session") as S:
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["--json", "break", "clear"])
+    assert r.exit_code == 0, r.output
+    assert json.loads(r.output) == {"removed": [1, 3], "count": 2}
+    assert mon.checkpoint_delete.call_count == 2
+    mon.release.assert_called_once()
+
+
+def test_watch_clear_spares_breakpoints():
+    fake, mon = _fake()
+    mon.checkpoint_list.return_value = [
+        _ck(number=1), _ck(number=2, op=CP_LOAD | CP_STORE)]
+    with patch("petlib.cli.Session") as S:
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["--json", "watch", "clear"])
+    assert json.loads(r.output) == {"removed": [2], "count": 1}

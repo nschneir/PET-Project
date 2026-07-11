@@ -156,3 +156,17 @@ def test_find_bytes_clamps_to_64k():
     mon.memory_read.return_value = b"\x01"
     find_bytes(mon, 0xFFFF, 0x100, b"\x01")
     mon.memory_read.assert_called_with(0xFFFF, 1)
+
+
+def test_clear_checkpoints_filters_by_op():
+    from petlib.ops import clear_checkpoints
+    from petlib.protocol import CP_EXEC, CP_LOAD, CP_STORE
+    exec_ck, watch_ck = Mock(number=1, op=CP_EXEC), Mock(number=2, op=CP_LOAD | CP_STORE)
+    mon = Mock()
+    mon.checkpoint_list.return_value = [exec_ck, watch_ck]
+    assert clear_checkpoints(mon, CP_EXEC) == [1]
+    mon.checkpoint_delete.assert_called_once_with(1)
+    mon.reset_mock()
+    mon.checkpoint_list.return_value = [exec_ck, watch_ck]
+    assert clear_checkpoints(mon, CP_LOAD | CP_STORE, exclude_mask=CP_EXEC) == [2]
+    mon.checkpoint_delete.assert_called_once_with(2)

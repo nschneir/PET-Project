@@ -18,6 +18,7 @@ from .disasm import disassemble
 from .disk import create_image, get_file, list_files, put_file
 from .machines import get_profile
 from .ops import (
+    clear_checkpoints,
     find_bytes,
     parse_number,
     parse_ref,
@@ -233,6 +234,33 @@ def pet_break_remove(checkpoint_id: int, session: str | None = None) -> dict:
         finally:
             mon.release()
     return {"removed": checkpoint_id}
+
+
+@srv.tool()
+def pet_break_clear(session: str | None = None) -> dict:
+    """Remove ALL breakpoints (exec checkpoints); watchpoints are kept.
+    Checkpoints persist across pet_run/rebuilds — clear stale ones or
+    duplicates accumulate."""
+    s = _attach(session)
+    with s.monitor() as mon:
+        try:
+            removed = clear_checkpoints(mon, CP_EXEC)
+        finally:
+            mon.release()
+    return {"removed": removed, "count": len(removed)}
+
+
+@srv.tool()
+def pet_watch_clear(session: str | None = None) -> dict:
+    """Remove ALL watchpoints (load/store checkpoints); breakpoints are kept."""
+    s = _attach(session)
+    with s.monitor() as mon:
+        try:
+            removed = clear_checkpoints(mon, CP_LOAD | CP_STORE,
+                                        exclude_mask=CP_EXEC)
+        finally:
+            mon.release()
+    return {"removed": removed, "count": len(removed)}
 
 
 @srv.tool()

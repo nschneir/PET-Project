@@ -16,6 +16,7 @@ from .disasm import disassemble
 from .disk import DiskError, create_image, get_file, list_files, put_file
 from .machines import get_profile
 from .ops import (
+    clear_checkpoints,
     find_bytes,
     parse_number,
     parse_ref,
@@ -643,6 +644,24 @@ def break_disable(ctx, ck_id):
     emit(ctx, {"disabled": ck_id}, f"disabled #{ck_id}")
 
 
+@break_.command("clear")
+@click.pass_context
+def break_clear(ctx):
+    """Remove ALL breakpoints (exec checkpoints). Watchpoints are kept.
+
+    Checkpoints persist across `pet run`/rebuilds by design — clear stale
+    ones or duplicates accumulate.
+    """
+    s = attach(ctx)
+    with s.monitor() as mon:
+        try:
+            removed = clear_checkpoints(mon, CP_EXEC)
+        finally:
+            mon.release()
+    emit(ctx, {"removed": removed, "count": len(removed)},
+         f"removed {len(removed)} breakpoint(s)")
+
+
 @main.group()
 def watch() -> None:
     """Manage watchpoints (VICE load/store checkpoints)."""
@@ -670,6 +689,21 @@ def watch_add(ctx, ref, on_load, on_store, length):
     emit(ctx, {"id": ck.number, "address": format_addr(labels, addr),
                "length": length, "op": _op_name(op)},
          f"watchpoint #{ck.number} at {format_addr(labels, addr)} len={length} ({_op_name(op)})")
+
+
+@watch.command("clear")
+@click.pass_context
+def watch_clear(ctx):
+    """Remove ALL watchpoints (load/store checkpoints). Breakpoints are kept."""
+    s = attach(ctx)
+    with s.monitor() as mon:
+        try:
+            removed = clear_checkpoints(mon, CP_LOAD | CP_STORE,
+                                        exclude_mask=CP_EXEC)
+        finally:
+            mon.release()
+    emit(ctx, {"removed": removed, "count": len(removed)},
+         f"removed {len(removed)} watchpoint(s)")
 
 
 def _emit_stopped_regs(ctx, labels, regs, extra=None):

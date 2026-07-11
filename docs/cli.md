@@ -200,6 +200,10 @@ Breakpoints and watchpoints are VICE checkpoints. Setting one leaves the
 machine running; use `pet wait --break` to block until it fires. Checkpoints
 survive a subsequent `pet load`/`pet run`, so set them before loading.
 
+Checkpoints **persist across `pet run`/rebuilds by design** — reloading a
+program does not remove them. Clear stale ones (`pet break clear`,
+`pet watch clear`) or duplicates accumulate.
+
 ### `pet break add`
 
 Set an execution breakpoint at an address or symbol.
@@ -228,6 +232,13 @@ JSON: `{"breakpoints": [{"id", "address", "end", "op", "enabled", "hits",
 
 - `CK_ID` — checkpoint id. JSON: `{"disabled": id}`.
 
+### `pet break clear`
+
+    pet break clear
+
+Remove ALL breakpoints (exec checkpoints); watchpoints are kept. JSON:
+`{"removed": [ids], "count": n}`.
+
 ### `pet watch add`
 
 Set a watchpoint on a memory range (default: both load and store).
@@ -238,6 +249,13 @@ Set a watchpoint on a memory range (default: both load and store).
 - `--length N` (default `1`) — number of bytes to watch.
 
 JSON: `{"id", "address", "length", "op"}`. Machine state preserved.
+
+### `pet watch clear`
+
+    pet watch clear
+
+Remove ALL watchpoints (load/store checkpoints); breakpoints are kept.
+JSON: `{"removed": [ids], "count": n}`.
 
 ---
 

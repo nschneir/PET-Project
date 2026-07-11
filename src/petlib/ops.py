@@ -174,3 +174,14 @@ def find_bytes(mon, start: int, length: int, pattern: bytes,
         matches.append(start + i)
         i = data.find(pattern, i + 1)
     return matches, truncated
+
+
+def clear_checkpoints(mon, include_mask: int, exclude_mask: int = 0) -> list[int]:
+    """Delete every checkpoint whose op matches include_mask (and none of
+    exclude_mask); returns the removed checkpoint ids."""
+    removed = []
+    for ck in mon.checkpoint_list():
+        if (ck.op & include_mask) and not (ck.op & exclude_mask):
+            mon.checkpoint_delete(ck.number)
+            removed.append(ck.number)
+    return removed

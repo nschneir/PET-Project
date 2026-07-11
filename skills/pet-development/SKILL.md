@@ -71,6 +71,8 @@ them:
 1. `pet break add SYMBOL` (or an address) — set an execution breakpoint. It
    also accepts `--condition 'A != 0'` and `--temporary`. Checkpoints survive a
    later `pet load`/`pet run`, so set the breakpoint first, then load.
+   Checkpoints persist across pet run/rebuilds by design — clear stale ones
+   (pet break clear) or duplicates accumulate.
 2. `pet wait --break` — block until it fires; this leaves the machine stopped.
 3. Inspect: `pet reg` (registers, PC annotated with the nearest symbol),
    `pet mem read ADDR LEN`, `pet break list`.

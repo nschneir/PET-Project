@@ -59,3 +59,57 @@ def test_connect_refused_raises_after_deadline():
     c = MonitorClient(port=1, timeout=0.2)  # nothing listens on port 1
     with pytest.raises(ConnectionError):
         c.connect(deadline=0.5)
+
+
+def test_monitor_error_unknown_code_formats_hex():
+    e = MonitorError(Command.MEMORY_GET, 0xEE)     # 0xEE is no ErrorCode member
+    assert "0xee" in str(e)
+
+
+def test_keyboard_feed_chunks_long_text():
+    calls = []
+
+    def handle(body, rid):
+        calls.append(body)
+        return [resp_frame(0x72, 0, rid)]          # KEYBOARD_FEED ok
+
+    fake = FakeVice({Command.KEYBOARD_FEED: handle})
+    with _client(fake) as c:
+        c.keyboard_feed(b"A" * 450)                # 200-byte chunks -> 3 requests
+    assert len(calls) == 3
+    assert calls[0][0] == 200 and calls[2][0] == 50
+
+
+def test_vice_info_parses_version():
+    def handle(body, rid):
+        return [resp_frame(0x85, 0, rid, bytes([2, 3, 5]))]   # "3.5"
+
+    fake = FakeVice({Command.VICE_INFO: handle})
+    with _client(fake) as c:
+        assert c.vice_info() == "3.5"
+
+
+def test_quit_swallows_no_reply():
+    fake = FakeVice({Command.QUIT: lambda b, rid: []})   # VICE exits silently
+    with _client(fake) as c:
+        c.timeout = 0.3
+        c.quit()                                          # must not raise
+
+
+def test_request_times_out_without_response():
+    fake = FakeVice({Command.PING: lambda b, rid: []})   # server never replies
+    with _client(fake) as c:
+        c._sock.settimeout(0.3)          # recv gives up quickly -> TimeoutError
+        with pytest.raises(TimeoutError):
+            c.ping()
+
+
+def test_closed_connection_raises():
+    def handle(body, rid):
+        fake.close()          # slam the server mid-request
+        return []
+
+    fake = FakeVice({Command.PING: handle})
+    with _client(fake) as c:
+        with pytest.raises((ConnectionError, OSError)):
+            c.ping()

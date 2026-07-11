@@ -1,10 +1,17 @@
 import json
 import subprocess
 import sys
+from unittest.mock import Mock, patch
 
 import pytest
 
-from petlib.session import Session, SessionError, sessions_dir
+from petlib.session import (
+    Session,
+    SessionError,
+    _kill_proc,
+    _pid_alive,
+    sessions_dir,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -219,3 +226,55 @@ def test_launch_exhausts_attempts_and_kills_all(home, monkeypatch):
     with pytest.raises(SessionError, match="never answered after 2"):
         Session.launch(model="pet4032", name="doomed")
     assert len(procs) == 2 and all(p.killed for p in procs)   # both cleaned up
+
+
+def test_pid_alive_permission_error_means_alive(monkeypatch):
+    def kill(pid, sig):
+        raise PermissionError
+    monkeypatch.setattr("petlib.session.os.kill", kill)
+    assert _pid_alive(12345) is True
+
+
+def test_kill_proc_escalates_to_sigkill():
+    proc = Mock()
+    proc.wait.side_effect = [subprocess.TimeoutExpired("x", 3), None]
+    _kill_proc(proc)
+    proc.terminate.assert_called_once()
+    proc.kill.assert_called_once()
+
+
+def test_kill_proc_survives_stubborn_process():
+    proc = Mock()
+    proc.wait.side_effect = subprocess.TimeoutExpired("x", 3)
+    _kill_proc(proc)                      # both waits expire; must not raise
+    proc.kill.assert_called_once()
+
+
+def test_launch_rejects_duplicate_name(home, monkeypatch):
+    monkeypatch.setenv("PET_TOOLS_XPET", "/usr/bin/xpet")  # skip the which() check
+    existing = Mock()
+    existing.name = "pet4032"
+    with patch.object(Session, "_load_all", return_value=[existing]):
+        with pytest.raises(SessionError, match="already running"):
+            Session.launch(model="pet4032")
+
+
+def test_attach_unknown_name_is_actionable(home):
+    with pytest.raises(SessionError, match="pet session start"):
+        Session.attach("nosuch")
+
+
+def test_stop_cleans_up_dead_session(home):
+    # a pid that is already dead (reaped) — stop() takes the not-alive path
+    proc = subprocess.Popen([sys.executable, "-c", ""])
+    proc.wait()
+    dead = proc.pid
+    sock = home / "sessions" / "z.sock"
+    sock.parent.mkdir(parents=True, exist_ok=True)
+    s = Session(name="z", pid=dead, port=6502, model="pet4032",
+                daemon_pid=dead, socket=str(sock))
+    s._record_path().write_text("{}")
+    sock.write_text("")                   # a stale socket file to clean up
+    s.stop()                              # must not raise
+    assert not s._record_path().exists()
+    assert not sock.exists()

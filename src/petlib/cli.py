@@ -14,6 +14,7 @@ from .build import BuildError, build_asm
 from .disasm import disassemble
 from .disk import DiskError, create_image, get_file, list_files, put_file
 from .machines import get_profile
+from .packaging import PackageError, package_program
 from .ops import (
     parse_number,
     parse_ref,
@@ -254,6 +255,29 @@ def build_cmd(ctx, source, output, model):
         return
     emit(ctx, {"prg": str(res.prg), "labels": str(res.labels)},
          f"built {res.prg} (labels: {res.labels})")
+
+
+@main.command("package")
+@click.argument("source", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option("-o", "--output", type=click.Path(dir_okay=False, path_type=Path),
+              default=None,
+              help="Artifact path; .d64/.d80/.d82 build an autostart-first "
+                   "disk image, .prg (or omitted) just the program file.")
+@click.option("--title", default=None,
+              help="CBM file/disk name (uppercased, max 16 chars; defaults "
+                   "to the source stem).")
+@click.option("--model", default="pet4032", show_default=True)
+@click.pass_context
+def package_cmd(ctx, source, output, title, model):
+    """Package SOURCE into an artifact any VICE user can run."""
+    try:
+        res = package_program(source, out=output, title=title, model=model)
+    except (BuildError, BasicError, DiskError, PackageError, KeyError) as e:
+        fail(ctx, str(e))
+        return
+    emit(ctx, res,
+         f"packaged {res['title']!r} -> {res['image'] or res['prg']}\n"
+         f"run it with: {res['run']}")
 
 
 @main.group()

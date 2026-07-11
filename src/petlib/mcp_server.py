@@ -27,6 +27,7 @@ from .ops import (
     wait_for_mem,
     wait_for_text,
 )
+from .packaging import package_program
 from .protocol import CP_EXEC, CP_LOAD, CP_STORE
 from .romdoc import identify, rom_labels
 from .screen import read_screen_text, save_screenshot_png
@@ -311,6 +312,16 @@ def pet_build(source: str, model: str = "pet4032") -> dict:
     profile = get_profile(model)
     res = build_asm(Path(source), basic_start=profile.basic_start)
     return {"prg": str(res.prg), "labels": str(res.labels)}
+
+
+@srv.tool()
+def pet_package(source: str, output: str | None = None, title: str | None = None,
+                model: str = "pet4032") -> dict:
+    """Package a .s/.bas/.prg into an artifact any VICE user can run: a .prg,
+    or (when output ends in .d64/.d80/.d82) a disk image whose first file is
+    the program so `xpet out.d64` autostarts it. Returns the exact run
+    command in "run"."""
+    return package_program(Path(source), out=output, title=title, model=model)
 
 
 @srv.tool()

@@ -153,6 +153,23 @@ The reference example programs (with expected screen output, runnable as
 regression tests via `pet test programs`) live in
 [`tests/programs/`](tests/programs/).
 
+## Sharing what you built
+
+`pet package` turns a source file into something any VICE user can run — no
+pet-tools needed on their end:
+
+    pet package snake.s -o snake.d64 --title SNAKE
+
+That assembles the program and writes it as the first file on a fresh disk
+image, so it autostarts. The recipient just needs VICE installed:
+
+    xpet snake.d64        # boots an emulated PET and runs SNAKE
+
+The bare `.prg` (also produced) works too — `xpet snake.prg` autostarts it,
+as does VICE's File → Smart attach. Disk images travel better: they carry a
+real CBM directory, so `LOAD"SNAKE",8` then `RUN` works the old-fashioned
+way. Neither artifact contains ROMs or anything from this toolset.
+
 ## Status
 
 **v1 complete** — all planned phases shipped: sessions, screen, memory,

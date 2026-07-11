@@ -256,6 +256,28 @@ Assemble 6502 source (ca65 syntax) to a `.prg` plus a VICE label file.
 
 JSON: `{"prg", "labels"}`. No session required.
 
+### `pet package`
+
+Package a program into an artifact any VICE user can run — a bare `.prg`, or
+a disk image with the program as its first (autostart) file. Pure file
+operation; no session required.
+
+- `SOURCE` — a `.s`, `.bas`, or `.prg` file (assembled/tokenized as needed).
+- `-o, --output PATH` — the artifact; the extension picks the format:
+  `.d64`/`.d80`/`.d82` build the `.prg` and write it to a fresh image
+  (the `.prg` is kept beside it); `.prg` (or omitted) builds just the
+  program file. Existing outputs are overwritten.
+- `--title NAME` — the CBM file/disk name (uppercased, max 16 characters;
+  defaults to the source stem).
+- `--model MODEL` (default `pet4032`) — selects the BASIC load address.
+
+The recipient needs only stock VICE: `xpet game.d64` (or `xpet game.prg`)
+autostarts it, and from inside the emulator `LOAD"NAME",8` then `RUN` works
+the traditional way. No ROMs or pet-tools ship in the artifact.
+
+JSON: `{"prg", "image", "title", "run"}` — `run` is the exact command to
+hand to the recipient; `image` is `null` for `.prg`-only output.
+
 ---
 
 ## BASIC

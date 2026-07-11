@@ -73,6 +73,12 @@ LIVE_RECIPES = [
     ("asm-frame-counter", "asm", 2, [
         {"wait": {"text": "FRAME COUNTER"}},
     ]),
+    ("asm-random-lfsr", "asm", 3, [
+        # LFSR from seed $2A is fully deterministic: 21, 178, 89
+        {"wait": {"mem": "$03F2", "equals": 89}},
+        {"assert": {"mem": "$03F0", "equals": 21}},
+        {"assert": {"mem": "$03F1", "equals": 178}},
+    ]),
 ]
 
 

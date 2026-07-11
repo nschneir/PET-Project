@@ -237,3 +237,56 @@ pet screen
 ```
 
 or wrap it in a YAML test (`pet test run` — format in docs/cli.md).
+
+## Cheap pseudo-random byte (8-bit Galois LFSR)
+
+Games need randomness; the PET has no hardware source. A one-byte Galois
+LFSR gives a 255-value pseudo-random sequence for three instructions of
+work. **The state must never be zero** — 0 is the LFSR's fixed point and
+locks the generator. Seed once at startup; in a real game seed from the
+jiffy clock so each run differs:
+
+    lda $8f        ; jiffy low byte — changes 60x/second
+    bne seeded
+    lda #1         ; guard the zero lock
+    seeded: sta seed
+
+The demo below uses a fixed seed instead so its output is reproducible
+(it stores the first three values at $03F0-$03F2 in the cassette-buffer
+scratch area: 21, 178, 89).
+
+```asm
+; random.s — pseudo-random bytes from an 8-bit maximal Galois LFSR.
+; Call `random`: a fresh pseudo-random byte comes back in A (and `seed`).
+
+        .segment "LOADADDR"
+        .word   $0401
+        .segment "EXEHDR"
+        .word   nextln
+        .word   10
+        .byte   $9E, "1037", $00
+nextln: .word   $0000
+
+        .segment "CODE"
+start:  lda     #$2a            ; fixed demo seed (must be nonzero)
+        sta     seed
+        jsr     random
+        sta     $03f0
+        jsr     random
+        sta     $03f1
+        jsr     random
+        sta     $03f2
+        rts                     ; back to BASIC (READY.)
+
+random: lda     seed
+        lsr                     ; shift right; old bit 0 -> carry
+        bcc     nofb
+        eor     #$b8            ; feedback taps -> maximal 255-byte cycle
+nofb:   sta     seed
+        rts
+
+seed:   .byte   1
+```
+
+Range tricks: `and #$1f` for 0-31, or reject-and-retry (`cmp #40 / bcs
+random`) for an unbiased 0-39.

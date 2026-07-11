@@ -16,6 +16,7 @@ from .disasm import disassemble
 from .disk import DiskError, create_image, get_file, list_files, put_file
 from .machines import get_profile
 from .ops import (
+    find_bytes,
     parse_number,
     parse_ref,
     run_until,
@@ -295,6 +296,41 @@ def mem_get(ctx, addr, length):
             mon.release()
     emit(ctx, {"addr": start, "values": list(data)},
          " ".join(str(b) for b in data))
+
+
+@mem.command("find")
+@click.argument("values", nargs=-1, required=True)
+@click.option("--start", "start", default="$0000", show_default=True,
+              help="Search from this address ($hex/0x/decimal or symbol).")
+@click.option("--length", "length", default="$10000", show_default=True,
+              help="Number of bytes to search.")
+@click.option("--limit", default=256, show_default=True,
+              help="Stop after this many matches.")
+@click.pass_context
+def mem_find(ctx, values, start, length, limit):
+    """Search memory for a byte pattern; print every match address.
+
+    VALUES is one or more bytes ($hex/0x/decimal) forming the pattern.
+    Searches [--start, --start + --length), clamped to 64 KB; stops at
+    --limit matches (JSON "truncated": true when clipped). Does not
+    disturb run/stop state.
+    """
+    s = attach(ctx)
+    labels = session_labels(s)
+    begin = resolve_ref(ctx, labels, start)
+    n = parse_number(length)
+    pattern = bytes(parse_number(v) for v in values)
+    with s.monitor() as mon:
+        try:
+            matches, truncated = find_bytes(mon, begin, n, pattern, limit=limit)
+        finally:
+            mon.release()
+    emit(ctx, {"pattern": list(pattern), "start": begin, "length": n,
+               "matches": matches, "count": len(matches),
+               "truncated": truncated},
+         "\n".join(f"${a:04x}" for a in matches)
+         + ("\n(truncated)" if truncated else "")
+         if matches else "no matches")
 
 
 @main.group(invoke_without_command=True)

@@ -150,6 +150,18 @@ from the loaded label file. Does not disturb run/stop state. (MCP note:
 there is deliberately no `pet_mem_get` tool — `pet_mem_read` already
 returns a decimal `bytes` array.)
 
+### `pet mem find`
+
+    pet mem find VALUE... [--start ADDR] [--length N] [--limit M]
+
+Search memory for a byte pattern and print every match address. VALUE is
+one or more bytes (`$hex`/`0x`/decimal) forming the pattern. Defaults:
+`--start $0000`, `--length $10000` (clamped to the 64 KB space),
+`--limit 256`. JSON: `{"pattern", "start", "length", "matches", "count",
+"truncated"}` — `truncated` is true when the limit clipped the list
+(searching for `$00` legitimately matches thousands of addresses). Does
+not disturb run/stop state.
+
 ### `pet mem write`
 
 Write bytes to emulated memory.

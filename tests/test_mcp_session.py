@@ -86,3 +86,13 @@ def test_mem_read_includes_bytes():
         S.attach.return_value = s
         err, out = call_tool("pet_mem_read", {"addr": "$8000", "length": 2})
     assert err is False and out["bytes"] == [42, 0] and out["hex"] == "2a00"
+
+
+def test_mem_find_tool():
+    s, mon = _fake_session()
+    mon.memory_read.return_value = b"\x2a\x00"
+    with patch("petlib.mcp_server.Session") as S:
+        S.attach.return_value = s
+        err, out = call_tool("pet_mem_find",
+                             {"values": ["$2a"], "start": "$8000", "length": 2})
+    assert err is False and out["matches"] == [0x8000]

@@ -18,6 +18,7 @@ from .disasm import disassemble
 from .disk import create_image, get_file, list_files, put_file
 from .machines import get_profile
 from .ops import (
+    find_bytes,
     parse_number,
     parse_ref,
     pc_symbol,
@@ -123,6 +124,27 @@ def pet_mem_read(addr: str, length: int = 256, session: str | None = None) -> di
             mon.release()
     return {"addr": a, "length": len(data), "hex": data.hex(),
             "bytes": list(data)}
+
+
+@srv.tool()
+def pet_mem_find(values: list[str], start: str = "$0000",
+                 length: int = 0x10000, limit: int = 256,
+                 session: str | None = None) -> dict:
+    """Search memory for a byte pattern (values: one or more $hex/decimal
+    bytes). Returns match addresses; "truncated" is true when `limit`
+    clipped the list. Does not disturb run/stop state."""
+    s = _attach(session)
+    labels = session_labels(s)
+    begin = parse_ref(labels, start)
+    pattern = bytes(parse_number(v) for v in values)
+    with s.monitor() as mon:
+        try:
+            matches, truncated = find_bytes(mon, begin, length, pattern,
+                                            limit=limit)
+        finally:
+            mon.release()
+    return {"pattern": list(pattern), "start": begin, "length": length,
+            "matches": matches, "count": len(matches), "truncated": truncated}
 
 
 @srv.tool()

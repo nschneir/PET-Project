@@ -155,3 +155,22 @@ def run_until(session, addr: int, timeout: float = 30.0, count: int = 1) -> dict
         regs = mon.registers()
         mon.checkpoint_delete(ck.number)
         return {"registers": regs, "reached": count, "count": count}
+
+
+def find_bytes(mon, start: int, length: int, pattern: bytes,
+               limit: int = 256) -> tuple[list[int], bool]:
+    """Addresses of every occurrence of `pattern` in [start, start+length),
+    clamped to the 64 KB space. Returns (matches, truncated); truncated is
+    True when `limit` clipped the list. One bulk read; does not resume."""
+    n = max(0, min(length, 0x10000 - start))
+    data = mon.memory_read(start, n)
+    matches: list[int] = []
+    truncated = False
+    i = data.find(pattern)
+    while i != -1:
+        if len(matches) >= limit:
+            truncated = True
+            break
+        matches.append(start + i)
+        i = data.find(pattern, i + 1)
+    return matches, truncated

@@ -129,3 +129,30 @@ def test_wait_for_mem_timeout_returns_last_value():
     with patch("petlib.ops.time.sleep"):
         out = wait_for_mem(s, 0x8000, 0x2A, timeout=0.1)
     assert out["fired"] is None and out["last_value"] == 5
+
+
+def test_find_bytes_single_and_pattern():
+    from petlib.ops import find_bytes
+    mon = Mock()
+    mon.memory_read.return_value = b"\x00\x2a\x00\x2a\x2a"
+    matches, truncated = find_bytes(mon, 0x8000, 5, b"\x2a")
+    assert matches == [0x8001, 0x8003, 0x8004] and truncated is False
+    matches, _ = find_bytes(mon, 0x8000, 5, b"\x2a\x2a")
+    assert matches == [0x8003]
+    mon.memory_read.assert_called_with(0x8000, 5)
+
+
+def test_find_bytes_limit_truncates():
+    from petlib.ops import find_bytes
+    mon = Mock()
+    mon.memory_read.return_value = b"\x00" * 10
+    matches, truncated = find_bytes(mon, 0, 10, b"\x00", limit=3)
+    assert len(matches) == 3 and truncated is True
+
+
+def test_find_bytes_clamps_to_64k():
+    from petlib.ops import find_bytes
+    mon = Mock()
+    mon.memory_read.return_value = b"\x01"
+    find_bytes(mon, 0xFFFF, 0x100, b"\x01")
+    mon.memory_read.assert_called_with(0xFFFF, 1)

@@ -159,3 +159,17 @@ def test_mem_get_json_values():
         S.attach.return_value = fake
         r = CliRunner().invoke(main, ["--json", "mem", "get", "$8000", "3"])
     assert json.loads(r.output) == {"addr": 0x8000, "values": [1, 2, 3]}
+
+
+def test_mem_find_pattern():
+    fake, mon = _fake()
+    mon.memory_read.return_value = b"\x00\x2a\x00\x2a"
+    with patch("petlib.cli.Session") as S:
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["--json", "mem", "find", "$2a",
+                                      "--start", "$8000", "--length", "4"])
+    assert r.exit_code == 0, r.output
+    out = json.loads(r.output)
+    assert out["matches"] == [0x8001, 0x8003]
+    assert out["count"] == 2 and out["truncated"] is False
+    assert out["pattern"] == [0x2A]

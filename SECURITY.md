@@ -15,8 +15,8 @@ window to release a fix before any public disclosure.
 
 ## Supported versions
 
-This project is pre-1.0 and moves quickly. Security fixes are applied to the
-latest `main`; there are no separately maintained release branches.
+Security fixes are applied to the latest `main`; there are no separately
+maintained release branches.
 
 ## Scope and threat model
 

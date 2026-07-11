@@ -37,3 +37,9 @@ When feeding the keyboard (as `pet basic type` and `pet key` do), text is
 converted to PETSCII: `\n` → `$0D` (RETURN), letters → ASCII uppercase. Writing
 lowercase source is the norm because lowercase ASCII → unshifted PETSCII, which
 shows as uppercase on screen.
+
+One gotcha worth knowing: the PET character set has **no em dash (`—`) or en
+dash (`–`)** — only the ASCII hyphen `-` (code 45) exists. When a task says
+to print `GAME OVER — SCORE`, the PET rendering is `GAME OVER - SCORE`;
+`ascii_to_petscii` (used by `pet basic type` and `pet key type`) rejects the
+dash characters outright rather than mangling them.

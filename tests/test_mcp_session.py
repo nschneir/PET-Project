@@ -96,3 +96,22 @@ def test_mem_find_tool():
         err, out = call_tool("pet_mem_find",
                              {"values": ["$2a"], "start": "$8000", "length": 2})
     assert err is False and out["matches"] == [0x8000]
+
+
+def test_status_tool():
+    s, _ = _fake_session()
+    with patch("petlib.mcp_server.Session") as S, \
+         patch("petlib.mcp_server.machine_state", return_value="running"):
+        S.attach.return_value = s
+        err, out = call_tool("pet_status", {})
+    assert err is False and out["state"] == "running" and out["name"] == "pet4032"
+
+
+def test_reg_get_reports_state():
+    s, mon = _fake_session()
+    mon.registers.return_value = {"PC": 0x040D}
+    with patch("petlib.mcp_server.Session") as S, \
+         patch("petlib.mcp_server.machine_state", return_value="running"):
+        S.attach.return_value = s
+        err, out = call_tool("pet_reg_get", {})
+    assert out["state"] == "running"

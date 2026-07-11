@@ -170,3 +170,29 @@ def test_clear_checkpoints_filters_by_op():
     mon.checkpoint_list.return_value = [exec_ck, watch_ck]
     assert clear_checkpoints(mon, CP_LOAD | CP_STORE, exclude_mask=CP_EXEC) == [2]
     mon.checkpoint_delete.assert_called_once_with(2)
+
+
+def test_machine_state_without_daemon_is_unknown():
+    from petlib.ops import machine_state
+    s = Mock()
+    s.socket = None
+    assert machine_state(s) == "unknown"
+
+
+def test_machine_state_via_daemon():
+    from petlib.ops import machine_state
+    s = Mock()
+    s.socket = "/tmp/x.sock"
+    mon = Mock()
+    mon.status.return_value = "stopped"
+    s.monitor.return_value.__enter__ = Mock(return_value=mon)
+    s.monitor.return_value.__exit__ = Mock(return_value=False)
+    assert machine_state(s) == "stopped"
+
+
+def test_machine_state_swallows_dead_daemon():
+    from petlib.ops import machine_state
+    s = Mock()
+    s.socket = "/tmp/x.sock"
+    s.monitor.side_effect = ConnectionError("gone")
+    assert machine_state(s) == "unknown"

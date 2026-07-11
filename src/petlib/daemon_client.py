@@ -148,3 +148,8 @@ class DaemonMonitorClient:
 
     def wait_for_stop(self, timeout: float):
         return self._call("wait_for_stop", timeout, _timeout=timeout + 5.0)
+
+    def status(self) -> str:
+        """The daemon's tracked machine state: 'running' or 'stopped'.
+        Answered daemon-side; no VICE traffic."""
+        return self._call("status")["state"]

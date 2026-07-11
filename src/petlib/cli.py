@@ -18,6 +18,7 @@ from .machines import get_profile
 from .ops import (
     clear_checkpoints,
     find_bytes,
+    machine_state,
     parse_number,
     parse_ref,
     run_until,
@@ -222,6 +223,23 @@ def screen_cmd(ctx, png_path):
             mon.release()
 
 
+@main.command("status")
+@click.pass_context
+def status_cmd(ctx):
+    """Show the session and whether the machine is running or stopped.
+
+    state comes from the session daemon's own tracking (no emulator
+    traffic). Without a daemon it reports "unknown": a direct monitor
+    connection stops the CPU, so the question is only answerable via the
+    daemon.
+    """
+    s = attach(ctx)
+    state = machine_state(s)
+    emit(ctx, {"name": s.name, "model": s.model, "pid": s.pid,
+               "port": s.port, "state": state},
+         f"session {s.name} ({s.model}) state={state} pid={s.pid} port={s.port}")
+
+
 @main.group()
 def mem() -> None:
     """Read and write emulated memory."""
@@ -350,7 +368,10 @@ def reg(ctx) -> None:
     human = "  ".join(f"{k}={v:04x}" for k, v in sorted(regs.items()))
     if sym:
         human += f"  ({sym})"
-    emit(ctx, {"registers": regs, "pc_symbol": sym}, human)
+    state = machine_state(s)
+    if state != "unknown":
+        human += f"  [{state}]"
+    emit(ctx, {"registers": regs, "pc_symbol": sym, "state": state}, human)
 
 
 @reg.command("set")

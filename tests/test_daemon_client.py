@@ -207,3 +207,8 @@ def test_wait_for_stop_stretches_socket_timeout(served):
     c, mon, _ = served
     mon.wait_for_stop.return_value = None
     assert c.wait_for_stop(0.1) is None
+
+
+def test_status_roundtrip(served):
+    c, _, _ = served
+    assert c.status() == "running"

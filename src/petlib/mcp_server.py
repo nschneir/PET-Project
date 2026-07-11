@@ -20,6 +20,7 @@ from .machines import get_profile
 from .ops import (
     clear_checkpoints,
     find_bytes,
+    machine_state,
     parse_number,
     parse_ref,
     pc_symbol,
@@ -83,6 +84,16 @@ def pet_session_reset(hard: bool = False, session: str | None = None) -> dict:
         finally:
             mon.resume()
     return {"reset": s.name, "hard": hard}
+
+
+@srv.tool()
+def pet_status(session: str | None = None) -> dict:
+    """The session and whether the machine is running or stopped right now.
+    state is answered by the session daemon's own tracking (no emulator
+    traffic); "unknown" without a daemon."""
+    s = _attach(session)
+    return {"name": s.name, "model": s.model, "pid": s.pid, "port": s.port,
+            "state": machine_state(s)}
 
 
 @srv.tool()
@@ -171,7 +182,8 @@ def pet_reg_get(session: str | None = None) -> dict:
             regs = mon.registers()
         finally:
             mon.release()
-    return {"registers": regs, "pc_symbol": pc_symbol(session_labels(s), regs)}
+    return {"registers": regs, "pc_symbol": pc_symbol(session_labels(s), regs),
+            "state": machine_state(s)}
 
 
 @srv.tool()

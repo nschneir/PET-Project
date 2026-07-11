@@ -95,6 +95,17 @@ Reset the running machine; leaves it running.
 
 JSON: `{"reset": NAME, "hard": bool}`.
 
+### `pet status`
+
+    pet status
+
+Show the current session (name, model, pid, port) and whether the machine
+is **running** or **stopped** right now. The state comes from the session
+daemon's own tracking — no emulator traffic, so it never disturbs the
+machine. Without a daemon it reports `unknown` (a direct monitor
+connection stops the CPU, making the question unanswerable). `pet reg`
+also includes `"state"` in its JSON output.
+
 ---
 
 ## Screen

@@ -185,3 +185,17 @@ def clear_checkpoints(mon, include_mask: int, exclude_mask: int = 0) -> list[int
             mon.checkpoint_delete(ck.number)
             removed.append(ck.number)
     return removed
+
+
+def machine_state(session) -> str:
+    """'running' / 'stopped' via the session daemon; 'unknown' without one
+    (a direct monitor connection stops the CPU, so the question is only
+    answerable via the daemon). Never raises."""
+    if not getattr(session, "socket", None):
+        return "unknown"
+    try:
+        with session.monitor() as mon:
+            status = getattr(mon, "status", None)
+            return status() if status else "unknown"
+    except (ConnectionError, TimeoutError, OSError):
+        return "unknown"

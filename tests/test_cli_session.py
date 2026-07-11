@@ -13,6 +13,15 @@ def _fake_session(name="pet4032", port=6502):
     return s
 
 
+def _fake(labels=None):
+    fake = Mock()
+    fake.name, fake.model, fake.labels = "pet4032", "pet4032", labels
+    mon = Mock()
+    fake.monitor.return_value.__enter__ = Mock(return_value=mon)
+    fake.monitor.return_value.__exit__ = Mock(return_value=False)
+    return fake, mon
+
+
 def test_session_start_json():
     with patch("petlib.cli.Session") as S:
         S.launch.return_value = _fake_session()
@@ -108,3 +117,26 @@ def test_session_start_failure_is_json_error():
         r = CliRunner().invoke(main, ["--json", "session", "start"])
     assert r.exit_code == 1
     assert "xpet not found" in json.loads(r.output)["error"]
+
+
+def test_status_command():
+    fake, _ = _fake()
+    fake.pid, fake.port, fake.socket = 4242, 6510, "/tmp/s.sock"
+    with patch("petlib.cli.Session") as S, \
+         patch("petlib.cli.machine_state", return_value="running"):
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["--json", "status"])
+    assert r.exit_code == 0, r.output
+    out = json.loads(r.output)
+    assert out == {"name": "pet4032", "model": "pet4032", "pid": 4242,
+                   "port": 6510, "state": "running"}
+
+
+def test_status_human_line():
+    fake, _ = _fake()
+    fake.pid, fake.port = 4242, 6510
+    with patch("petlib.cli.Session") as S, \
+         patch("petlib.cli.machine_state", return_value="stopped"):
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["status"])
+    assert "state=stopped" in r.output and "pet4032" in r.output

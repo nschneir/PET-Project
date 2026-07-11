@@ -331,3 +331,12 @@ def test_connection_error_marshalled_and_daemon_quits():
     t.join(timeout=2)
     assert d._quitting is True          # daemon gives up; nothing to restore
     b.close()
+
+
+def test_status_verb_reports_state_without_touching_vice():
+    for state in (RUNNING, STOPPED):
+        d, mon = _daemon(state=state)
+        b, f, t, _ = _talk(d)
+        assert _rpc(f, "status")["ok"] == {"state": state}
+        assert not mon.method_calls        # zero VICE traffic
+        b.close(); t.join(timeout=2)

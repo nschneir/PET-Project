@@ -32,7 +32,7 @@ ALLOWED = frozenset({
     "set_register", "reset", "keyboard_feed", "display", "palette",
     "vice_info", "quit", "resource_get", "autostart", "checkpoint_set",
     "checkpoint_delete", "checkpoint_toggle", "checkpoint_list",
-    "condition_set", "step", "finish", "wait_for_stop",
+    "condition_set", "step", "finish", "wait_for_stop", "status",
 })
 
 #: methods that leave the machine halted by their own meaning.
@@ -154,6 +154,8 @@ class PetDaemon:
                   args: list, kwargs: dict):
         if method not in ALLOWED:
             raise ValueError(f"unknown daemon method {method!r}")
+        if method == "status":
+            return {"state": self.state}
         if method == "release":
             self._restore()
             return None

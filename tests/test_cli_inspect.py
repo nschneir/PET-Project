@@ -14,7 +14,7 @@ def test_parse_number():
 
 def _patched(mon):
     fake = Mock()
-    fake.name, fake.model = "pet4032", "pet4032"
+    fake.name, fake.model, fake.socket = "pet4032", "pet4032", None
     fake.monitor.return_value.__enter__ = Mock(return_value=mon)
     fake.monitor.return_value.__exit__ = Mock(return_value=False)
     p = patch("petlib.cli.Session")
@@ -173,3 +173,13 @@ def test_mem_find_pattern():
     assert out["matches"] == [0x8001, 0x8003]
     assert out["count"] == 2 and out["truncated"] is False
     assert out["pattern"] == [0x2A]
+
+
+def test_reg_reports_state():
+    fake, mon = _fake()
+    mon.registers.return_value = {"PC": 0x1234}
+    with patch("petlib.cli.Session") as S, \
+         patch("petlib.cli.machine_state", return_value="stopped"):
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["--json", "reg"])
+    assert json.loads(r.output)["state"] == "stopped"

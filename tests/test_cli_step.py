@@ -10,6 +10,7 @@ from petlib.monitor import StopInfo
 def _fake(labels=None):
     fake = Mock()
     fake.name, fake.model, fake.labels = "pet4032", "pet4032", labels
+    fake.socket = None
     mon = Mock()
     fake.monitor.return_value.__enter__ = Mock(return_value=mon)
     fake.monitor.return_value.__exit__ = Mock(return_value=False)

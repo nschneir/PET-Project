@@ -77,3 +77,12 @@ def test_mem_write():
         err, out = call_tool("pet_mem_write", {"addr": "$8000", "values": [8, 9]})
     assert err is False and out["written"] == 2
     mon.memory_write.assert_called_once_with(0x8000, bytes([8, 9]))
+
+
+def test_mem_read_includes_bytes():
+    s, mon = _fake_session()
+    mon.memory_read.return_value = bytes([42, 0])
+    with patch("petlib.mcp_server.Session") as S:
+        S.attach.return_value = s
+        err, out = call_tool("pet_mem_read", {"addr": "$8000", "length": 2})
+    assert err is False and out["bytes"] == [42, 0] and out["hex"] == "2a00"

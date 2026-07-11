@@ -133,9 +133,22 @@ Read emulated memory and print a hex dump (16 bytes/line with an ASCII column).
 
 - `ADDR` — start address (`$hex`/`0x`/decimal/symbol).
 - `LENGTH` (default `256`) — number of bytes.
+- `--decimal` — render decimal values instead of a hex dump.
 
-JSON: `{"addr", "length", "hex"}` (`hex` is the bytes hex-encoded). Machine
-state preserved.
+JSON: `{"addr", "length", "hex", "bytes"}` (`hex` is the bytes hex-encoded;
+`"bytes"` is always present as a decimal int array). Machine state
+preserved.
+
+### `pet mem get`
+
+    pet mem get ADDR [LENGTH]
+
+Print LENGTH (default 1) byte values at ADDR in decimal — bare,
+space-separated, pipe-friendly (`[ $(pet mem get score) -gt 0 ]`). JSON:
+`{"addr": N, "values": [ints]}`. ADDR is `$hex`/`0x`/decimal or a symbol
+from the loaded label file. Does not disturb run/stop state. (MCP note:
+there is deliberately no `pet_mem_get` tool — `pet_mem_read` already
+returns a decimal `bytes` array.)
 
 ### `pet mem write`
 

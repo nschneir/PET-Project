@@ -112,7 +112,8 @@ def pet_screenshot(path: str, session: str | None = None) -> dict:
 @srv.tool()
 def pet_mem_read(addr: str, length: int = 256, session: str | None = None) -> dict:
     """Read emulated memory. addr accepts $hex, 0xhex, decimal, or a symbol
-    from the loaded label file. Returns hex-encoded bytes."""
+    from the loaded label file. Returns hex-encoded bytes plus "bytes" as a
+    decimal int array."""
     s = _attach(session)
     a = parse_ref(session_labels(s), addr)
     with s.monitor() as mon:
@@ -120,7 +121,8 @@ def pet_mem_read(addr: str, length: int = 256, session: str | None = None) -> di
             data = mon.memory_read(a, length)
         finally:
             mon.release()
-    return {"addr": a, "length": len(data), "hex": data.hex()}
+    return {"addr": a, "length": len(data), "hex": data.hex(),
+            "bytes": list(data)}
 
 
 @srv.tool()

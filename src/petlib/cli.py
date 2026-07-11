@@ -188,6 +188,14 @@ def _hexdump(addr: int, data: bytes) -> str:
     return "\n".join(lines)
 
 
+def _decdump(addr: int, data: bytes) -> str:
+    lines = []
+    for i in range(0, len(data), 16):
+        chunk = data[i : i + 16]
+        lines.append(f"{addr + i:04x}: " + " ".join(str(b) for b in chunk))
+    return "\n".join(lines)
+
+
 @main.command("screen")
 @click.option("--png", "png_path", default=None, type=click.Path(dir_okay=False),
               help="Save a PNG screenshot to this path instead of printing text.")
@@ -220,12 +228,16 @@ def mem() -> None:
 @mem.command("read")
 @click.argument("addr")
 @click.argument("length", default="256")
+@click.option("--decimal", "decimal", is_flag=True,
+              help="Render values in decimal instead of a hex dump.")
 @click.pass_context
-def mem_read(ctx, addr, length):
+def mem_read(ctx, addr, length, decimal):
     """Dump LENGTH bytes of memory from ADDR as a hex + ASCII dump.
 
     ADDR is $hex/0x/decimal or a symbol; LENGTH (default 256) is decimal
-    or $hex. Does not disturb run/stop state.
+    or $hex. --decimal renders decimal values instead. JSON output always
+    includes both "hex" and "bytes" (a decimal int array). Does not
+    disturb run/stop state.
     """
     s = attach(ctx)
     start = resolve_ref(ctx, session_labels(s), addr)
@@ -235,8 +247,9 @@ def mem_read(ctx, addr, length):
             data = mon.memory_read(start, n)
         finally:
             mon.release()
-    emit(ctx, {"addr": start, "length": len(data), "hex": data.hex()},
-         _hexdump(start, data))
+    emit(ctx, {"addr": start, "length": len(data), "hex": data.hex(),
+               "bytes": list(data)},
+         _decdump(start, data) if decimal else _hexdump(start, data))
 
 
 @mem.command("write")
@@ -259,6 +272,29 @@ def mem_write(ctx, addr, values):
             mon.release()
     emit(ctx, {"addr": start, "written": len(data)},
          f"wrote {len(data)} byte(s) at ${start:04x}")
+
+
+@mem.command("get")
+@click.argument("addr")
+@click.argument("length", default="1")
+@click.pass_context
+def mem_get(ctx, addr, length):
+    """Print LENGTH byte values at ADDR in decimal (default: one byte).
+
+    Pipe-friendly: the human output is bare space-separated decimal values
+    with no address prefix. ADDR is $hex/0x/decimal or a symbol. Does not
+    disturb run/stop state.
+    """
+    s = attach(ctx)
+    start = resolve_ref(ctx, session_labels(s), addr)
+    n = parse_number(length)
+    with s.monitor() as mon:
+        try:
+            data = mon.memory_read(start, n)
+        finally:
+            mon.release()
+    emit(ctx, {"addr": start, "values": list(data)},
+         " ".join(str(b) for b in data))
 
 
 @main.group(invoke_without_command=True)

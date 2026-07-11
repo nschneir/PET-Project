@@ -21,6 +21,15 @@ def _patched(mon):
     return fake, p
 
 
+def _fake(labels=None):
+    fake = Mock()
+    fake.name, fake.model, fake.labels = "pet4032", "pet4032", labels
+    mon = Mock()
+    fake.monitor.return_value.__enter__ = Mock(return_value=mon)
+    fake.monitor.return_value.__exit__ = Mock(return_value=False)
+    return fake, mon
+
+
 def test_screen_text():
     mon = Mock()
     fake, p = _patched(mon)
@@ -109,3 +118,44 @@ def test_mem_read_unknown_symbol_fails():
         r = CliRunner().invoke(main, ["--json", "mem", "read", "NOSUCH", "1"])
     assert r.exit_code == 1
     assert "NOSUCH" in json.loads(r.output)["error"]
+
+
+def test_mem_read_json_has_bytes_array():
+    fake, mon = _fake()
+    mon.memory_read.return_value = bytes([42, 0, 255])
+    with patch("petlib.cli.Session") as S:
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["--json", "mem", "read", "$8000", "3"])
+    assert r.exit_code == 0, r.output
+    out = json.loads(r.output)
+    assert out["bytes"] == [42, 0, 255] and out["hex"] == "2a00ff"
+
+
+def test_mem_read_decimal_human_rendering():
+    fake, mon = _fake()
+    mon.memory_read.return_value = bytes([42, 0])
+    with patch("petlib.cli.Session") as S:
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["mem", "read", "$8000", "2", "--decimal"])
+    assert r.exit_code == 0, r.output
+    assert "42 0" in r.output and "2a" not in r.output
+
+
+def test_mem_get_prints_bare_decimal():
+    fake, mon = _fake()
+    mon.memory_read.return_value = bytes([42])
+    with patch("petlib.cli.Session") as S:
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["mem", "get", "$8000"])
+    assert r.exit_code == 0, r.output
+    assert r.output.strip() == "42"
+    mon.memory_read.assert_called_once_with(0x8000, 1)
+
+
+def test_mem_get_json_values():
+    fake, mon = _fake()
+    mon.memory_read.return_value = bytes([1, 2, 3])
+    with patch("petlib.cli.Session") as S:
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["--json", "mem", "get", "$8000", "3"])
+    assert json.loads(r.output) == {"addr": 0x8000, "values": [1, 2, 3]}

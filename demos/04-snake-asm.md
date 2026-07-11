@@ -6,7 +6,7 @@ Paste this prompt into your agent:
 > skill, and docs/cli.md), build a Snake game for a PET 4032 in 6502
 > assembly: the snake moves continuously on the 40×25 screen (screen memory
 > at $8000), W/A/S/D steer it, it grows when it eats a `*` placed at random
-> positions, and the game ends with `GAME OVER — SCORE n` if it hits the
+> positions, and the game ends with `GAME OVER - SCORE n` if it hits the
 > border or itself. Read the keyboard with the GETIN ROM routine. Use the
 > debugger (breakpoints, `pet step`, memory inspection) when something
 > misbehaves rather than guessing. Prove it works by playing a few moves

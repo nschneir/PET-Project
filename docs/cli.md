@@ -89,7 +89,7 @@ the preferred way to observe program output. With `--png` it writes an image.
 - `--png PATH` — save a PNG screenshot instead of printing text.
 
 JSON (text): `{"text", "rows": [...]}`. JSON (`--png`): `{"png", "width",
-"height"}`. Machine left running.
+"height"}`. Machine state preserved.
 
 ---
 
@@ -103,7 +103,7 @@ programs prefer `pet basic type`.
 
 - `TEXT` — the keystrokes (letters are case-folded to the PET's convention).
 
-JSON: `{"typed_chars"}`. Machine left running.
+JSON: `{"typed_chars"}`. Machine state preserved.
 
 ---
 
@@ -117,7 +117,7 @@ Read emulated memory and print a hex dump (16 bytes/line with an ASCII column).
 - `LENGTH` (default `256`) — number of bytes.
 
 JSON: `{"addr", "length", "hex"}` (`hex` is the bytes hex-encoded). Machine
-left running.
+state preserved.
 
 ### `pet mem write`
 
@@ -126,7 +126,7 @@ Write bytes to emulated memory.
 - `ADDR` — start address (`$hex`/`0x`/decimal/symbol).
 - `VALUES...` — one or more byte values (`$hex`/`0x`/decimal).
 
-JSON: `{"addr", "written"}`. Machine left running.
+JSON: `{"addr", "written"}`. Machine state preserved.
 
 ---
 
@@ -138,7 +138,7 @@ Show the CPU registers (this is a callable group — run it with no subcommand).
 PC is annotated with the nearest symbol when a label file is loaded.
 
 JSON: `{"registers": {"PC", "A", "X", "Y", "SP", "FL", ...}, "pc_symbol"}`.
-Machine left running.
+Machine state preserved.
 
 ### `pet reg set`
 
@@ -147,7 +147,7 @@ Set a register.
 - `NAME` — register name (e.g. `PC`, `A`, `X`, `Y`).
 - `VALUE` — new value (`$hex`/`0x`/decimal).
 
-JSON: `{"register", "value"}`. Machine left running.
+JSON: `{"register", "value"}`. Machine state preserved.
 
 ---
 
@@ -165,7 +165,7 @@ Set an execution breakpoint at an address or symbol.
 - `--condition EXPR` — a VICE condition, e.g. `'A != 0'`.
 - `--temporary` — delete the breakpoint after it fires once.
 
-JSON: `{"id", "address", "condition", "temporary"}`. Machine left running.
+JSON: `{"id", "address", "condition", "temporary"}`. Machine state preserved.
 
 ### `pet break list`
 
@@ -194,7 +194,7 @@ Set a watchpoint on a memory range (default: both load and store).
 - `--store` — break on writes.
 - `--length N` (default `1`) — number of bytes to watch.
 
-JSON: `{"id", "address", "length", "op"}`. Machine left running.
+JSON: `{"id", "address", "length", "op"}`. Machine state preserved.
 
 ---
 
@@ -322,7 +322,7 @@ real tokenizer; works mid-session).
 - `SOURCE` — the `.bas` file.
 - `--run` — type `RUN` afterwards.
 
-JSON: `{"typed", "run"}`. Machine left running.
+JSON: `{"typed", "run"}`. Machine state preserved.
 
 ---
 
@@ -404,7 +404,7 @@ Commodore-copyrighted is shipped with pet-tools.
 ### `pet rom info`
 
 Identify the loaded ROM set (names + content hashes).
-JSON: `{"basic", "kernal", "editor", "hashes": {...}}`. Machine left running.
+JSON: `{"basic", "kernal", "editor", "hashes": {...}}`. Machine state preserved.
 
 ### `pet rom disasm`
 
@@ -413,7 +413,7 @@ Disassemble live memory with ROM + session symbol annotations.
 - `START` — address or symbol (e.g. `CHROUT`).
 - `LENGTH` (default `32`) — bytes to disassemble.
 
-JSON: `{"start", "length", "lines": [...]}`. Machine left running.
+JSON: `{"start", "length", "lines": [...]}`. Machine state preserved.
 
 ---
 

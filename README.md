@@ -163,7 +163,8 @@ tools describe themselves.
 ## Demos — try it with your AI agent
 
 [`demos/`](demos/) is a set of ready-to-paste prompts, graded from a first
-BASIC program up to writing Snake in 6502 assembly. To use one:
+BASIC program up to a full arcade Snake in 6502 assembly (title screen,
+levels, high score) and a machine-level debug hunt. To use one:
 
 1. Set up your agent (one section up — or use any shell agent with no setup).
 2. Open a demo file and copy its prompt.
@@ -201,6 +202,11 @@ symbolic breakpoints and watchpoints with conditions, `pet step`/`finish`/
 (declarative YAML tests + example programs), the `pet-tools-mcp` MCP server, and the AI
 enablement docs (the `pet-development` and `6502-assembly` skills, the machine
 references, and the [`docs/cli.md`](docs/cli.md) man pages).
+
+Since v1: a per-session **monitor daemon** — the machine's run/stop state now
+persists across commands, so a breakpoint halt survives any number of
+inspection steps (the debugger works the way you'd hope); `pet package` for
+shareable `.d64`/`.prg` artifacts; and the `pet2001-4k` launch profile.
 
 ROM tooling reads ROM bytes from your running emulator and ships only
 original label annotations — no Commodore-copyrighted code lives in this repo.

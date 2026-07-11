@@ -21,6 +21,7 @@ Assembly:
 - [Point a pointer at screen row/column (plotaddr)](#point-a-pointer-at-screen-rowcolumn-plotaddr)
 - [Static text without CHROUT (poke screen codes)](#static-text-without-chrout-poke-screen-codes)
 - [Print a number as decimal digits](#print-a-number-as-decimal-digits)
+- [IRQ wedge: run code 60×/second behind BASIC](#irq-wedge-run-code-60second-behind-basic)
 
 ## BASIC recipes
 
@@ -457,6 +458,63 @@ tdone:  pha
         ora     #48
         sta     POS+2
         rts
+```
+
+### IRQ wedge: run code 60×/second behind BASIC
+
+The jiffy interrupt enters ROM, pushes A/X/Y, then jumps through the RAM
+vector at `($90)` — repoint it and your code runs every frame while BASIC
+carries on. Rules: install with interrupts disabled (`sei`/`cli`), save
+the old vector and **chain to it** (`jmp (oldvec)`) so the clock and
+keyboard keep working, and keep the wedge short (it steals time from
+every frame). `oldvec` sits in the code so it can't land on a page
+boundary — `jmp (indirect)` has the famous 6502 bug when its operand
+straddles `$xxFF`. The demo counts 60 interrupts (~1 second), then
+unhooks itself and stores `$2A` at `$03F1` as a done marker.
+
+```asm
+; wedge.s — hook ($90), count 60 jiffies behind BASIC, unhook, mark done.
+IRQVEC = $90
+COUNT  = $03F0                  ; cassette-buffer scratch
+DONE   = $03F1
+
+        .segment "LOADADDR"
+        .word   $0401
+        .segment "EXEHDR"
+        .word   nextln
+        .word   10
+        .byte   $9E, "1037", $00
+nextln: .word   $0000
+
+        .segment "CODE"
+start:  lda     #0
+        sta     COUNT
+        sta     DONE
+        sei                     ; no IRQ while the vector is half-written
+        lda     IRQVEC
+        sta     oldvec
+        lda     IRQVEC+1
+        sta     oldvec+1
+        lda     #<wedge
+        sta     IRQVEC
+        lda     #>wedge
+        sta     IRQVEC+1
+        cli
+        rts                     ; back to BASIC — the wedge runs underneath
+
+wedge:  inc     COUNT           ; A/X/Y were already pushed by the ROM
+        lda     COUNT
+        cmp     #60
+        bcc     chain
+        lda     oldvec          ; one second: put the old vector back...
+        sta     IRQVEC
+        lda     oldvec+1
+        sta     IRQVEC+1
+        lda     #$2a
+        sta     DONE            ; ...and leave the marker
+chain:  jmp     (oldvec)        ; ALWAYS continue into the ROM handler
+
+oldvec: .word   0
 ```
 
 ## Verifying a recipe-based program

@@ -101,6 +101,11 @@ LIVE_RECIPES = [
         {"assert": {"mem": "$801E", "equals": 49}},
         {"assert": {"mem": "$8020", "equals": 50}},   # '2' = 50
     ]),
+    ("asm-irq-wedge", "asm", "wedge.s", [
+        # the wedge unhooks itself after exactly 60 ticks (~1 s)
+        {"wait": {"mem": "$03F1", "equals": "$2a", "timeout": 20}},
+        {"assert": {"mem": "$03F0", "equals": 60}},
+    ]),
 ]
 
 

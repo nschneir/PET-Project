@@ -104,6 +104,26 @@ def test_every_live_recipe_key_resolves():
         assert block.strip(), name
 
 
+def _slug(title: str) -> str:
+    """GitHub-style anchor slug."""
+    keep = [c for c in title.lower() if c.isalnum() or c in " -"]
+    return "".join(keep).replace(" ", "-")
+
+
+def test_toc_lists_every_recipe_bidirectionally():
+    text = COOKBOOK.read_text()
+    assert "## Contents" in text, "cookbook needs a '## Contents' section at the top"
+    toc = text.split("## Contents")[1].split("\n## ")[0]
+    headings = re.findall(r"^### (.+)$", text, re.M)
+    toc_entries = re.findall(r"\[([^\]]+)\]\(#([^)]+)\)", toc)
+    listed = {t for t, _ in toc_entries}
+    assert set(headings) == listed, (
+        f"TOC/heading mismatch: missing {set(headings) - listed}, "
+        f"stale {listed - set(headings)}")
+    for title, anchor in toc_entries:
+        assert anchor == _slug(title), f"bad anchor for {title!r}: {anchor}"
+
+
 @pytest.mark.vice
 @pytest.mark.skipif(
     not (shutil.which("xpet") or os.environ.get("PET_TOOLS_XPET")),

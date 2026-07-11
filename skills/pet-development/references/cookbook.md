@@ -6,6 +6,21 @@ the flagship ones run live on the emulator). Copy a recipe, rename things,
 and build from there — they encode the conventions that trip people up
 (lowercase BASIC, screen codes for pokes, jiffy pacing, the SYS stub).
 
+## Contents
+
+BASIC:
+- [Game loop: non-blocking key read + jiffy pacing](#game-loop-non-blocking-key-read--jiffy-pacing)
+- [Poke characters at a screen position](#poke-characters-at-a-screen-position)
+- [Sound: a beep subroutine](#sound-a-beep-subroutine)
+
+Assembly:
+- [Game loop: poll GETIN, move a ball, pace with the jiffy clock](#game-loop-poll-getin-move-a-ball-pace-with-the-jiffy-clock)
+- [Sound: a beep from machine code](#sound-a-beep-from-machine-code)
+- [Frame stepping: inspect a game loop one frame at a time](#frame-stepping-inspect-a-game-loop-one-frame-at-a-time)
+- [Cheap pseudo-random byte (8-bit Galois LFSR)](#cheap-pseudo-random-byte-8-bit-galois-lfsr)
+- [Point a pointer at screen row/column (plotaddr)](#point-a-pointer-at-screen-rowcolumn-plotaddr)
+- [Static text without CHROUT (poke screen codes)](#static-text-without-chrout-poke-screen-codes)
+
 ## BASIC recipes
 
 ### Game loop: non-blocking key read + jiffy pacing
@@ -226,19 +241,7 @@ If play can branch away (death, menu, pause), the wait times out — and on
 timeout the machine is left RUNNING with the checkpoint removed. For those
 states, break at a code path that must still execute instead.
 
-## Verifying a recipe-based program
-
-Run it and assert on the screen, exactly like the tests here do:
-
-```
-pet run mygame.s
-pet wait --text "expected output"
-pet screen
-```
-
-or wrap it in a YAML test (`pet test run` — format in docs/cli.md).
-
-## Cheap pseudo-random byte (8-bit Galois LFSR)
+### Cheap pseudo-random byte (8-bit Galois LFSR)
 
 Games need randomness; the PET has no hardware source. A one-byte Galois
 LFSR gives a 255-value pseudo-random sequence for three instructions of
@@ -291,7 +294,7 @@ seed:   .byte   1
 Range tricks: `and #$1f` for 0-31, or reject-and-retry (`cmp #40 / bcs
 random`) for an unbiased 0-39.
 
-## Point a pointer at screen row/column (plotaddr)
+### Point a pointer at screen row/column (plotaddr)
 
 Everything that draws needs `screen address = $8000 + row*width + col`.
 On 40-column machines `row*40 = row*32 + row*8` — three shifts and an
@@ -353,7 +356,7 @@ nocarry:
 row8:   .byte   0
 ```
 
-## Static text without CHROUT (poke screen codes)
+### Static text without CHROUT (poke screen codes)
 
 CHROUT ($FFD2) prints *at the cursor*: it moves the cursor and scrolls
 the screen at the bottom row — wrong for a fixed HUD, score, or label.
@@ -399,3 +402,15 @@ msg:    .byte   "SCORE 000", 0
 The label reads back through `pet screen` (letters and digits round-trip
 through the decoder — see petscii.md), so `pet wait --text "SCORE 000"`
 works as a completion signal.
+
+## Verifying a recipe-based program
+
+Run it and assert on the screen, exactly like the tests here do:
+
+```
+pet run mygame.s
+pet wait --text "expected output"
+pet screen
+```
+
+or wrap it in a YAML test (`pet test run` — format in docs/cli.md).

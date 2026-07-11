@@ -106,6 +106,14 @@ LIVE_RECIPES = [
         {"wait": {"mem": "$03F1", "equals": "$2a", "timeout": 20}},
         {"assert": {"mem": "$03F0", "equals": 60}},
     ]),
+    ("asm-melody", "asm", "tune.s", [
+        {"wait": {"text": "DONE"}},
+        # cleanup rule from hardware.md: the code zeros both $E848 and $E84B.
+        # $E848 is timer-2 low: it free-runs, so a readback returns the live
+        # counter (~46 here), not the written 0 — so we can only assert the
+        # ACR ($E84B), which is a plain register and reads back the 0 we wrote.
+        {"assert": {"mem": "59467", "equals": 0}},   # $E84B ACR: sound off
+    ]),
 ]
 
 

@@ -22,6 +22,7 @@ Assembly:
 - [Static text without CHROUT (poke screen codes)](#static-text-without-chrout-poke-screen-codes)
 - [Print a number as decimal digits](#print-a-number-as-decimal-digits)
 - [IRQ wedge: run code 60×/second behind BASIC](#irq-wedge-run-code-60second-behind-basic)
+- [Play a melody from a note table](#play-a-melody-from-a-note-table)
 
 ## BASIC recipes
 
@@ -516,6 +517,66 @@ chain:  jmp     (oldvec)        ; ALWAYS continue into the ROM handler
 
 oldvec: .word   0
 ```
+
+### Play a melody from a note table
+
+The beep recipes hold one tone; a tune is just a table of timer-2 periods
+played in sequence. Periods come from the chromatic scale in the hardware
+reference (`250, 236, 223, 210, 198, 187, 176, 166, 157, 148, 139, 132`,
+halve for the next octave up; frequency ≈ 1,000,000/(16×T)). A zero
+terminates the table. As always: zero `$E848` AND `$E84B` at the end or
+the last note plays forever.
+
+```asm
+; tune.s — four-note rising jingle from a period table, then DONE.
+CHROUT = $FFD2
+JIFFLO = $8F
+
+        .segment "LOADADDR"
+        .word   $0401
+        .segment "EXEHDR"
+        .word   nextln
+        .word   10
+        .byte   $9E, "1037", $00
+nextln: .word   $0000
+
+        .segment "CODE"
+start:  lda     #$10
+        sta     $E84B           ; sound on: SR free-runs under timer 2
+        lda     #$0F
+        sta     $E84A           ; square wave
+        ldx     #0
+note:   lda     tune,x
+        beq     fin             ; 0 terminates the tune
+        sta     $E848           ; period = pitch
+        ldy     #12             ; ~1/5 s per note
+npace:  lda     JIFFLO
+nw:     cmp     JIFFLO
+        beq     nw              ; spin until the jiffy clock ticks
+        dey
+        bne     npace
+        inx
+        bne     note
+fin:    lda     #0
+        sta     $E848           ; silence...
+        sta     $E84B           ; ...and release CB2
+        ldx     #0
+msg:    lda     text,x
+        beq     bye
+        jsr     CHROUT
+        inx
+        bne     msg
+bye:    rts
+
+tune:   .byte   250, 198, 166, 125, 0
+text:   .byte   "DONE", $0D, $00
+```
+
+Swap `tune` for your own periods from the table; double a value to drop
+an octave. Durations: change the `ldy #12` per-note wait, or extend the
+table format with a duration byte per note. The cleanup matters beyond
+politeness: a free-running shift register interferes with cassette I/O
+(the PET FAQ's classic warning), so silence it before any tape operation.
 
 ## Verifying a recipe-based program
 

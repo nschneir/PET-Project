@@ -86,3 +86,18 @@ def test_watch_add_default_both():
         r = CliRunner().invoke(main, ["watch", "add", "$8000"])
     assert r.exit_code == 0
     mon.checkpoint_set.assert_called_once_with(0x8000, 0x8000, op=CP_LOAD | CP_STORE)
+
+
+def test_break_enable_and_disable():
+    fake, mon = _fake()
+    with patch("petlib.cli.Session") as S:
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["--json", "break", "enable", "3"])
+        assert r.exit_code == 0, r.output
+        assert json.loads(r.output) == {"enabled": 3}
+        r = CliRunner().invoke(main, ["--json", "break", "disable", "3"])
+        assert r.exit_code == 0, r.output
+        assert json.loads(r.output) == {"disabled": 3}
+    mon.checkpoint_toggle.assert_any_call(3, True)
+    mon.checkpoint_toggle.assert_any_call(3, False)
+    assert mon.release.call_count == 2

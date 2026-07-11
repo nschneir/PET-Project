@@ -63,3 +63,16 @@ def test_programs_runs_each_directory(tmp_path):
     assert [t["name"] for t in out["tests"]] == ["alpha", "beta"]
     assert out["passed"] is False
     assert dt.call_count == 2
+
+
+def test_test_run_bad_yaml_fails(tmp_path):
+    f = tmp_path / "bad.yaml"
+    f.write_text("- a list\n")
+    r = CliRunner().invoke(main, ["--json", "test", "run", str(f)])
+    assert r.exit_code == 1
+    assert "mapping" in json.loads(r.output)["error"]
+
+
+def test_test_programs_empty_dir_fails(tmp_path):
+    r = CliRunner().invoke(main, ["test", "programs", str(tmp_path)])
+    assert r.exit_code == 1 and "no example programs" in r.output

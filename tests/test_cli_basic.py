@@ -55,3 +55,21 @@ def test_key_type_feeds_text_directly():
     assert r.exit_code == 0, r.output
     mon.keyboard_feed.assert_called_once_with(b"50\r")
     mon.release.assert_called_once()
+
+
+def _fake(labels=None):
+    fake = Mock()
+    fake.name, fake.model, fake.labels = "pet4032", "pet4032", labels
+    mon = Mock()
+    fake.monitor.return_value.__enter__ = Mock(return_value=mon)
+    fake.monitor.return_value.__exit__ = Mock(return_value=False)
+    return fake, mon
+
+
+def test_key_type_rejects_unmappable_text():
+    fake, mon = _fake()
+    with patch("petlib.cli.Session") as S:
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["key", "type", "café"])   # é has no PETSCII
+    assert r.exit_code == 1
+    mon.keyboard_feed.assert_not_called()

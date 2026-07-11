@@ -100,3 +100,11 @@ def test_session_start_dash_s_alias():
     S.launch.assert_called_once_with(
         model="pet4032", name="snake", headless=False, warp=False, disk8=None
     )
+
+
+def test_session_start_failure_is_json_error():
+    with patch("petlib.cli.Session") as S:
+        S.launch.side_effect = SessionError("xpet not found")
+        r = CliRunner().invoke(main, ["--json", "session", "start"])
+    assert r.exit_code == 1
+    assert "xpet not found" in json.loads(r.output)["error"]

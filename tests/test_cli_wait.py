@@ -91,3 +91,32 @@ def test_wait_break_listens_for_stop():
     out = json.loads(r.output)
     assert out["fired"] == "break" and out["checkpoint"] == 7
     mon.resume.assert_called_once()
+
+
+def test_wait_text_timeout_shows_last_screen():
+    fake, mon = _fake()
+    with patch("petlib.cli.Session") as S, \
+         patch("petlib.cli.wait_for_text",
+               return_value={"fired": None, "timeout": 0.1, "screen": "READY."}):
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["wait", "--text", "NEVER", "--timeout", "0.1"])
+    assert r.exit_code == 1 and "READY." in r.output
+
+
+def test_wait_mem_malformed_condition():
+    fake, mon = _fake()
+    with patch("petlib.cli.Session") as S:
+        S.attach.return_value = fake
+        # valid addr, missing =VALUE -> the "use ADDR=VALUE" branch
+        r = CliRunner().invoke(main, ["wait", "--mem", "$8000"])
+    assert r.exit_code == 1 and "ADDR=VALUE" in r.output
+
+
+def test_wait_mem_timeout():
+    fake, mon = _fake()
+    with patch("petlib.cli.Session") as S, \
+         patch("petlib.cli.wait_for_mem",
+               return_value={"fired": None, "timeout": 0.1, "last_value": 7}):
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["wait", "--mem", "$8000=42", "--timeout", "0.1"])
+    assert r.exit_code == 1 and "timeout" in r.output.lower()

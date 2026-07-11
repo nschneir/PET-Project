@@ -129,3 +129,14 @@ def test_until_count(tmp_path):
     assert out["count"] == 3 and out["stopped"] is True
     assert mon.resume.call_count == 3          # one per frame
     mon.checkpoint_delete.assert_called_once_with(4)
+
+
+def test_until_timeout_reports_progress():
+    fake, mon = _fake()
+    with patch("petlib.cli.Session") as S, \
+         patch("petlib.cli.run_until",
+               return_value={"registers": None, "reached": 1}):
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["until", "$040d", "--count", "3",
+                                      "--timeout", "0.1"])
+    assert r.exit_code == 1 and "1/3" in r.output

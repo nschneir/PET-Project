@@ -1,6 +1,7 @@
 """DaemonMonitorClient round-trips against a real PetDaemon (mocked
 MonitorClient) over a real unix socket."""
 
+import collections
 import socket
 import tempfile
 import threading
@@ -19,6 +20,8 @@ from petlib.protocol import CP_EXEC, Checkpoint
 def served():
     """(client, mock_mon, daemon) with the daemon handling one connection."""
     mon = Mock()
+    mon.events = collections.deque()
+    mon.poll_events.return_value = []      # _restore pumps before deciding
     sock_path = str(Path(tempfile.mkdtemp(prefix="pet-dc-")) / "d.sock")
     listen = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     listen.bind(sock_path)
@@ -120,6 +123,8 @@ def test_close_delivers_eof_so_next_client_is_served_promptly():
     mon = Mock()
     mon._sock = vice_a
     mon.ping.return_value = None
+    mon.events = collections.deque()
+    mon.poll_events.return_value = []
     sock_path = str(Path(tempfile.mkdtemp(prefix="pet-dc-")) / "d.sock")
     listen = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     listen.bind(sock_path)

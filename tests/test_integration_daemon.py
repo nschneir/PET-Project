@@ -115,7 +115,20 @@ def test_idle_checkpoint_park_survives_inspection(session, tmp_path):
     with session.monitor() as mon:
         ck = mon.checkpoint_set(labels["mainloop"])
         mon.release()                    # running; the hit is imminent
-    time.sleep(1.5)                      # the hit happens while idle
+    # The hit happens while idle. Poll rather than fixed-sleep: under
+    # full-suite CPU load the park can take longer to land/settle, and a
+    # release() on a not-yet-parked machine just resumes it (the armed
+    # checkpoint re-fires within microseconds, so polling converges).
+    deadline = time.monotonic() + 20.0
+    while True:
+        with session.monitor() as mon:
+            pc = mon.registers()["PC"]
+            mon.release()
+        if pc == labels["mainloop"]:
+            break
+        assert time.monotonic() < deadline, \
+            f"checkpoint never parked the machine; last PC={pc:#06x}"
+        time.sleep(0.3)
     with session.monitor() as mon:
         assert mon.registers()["PC"] == labels["mainloop"]
         mon.release()                    # must NOT resume a parked machine

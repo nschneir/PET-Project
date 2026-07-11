@@ -13,12 +13,21 @@ from unittest.mock import Mock
 from petlib.daemon import RUNNING, STOPPED, PetDaemon
 from petlib.daemon_client import DaemonMonitorClient
 from petlib.monitor import StopInfo
-from petlib.protocol import ResponseType
+from petlib.protocol import Command, ResponseType
+
+
+def _hit_event(number=3):
+    """A CHECKPOINT_GET event with the hit flag set — VICE's signature for
+    a genuine stop=True checkpoint park."""
+    return Mock(response_type=Command.CHECKPOINT_GET,
+                body=bytes([number, 0, 0, 0, 1]))
 
 
 def _daemon(state=RUNNING):
     d = PetDaemon(Mock(), None, "t")
     d.state = state
+    d.mon.events = collections.deque()
+    d.mon.poll_events.return_value = []   # _restore pumps before deciding
     return d, d.mon
 
 
@@ -138,6 +147,68 @@ def test_pump_reports_vice_death():
     assert d._pump_vice_events() is False
 
 
+def test_restore_parks_on_checkpoint_hit_during_tenure():
+    """A stop=True checkpoint that fires DURING a client's tenure (daemon
+    blocked on the IPC socket, event unread) must be noticed at restore
+    time — a blind resume would destroy the park (seen live as a parked
+    machine read at the loop's jmp instead of mainloop)."""
+    d, mon = _daemon(state=RUNNING)
+    mon.poll_events.return_value = [
+        _hit_event(), Mock(response_type=ResponseType.STOPPED)]
+    d._restore()
+    assert d.state == STOPPED
+    mon.resume.assert_not_called()
+
+
+def test_restore_ignores_bare_stopped_noise():
+    """VICE emits a bare STOPPED for the momentary halt EVERY monitor
+    command causes. At restore time that noise describes the very
+    command-stop restore exists to undo — treating it as a park wedges
+    the machine stopped forever (seen live: checkpoint_set's noise parked
+    the session and the checkpoint never fired)."""
+    d, mon = _daemon(state=RUNNING)
+    mon.poll_events.return_value = [Mock(response_type=ResponseType.STOPPED)]
+    d._restore()
+    assert d.state == RUNNING
+    mon.resume.assert_called_once()
+
+
+def test_restore_resumed_cancels_stale_hit():
+    """A hit whose events were still in flight when an explicit resume ran
+    (pet continue racing a fresh hit) must not re-park: the RESUMED that
+    follows it is the truth."""
+    d, mon = _daemon(state=RUNNING)
+    mon.poll_events.return_value = [
+        _hit_event(), Mock(response_type=ResponseType.STOPPED),
+        Mock(response_type=ResponseType.RESUMED)]
+    d._restore()
+    assert d.state == RUNNING
+    mon.resume.assert_called_once()
+
+
+def test_restore_never_unparks():
+    """A step/finish park (state already STOPPED) must stand no matter what
+    events are pending — step's own RESUMED/STOPPED chatter included."""
+    d, mon = _daemon(state=STOPPED)
+    mon.poll_events.return_value = [Mock(response_type=ResponseType.RESUMED)]
+    d._restore()
+    assert d.state == STOPPED
+    mon.resume.assert_not_called()
+
+
+def test_pump_late_noise_heals_to_running():
+    """Tenure noise delivered late lands in the IDLE pump as STOPPED
+    followed by the RESUMED of the restore that undid it — last state wins,
+    or the session falsely parks (the original full-suite flake: inspection
+    read the machine frozen at the loop's jmp)."""
+    d, mon = _daemon(state=RUNNING)
+    mon.poll_events.return_value = [
+        Mock(response_type=ResponseType.STOPPED),
+        Mock(response_type=ResponseType.RESUMED)]
+    assert d._pump_vice_events() is True
+    assert d.state == RUNNING
+
+
 def test_idle_wait_treats_closed_vice_socket_as_death():
     """If the VICE socket closes while the daemon idles (fileno -1), select
     used to raise ValueError and crash the daemon with a traceback. It must
@@ -171,6 +242,8 @@ def test_serve_forever_survives_bad_client_and_serves_next():
     mon = Mock()
     mon._sock = vice_a
     mon.ping.return_value = None
+    mon.events = collections.deque()
+    mon.poll_events.return_value = []
     sock_path = os.path.join(tempfile.mkdtemp(prefix="pet-sf-"), "d.sock")
     listen = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     listen.bind(sock_path)

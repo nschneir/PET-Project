@@ -21,7 +21,7 @@ import traceback
 
 from . import rpc
 from .monitor import MonitorClient
-from .protocol import ResponseType
+from .protocol import Command, ResponseType
 
 RUNNING = "running"
 STOPPED = "stopped"
@@ -81,14 +81,26 @@ class PetDaemon:
                 return True
 
     def _pump_vice_events(self) -> bool:
+        """Idle pump. VICE emits a bare STOPPED for EVERY halt — including
+        the momentary halt each monitor command causes — so tenure noise
+        delivered late can land here. Process in order, last state wins:
+        noise is always followed by the RESUMED of the restore that undid
+        it, while a genuine unattended park is a STOPPED with no RESUMED
+        after it (false idle parks read as a machine frozen at a random
+        loop PC — seen live as the jmp instead of mainloop)."""
         try:
             events = self.mon.poll_events(0.05)
         except (ConnectionError, OSError):
             return False
+        pending = None
         for ev in events:
             if ev.response_type == ResponseType.STOPPED:
-                self.state = STOPPED
+                pending = STOPPED
+            elif ev.response_type == ResponseType.RESUMED:
+                pending = RUNNING
             self.mon.events.append(ev)          # keep for a later wait_for_stop
+        if pending is not None:
+            self.state = pending
         return True
 
     # --- one client -------------------------------------------------------
@@ -176,7 +188,30 @@ class PetDaemon:
     def _restore(self) -> None:
         """release()/disconnect: put the machine back in its desired state.
         Monitor commands stop the CPU as a side effect; only an explicit
-        resume sets RUNNING, so restoring means EXIT iff desired RUNNING."""
+        resume sets RUNNING, so restoring means EXIT iff desired RUNNING.
+
+        First, check pending VICE events for a park that fired DURING this
+        client's tenure (release -> hit lands in microseconds while the
+        daemon is blocked reading the IPC socket): resuming blindly would
+        destroy it. Only checkpoint-hit evidence counts — a bare STOPPED
+        here is the noise of the command-stop we are about to undo, NOT a
+        park (treating it as one wedges the machine stopped forever). A
+        RESUMED after a hit cancels it (stale hit from before an explicit
+        resume). Never flips STOPPED->RUNNING: a step/finish park stands."""
+        try:
+            events = self.mon.poll_events(0.05)
+        except (ConnectionError, OSError):
+            return                              # VICE gone; loops will notice
+        park = False
+        for ev in events:
+            if (ev.response_type == Command.CHECKPOINT_GET
+                    and len(ev.body) > 4 and ev.body[4]):
+                park = True
+            elif ev.response_type == ResponseType.RESUMED:
+                park = False
+            self.mon.events.append(ev)          # keep for a later wait_for_stop
+        if park:
+            self.state = STOPPED
         if self.state == RUNNING:
             try:
                 self.mon.resume()

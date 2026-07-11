@@ -39,3 +39,22 @@ def test_ascii_to_petscii_basic():
 def test_ascii_to_petscii_rejects_unmappable():
     with pytest.raises(ValueError):
         ascii_to_petscii("naïve")
+
+
+def test_screen_decode_matches_documented_behavior():
+    """Pins the claims in petscii.md's 'How pet screen decodes' section."""
+    from petlib import text
+    # reverse video strips to the base glyph
+    assert text.screen_code_to_char(0x81) == "A"
+    # reverse-space $A0 (the solid block) decodes to a BLANK
+    assert text.screen_code_to_char(0xA0) == " "
+    # unmapped graphics render as the placeholder
+    unmapped = next(c for c in range(64, 128) if c not in text._GRAPHICS)
+    assert text.screen_code_to_char(unmapped) == text.GRAPHICS_PLACEHOLDER
+
+
+def test_petscii_doc_has_decoder_section():
+    from pathlib import Path
+    doc = Path("skills/pet-development/references/petscii.md").read_text()
+    assert "How `pet screen` decodes" in doc
+    assert "$A0" in doc

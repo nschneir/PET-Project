@@ -95,3 +95,25 @@ Only characters in the PET set are available. `ascii_to_petscii` (used by
 `pet basic type` and `pet key type`) rejects anything it can't map rather
 than mangling it — so "smart" typography like the em dash (`—`) or curly
 quotes must be spelled with their plain ASCII equivalents (`-`, `"`).
+
+## How `pet screen` decodes the screen
+
+`pet screen` reads screen RAM and maps each screen code to text
+(`petlib.text.screen_code_to_char`). Know its three rules before trusting
+what you see:
+
+1. **Reverse video is stripped.** Codes $80-$FF decode as their base glyph
+   (bit 7 cleared): a reverse `A` ($81) reads as `A`.
+2. **Therefore the solid block is invisible.** Reverse-space $A0 — the
+   character most drawing code uses for solid pixels — strips to space
+   ($20) and decodes as a **blank**. A shape drawn in solid blocks shows
+   as empty space in `pet screen` text.
+3. **Unmapped graphics become `·`.** Graphics characters with no text
+   equivalent render as a placeholder dot.
+
+Letters, digits, and punctuation round-trip faithfully — text output is
+fully trustworthy. To verify graphics drawn with blocks or line
+characters, assert the screen **codes** numerically instead:
+`pet mem get $80D2` for row 5, column 10 on a 40-column model (row stride
+80 on 80-column models), or use `pet screen --png` when pixel appearance
+matters.

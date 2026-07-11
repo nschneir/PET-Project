@@ -208,9 +208,6 @@ persists across commands, so a breakpoint halt survives any number of
 inspection steps (the debugger works the way you'd hope); `pet package` for
 shareable `.d64`/`.prg` artifacts; and the `pet2001-4k` launch profile.
 
-ROM tooling reads ROM bytes from your running emulator and ships only
-original label annotations — no Commodore-copyrighted code lives in this repo.
-
 ## AI Disclosure
 
 PET Project is developed primarily by AI — Anthropic's Claude, working
@@ -224,5 +221,8 @@ software — making it a working example of AI-built developer tooling.
 
 ## License
 
-MIT. VICE is a separate GPLv2+ program invoked as a subprocess; it is not
-bundled and must be installed separately.
+MIT license. Note that VICE is a separate GPLv2+ program invoked as a
+subprocess; it is not bundled and must be installed separately.
+
+ROM tooling reads ROM bytes from your running emulator and ships only
+original label annotations — no Commodore-copyrighted code lives in this repo.

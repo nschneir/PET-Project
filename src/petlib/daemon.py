@@ -68,7 +68,13 @@ class PetDaemon:
         inspection command's release() would destroy the parked state.
         Returns False when the VICE connection is gone."""
         while True:
-            r, _, _ = select.select([self.listen, self.mon._sock], [], [])
+            try:
+                r, _, _ = select.select([self.listen, self.mon._sock], [], [])
+            except (ValueError, OSError):
+                # A socket closed under us (fileno -1) — VICE died, or we're
+                # being torn down. Treat as VICE-gone so serve_forever exits
+                # cleanly instead of crashing the daemon with a traceback.
+                return False
             if self.mon._sock in r and not self._pump_vice_events():
                 return False
             if self.listen in r:

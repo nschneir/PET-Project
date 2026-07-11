@@ -138,6 +138,19 @@ def test_pump_reports_vice_death():
     assert d._pump_vice_events() is False
 
 
+def test_idle_wait_treats_closed_vice_socket_as_death():
+    """If the VICE socket closes while the daemon idles (fileno -1), select
+    used to raise ValueError and crash the daemon with a traceback. It must
+    instead report VICE-gone so serve_forever shuts down cleanly."""
+    d, mon = _daemon(state=RUNNING)
+    a, b = socket.socketpair()
+    d.listen = a
+    mon._sock = b
+    b.close()                          # VICE socket yanked out from under us
+    assert d._idle_wait() is False     # returns cleanly (was ValueError: fd -1)
+    a.close()
+
+
 def test_handle_survives_client_gone_before_hello():
     """A command client that vanishes before reading the greeting used to
     crash the whole session daemon with BrokenPipeError (the hello send is

@@ -77,8 +77,10 @@ assembly program) actually has to fit in.
 
 ## Using with AI coding agents
 
-This toolset is built to be driven by an AI agent. There are two ways an agent
-can use it — pick either or both:
+This toolset is built to be driven by an AI agent. Debugging state persists
+across commands: when the agent halts the machine at a breakpoint, it stays
+halted while the agent inspects memory, registers, and screen in separate tool
+calls. There are two ways an agent can use it — pick either or both:
 
 - **The CLI** — every `pet` command takes `--json`. Works with *any* agent
   that can run shell commands; nothing to configure.

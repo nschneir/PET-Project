@@ -20,15 +20,14 @@ exposes the same operations; see the README.
   name** is accepted anywhere an address is.
 - **Exit codes.** `0` on success; `1` on error, on a `pet wait` timeout, or on
   a failing `pet test`.
-- **Machine state.** Connecting to VICE's monitor stops the CPU; `pet` resumes
-  it after each command. **`pet step`**, **`pet finish`**, **`pet until`**, and
-  **`pet wait --break`** (on a checkpoint hit) halt the machine and report the
-  stopped state at the halt point. **Transport caveat:** VICE resumes the CPU
-  whenever a monitor connection closes, and each `pet` command is its own
-  connection — so a halt does not persist *across* commands unless a
-  breakpoint re-parks the machine. A per-session monitor daemon that holds
-  stopped state across commands is planned. `pet continue` resumes a stopped
-  machine.
+- **Machine state.** Every session runs a monitor daemon that owns the one
+  VICE connection, so the machine's run/stop state persists across `pet`
+  commands. **`pet step`**, **`pet finish`**, **`pet until`**, and
+  **`pet wait --break`** (on a checkpoint hit) halt the machine, and it
+  STAYS halted — across as many commands as you like — until
+  `pet continue`, an explicitly-resuming command (`pet run`, `pet load`,
+  `pet disk boot`, `pet session reset`), or a new halt. Inspection commands
+  (`screen`, `mem`, `reg`, ...) never disturb the state.
 
 ---
 
@@ -48,6 +47,12 @@ Boot a fresh emulated PET.
 
 Human: `started pet4032 session 'pet4032' (pid 1234, monitor port 6510)`.
 JSON: `{"name", "model", "pid", "port"}`. Machine left running.
+
+Starting a session also starts its monitor daemon — the process that owns
+the VICE monitor connection and holds run/stop state between commands.
+Daemon output goes to `<sessions-dir>/<name>.daemon.log`; a crashed daemon
+is respawned automatically by the next command (repeated crashes error out
+and ask for a session restart). `PET_TOOLS_NO_DAEMON=1` disables it.
 
 ### `pet session list`
 
@@ -215,12 +220,13 @@ Resume a stopped machine. JSON: `{"running": true}`.
 
 ### `pet until`
 
-Run until `REF` (address or symbol) is executed; **halts at the Nth
-arrival** and reports the registers there.
+Run until `REF` (address or symbol) is executed; **stays stopped** there —
+across subsequent commands — until you `pet continue`.
 
 - `REF` — address or symbol.
-- `--count N` (default `1`) — halt at the Nth arrival at REF (frame
-  stepping when REF is the program's main-loop label).
+- `--count N` (default `1`) — stop at the Nth arrival at REF. With REF set
+  to the program's main-loop label this is deterministic **frame stepping**
+  (see the cookbook's frame-stepping recipe).
 - `--timeout SECS` (default `30`).
 
 JSON: `{"registers", "pc_symbol", "stopped": true, "count"}`. Exit 1 on

@@ -79,12 +79,14 @@ them:
    point). Use `pet watch add ADDR --store` to break on writes.
 5. `pet continue` to resume.
 
-**The stopped-state rule.** Connecting to the emulator's monitor stops the CPU;
-`pet` resumes it after each command *except* the four that intentionally leave
-it stopped so you can inspect it: `pet step`, `pet finish`, `pet until`, and
-`pet wait --break` when it fires. After any of those, the machine is paused
-until you `pet continue` (or run another command that resumes it). Every other
-command leaves the machine running.
+**The stopped-state rule.** The machine's run/stop state persists across `pet`
+commands (a per-session monitor daemon holds it). Four commands intentionally
+halt it so you can inspect it: `pet step`, `pet finish`, `pet until`, and
+`pet wait --break` when it fires. After any of those the machine STAYS paused —
+through as many inspection commands (`screen`, `mem`, `reg`, ...) as you like —
+until you `pet continue` or an explicitly-resuming command (`pet run`,
+`pet load`, `pet disk boot`, `pet session reset`). Inspection never disturbs
+the state.
 
 ## Text encodings — keep three straight
 

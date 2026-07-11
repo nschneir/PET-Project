@@ -14,6 +14,7 @@ They're graded — start at 01 if you're new:
 | 03 | Sieve benchmark | BASIC + asm | Timing, iteration, a ~93× asm speedup | ✅ passed |
 | 04 | Snake | 6502 assembly | The full assembler + debugger workflow | ✅ passed |
 | 05 | Debug hunt | BASIC + debugger | Breakpoints, stepping, memory inspection | not yet |
+| 06 | Space Invaders | 6502 assembly | Arcade-fidelity spec, CB2 sound, review loop, packaging | not yet |
 
 Dogfooding status: each prompt is validated by handing it to a real AI agent
 (given only this toolset) and confirming the result independently. Demos 01–04

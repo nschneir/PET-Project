@@ -111,6 +111,38 @@ def test_not_a_daemon_socket_raises(tmp_path_factory):
     listen.close()
 
 
+def test_close_delivers_eof_so_next_client_is_served_promptly():
+    """THE hang regression: close() must close the makefile too, or the fd
+    stays open, the daemon never sees EOF, and the NEXT client's hello read
+    times out while the old client object is still referenced — exactly the
+    wait_for_text loop pattern (`with session.monitor() as mon:` per poll)."""
+    vice_a, vice_b = socket.socketpair()   # quiet stand-in for the VICE sock
+    mon = Mock()
+    mon._sock = vice_a
+    mon.ping.return_value = None
+    sock_path = str(Path(tempfile.mkdtemp(prefix="pet-dc-")) / "d.sock")
+    listen = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    listen.bind(sock_path)
+    listen.listen(1)
+    d = PetDaemon(mon, listen, "t")
+    th = threading.Thread(target=d.serve_forever, daemon=True)
+    th.start()
+    try:
+        c1 = DaemonMonitorClient(sock_path, timeout=2.0)
+        c1.ping()
+        c1.close()
+        # c1 stays referenced (like `mon` after a with-block) — only a real
+        # fd close can deliver EOF. The next client must be greeted fast.
+        c2 = DaemonMonitorClient(sock_path, timeout=2.0)
+        c2.ping()
+        c2.close()
+        assert c1 is not None              # keep c1 alive to the very end
+    finally:
+        listen.close()
+        vice_a.close()
+        vice_b.close()
+
+
 def test_direct_monitorclient_release_aliases_resume():
     m = MonitorClient.__new__(MonitorClient)
     calls = []

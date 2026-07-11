@@ -3,11 +3,15 @@ mocked MonitorClient; the IPC leg is a real socketpair."""
 
 import collections
 import json
+import os
 import socket
+import tempfile
 import threading
+import time
 from unittest.mock import Mock
 
 from petlib.daemon import RUNNING, STOPPED, PetDaemon
+from petlib.daemon_client import DaemonMonitorClient
 from petlib.monitor import StopInfo
 from petlib.protocol import ResponseType
 
@@ -132,3 +136,45 @@ def test_pump_reports_vice_death():
     d, mon = _daemon()
     mon.poll_events.side_effect = ConnectionError("gone")
     assert d._pump_vice_events() is False
+
+
+def test_handle_survives_client_gone_before_hello():
+    """A command client that vanishes before reading the greeting used to
+    crash the whole session daemon with BrokenPipeError (the hello send is
+    outside _serve_client's try). _handle must swallow it and stay usable."""
+    d, mon = _daemon(state=RUNNING)
+    a, b = socket.socketpair()
+    b.close()                     # peer gone before the daemon writes hello
+    d._handle(a)                  # must NOT raise
+    assert d._quitting is False   # session is fine; only that client is gone
+    mon.resume.assert_called_once()  # RUNNING restored after the dropped client
+    a.close()
+
+
+def test_serve_forever_survives_bad_client_and_serves_next():
+    """End to end: one client that connects and vanishes must not take down
+    the daemon — the next command must still be greeted and served."""
+    vice_a, vice_b = socket.socketpair()   # stand-in VICE sock; stays quiet
+    mon = Mock()
+    mon._sock = vice_a
+    mon.ping.return_value = None
+    sock_path = os.path.join(tempfile.mkdtemp(prefix="pet-sf-"), "d.sock")
+    listen = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    listen.bind(sock_path)
+    listen.listen(1)
+    d = PetDaemon(mon, listen, "t")
+    th = threading.Thread(target=d.serve_forever, daemon=True)
+    th.start()
+    try:
+        bad = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        bad.connect(sock_path)
+        bad.close()                # vanish before reading hello
+        time.sleep(0.2)            # let the daemon accept + drop it
+        good = DaemonMonitorClient(sock_path)   # reads hello in __init__
+        good.ping()                # a real round-trip proves it still serves
+        good.close()
+        assert th.is_alive()       # the bad client did not kill the daemon
+    finally:
+        listen.close()
+        vice_a.close()
+        vice_b.close()

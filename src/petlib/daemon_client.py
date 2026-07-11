@@ -53,6 +53,16 @@ class DaemonMonitorClient:
         return rpc.decode_value(resp.get("ok"))
 
     def close(self) -> None:
+        # The makefile MUST be closed too: the underlying fd stays open until
+        # both the socket object and every makefile() object are closed, and
+        # a lingering fd means the daemon never sees EOF for this connection —
+        # it stays blocked in readline() and the next client's hello times
+        # out, misdiagnosed as a dead daemon (then the respawn can't reach
+        # VICE because this perfectly healthy daemon still holds the slot).
+        try:
+            self._file.close()
+        except OSError:
+            pass
         try:
             self._sock.close()
         except OSError:

@@ -90,6 +90,14 @@ class PetDaemon:
     def _handle(self, client: socket.socket) -> None:
         try:
             self._serve_client(client)
+        except (OSError, ValueError) as e:
+            # A misbehaving command client — one that disconnects mid-hello or
+            # mid-response (BrokenPipeError) or sends malformed JSON — must
+            # never take down the session daemon. Abandon it and keep serving.
+            # VICE death is caught inside _serve_client (it sets _quitting), so
+            # reaching here means the IPC peer, not the emulator, is the problem.
+            print(f"pet daemon: client error, dropping connection: {e!r}",
+                  flush=True)
         finally:
             client.close()
             if not self._quitting:
@@ -170,6 +178,37 @@ class PetDaemon:
                 pass                            # VICE gone; loops will notice
 
 
+def _connect_vice(port: int) -> MonitorClient:
+    """Open the daemon's single, long-lived VICE connection.
+
+    VICE services one monitor connection at a time and frees the slot only
+    once it notices the previous connection's TCP close. Session.launch
+    closes its own probe connection immediately before spawning us, so a
+    fresh connect+ping can race that cleanup and time out. Retry the whole
+    handshake with a short per-attempt timeout (mirroring Session.launch's
+    own retry loop) and restore the normal operational timeout on success —
+    the retries must fit inside _spawn_daemon's 10 s start deadline."""
+    deadline = time.monotonic() + 8.0
+    last_err: Exception | None = None
+    while time.monotonic() < deadline:
+        mon = MonitorClient(port=port, timeout=1.5)
+        try:
+            mon.connect(deadline=1.5)
+            mon.ping()
+            mon.resume()                        # connect-stop answered; RUNNING
+        except (ConnectionError, TimeoutError, OSError) as e:
+            last_err = e
+            mon.close()
+            time.sleep(0.2)
+            continue
+        mon.timeout = 5.0                        # normal op/finish() timeout
+        if mon._sock is not None:
+            mon._sock.settimeout(5.0)
+        return mon
+    raise ConnectionError(
+        f"daemon could not reach VICE monitor on port {port}: {last_err}")
+
+
 def main(argv: list[str] | None = None) -> None:
     ap = argparse.ArgumentParser(prog="petlib.daemon")
     ap.add_argument("--name", required=True)
@@ -177,10 +216,7 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--socket", required=True)
     a = ap.parse_args(argv)
 
-    mon = MonitorClient(port=a.vice_port)
-    mon.connect(deadline=10.0)
-    mon.ping()
-    mon.resume()                                # connect-stop answered; RUNNING
+    mon = _connect_vice(a.vice_port)
 
     try:
         os.unlink(a.socket)

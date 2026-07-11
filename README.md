@@ -56,6 +56,25 @@ Debian / Ubuntu:
 Every command takes `--json` for machine-readable output — the intended
 interface for AI agents.
 
+## Supported machines
+
+Every session boots a specific PET (`--model`, default `pet4032`). Pick by
+what you want to target — and tell your AI agent things like *"make it fit
+on a 4K PET"* or *"use the pet8032's 80-column screen"*:
+
+| Model | RAM | Free at boot | BASIC | Screen | Notes |
+|-------|-----|--------------|-------|--------|-------|
+| `pet2001-4k` | 4 KB | 3071 bytes | 1.0 | 40×25 | The entry-level 1977 config (PET 2001-4) — the tightest target. |
+| `pet2001` | 8 KB | 7167 bytes | 1.0 | 40×25 | The 8 KB original (2001-8). Different zero page (jiffy clock at $0200), no disk commands in BASIC. |
+| `pet3032` | 32 KB | 31743 bytes | 2.0 | 40×25 | The BASIC most 6502 books target. |
+| `pet4032` | 32 KB | 31743 bytes | 4.0 | 40×25 | **The default.** Disk commands in BASIC (`DLOAD` etc.); what the demos use. |
+| `pet8032` | 32 KB | 31743 bytes | 4.0 | 80×25 | The 80-column business machine. Screen math changes: a row is 80 bytes. |
+| `pet8296` | 128 KB | 31743 bytes | 4.0 | 80×25 | Banked RAM — BASIC still sees 32 KB; the rest needs bank switching. |
+
+The screen is memory-mapped at `$8000` on every model; "free at boot" is
+what BASIC reports, and is the budget a BASIC program (or a `SYS`-stub
+assembly program) actually has to fit in.
+
 ## Using with AI coding agents
 
 This toolset is built to be driven by an AI agent. There are two ways an agent

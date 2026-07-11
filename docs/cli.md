@@ -34,8 +34,9 @@ exposes the same operations; see the README.
 
 Boot a fresh emulated PET.
 
-- `--model MODEL` (default `pet4032`) — one of `pet2001`, `pet3032`,
-  `pet4032`, `pet8032`, `pet8296`.
+- `--model MODEL` (default `pet4032`) — one of `pet2001-4k`, `pet2001`,
+  `pet3032`, `pet4032`, `pet8032`, `pet8296` (see the README's Supported
+  machines table).
 - `-s, --name NAME` — session name (defaults to the model name).
 - `--headless` — suppress the VICE window (video/audio dummied).
 - `--warp` — run at maximum speed (recommended for automation).

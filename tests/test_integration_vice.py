@@ -7,6 +7,7 @@ import pytest
 
 from petlib.screen import read_screen_text
 from petlib.session import Session
+from tests.doc_helpers import BOOT_FREE
 from tests.vice_helpers import wait_for_text
 
 pytestmark = [
@@ -64,3 +65,17 @@ def test_keyboard_feed_runs_basic(session):
         finally:
             mon.resume()
     assert "HELLO FROM PETLIB" in wait_for_text(session, "HELLO FROM PETLIB", timeout=15)
+
+
+@pytest.mark.vice
+@pytest.mark.parametrize("model", sorted(BOOT_FREE))
+def test_boot_banner_free_bytes_matches_readme(tmp_path, monkeypatch, model):
+    """The README model table's 'free at boot' column, held to reality."""
+    monkeypatch.setenv("PET_TOOLS_HOME", str(tmp_path))
+    s = Session.launch(model=model, name=f"probe-{model}",
+                       headless=True, warp=True)
+    try:
+        text = wait_for_text(s, "BYTES FREE", timeout=45.0)
+        assert f"{BOOT_FREE[model]} BYTES FREE" in text
+    finally:
+        s.stop()

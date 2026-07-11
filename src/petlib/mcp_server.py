@@ -55,8 +55,9 @@ def pet_session_list() -> dict:
 @srv.tool()
 def pet_session_start(model: str = "pet4032", name: str | None = None,
                       disk: str | None = None) -> dict:
-    """Boot a fresh emulated PET (headless, warp). Models: pet2001, pet3032,
-    pet4032, pet8032, pet8296. Optionally attach a d64/d80/d82 disk image."""
+    """Boot a fresh emulated PET (headless, warp). Models: pet2001-4k,
+    pet2001, pet3032, pet4032, pet8032, pet8296. Optionally attach a
+    d64/d80/d82 disk image."""
     s = Session.launch(model=model, name=name, headless=True, warp=True,
                        disk8=disk)
     return {"name": s.name, "model": s.model, "pid": s.pid, "port": s.port}

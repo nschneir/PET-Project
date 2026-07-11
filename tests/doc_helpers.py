@@ -60,3 +60,15 @@ def mentioned_commands(doc_text: str) -> set[str]:
         else:
             out.add(m)  # unknown mention — will fail the subset check
     return out
+
+
+# Boot-banner free bytes per model, captured from live xpet (plan Task 9).
+# The README table and test_integration_vice both check against this.
+BOOT_FREE = {
+    "pet2001-4k": "3071",
+    "pet2001": "7167",
+    "pet3032": "31743",
+    "pet4032": "31743",
+    "pet8032": "31743",
+    "pet8296": "31743",
+}

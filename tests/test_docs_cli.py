@@ -26,3 +26,10 @@ def test_session_commands_share_name_option():
         names = {o for p in cmd.params for o in getattr(p, "opts", [])}
         assert "--name" in names and "-s" in names, \
             f"session {cmd_name} lacks -s/--name (has {sorted(names)})"
+
+
+def test_cli_md_names_every_machine_profile():
+    from petlib.machines import PROFILES
+    text = DOC.read_text()
+    for name in PROFILES:
+        assert f"`{name}`" in text, f"docs/cli.md never names {name}"

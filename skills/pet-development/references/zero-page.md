@@ -49,6 +49,24 @@ Ordering invariant: TXTTAB <= VARTAB <= ARYTAB <= STREND <= FRETOP.
 | C6    | Cursor column within the line |
 | D8    | Cursor screen line |
 
+## Free zero page for user ML pointers *(live)*
+
+`(ptr),y` indirect addressing requires the pointer **in zero page** — the
+cassette-buffer scratch areas below cannot serve. These bytes are safe for
+user pointers on BASIC 2/4 (verified on live pet4032 AND pet8032 by
+writing sentinels, then running FOR/RND/string-GC/float/GET BASIC plus
+seconds of jiffy IRQs, and checking they survived —
+`tests/test_docs_memory.py`):
+
+| Addr    | Notes |
+|---------|-------|
+| FB-FE   | Free on 40- and 80-column machines; the conventional home for two user pointers ($FB/$FC and $FD/$FE). |
+
+Tape I/O is the caveat for this whole region: cassette operations use
+scratch through here on some ROMs, and disk-DOS zero-page use was not
+exercised by the verification. If your program does tape or disk I/O,
+re-verify with a sentinel test before trusting any of these.
+
 ## Low memory (outside zero page)
 
 | Addr        | Meaning |

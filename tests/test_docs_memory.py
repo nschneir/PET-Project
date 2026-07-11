@@ -126,3 +126,60 @@ def test_basic1_jiffy_clock_location_live(tmp_path, monkeypatch):
         assert t2 > t1, f"BASIC 1 jiffy clock not ticking at $0200: {ti1.hex()} -> {ti2.hex()}"
     finally:
         s.stop()
+
+
+@pytest.mark.vice
+@pytest.mark.skipif(
+    not (shutil.which("xpet") or os.environ.get("PET_TOOLS_XPET")),
+    reason="xpet not installed",
+)
+@pytest.mark.parametrize("model", ["pet4032", "pet8032"])
+def test_user_zp_bytes_survive_basic_live(tmp_path, monkeypatch, model):
+    """The bytes zero-page.md names as free for user ML pointers really do
+    survive heavy BASIC activity."""
+    import re
+
+    section = (REF / "zero-page.md").read_text().split(
+        "## Free zero page for user ML pointers")[1]
+    row = re.search(r"\|\s*([0-9A-F]{2})-([0-9A-F]{2})\s*\|", section)
+    lo, hi = int(row.group(1), 16), int(row.group(2), 16)
+    claimed = list(range(lo, hi + 1))
+
+    monkeypatch.setenv("PET_TOOLS_HOME", str(tmp_path))
+    s = Session.launch(model=model, name=f"zp-{model}", headless=True,
+                       warp=True)
+    try:
+        wait_for_text(s, "READY.")
+        sentinels = {a: ((0xA5 + i * 7) % 255) + 1
+                     for i, a in enumerate(claimed)}
+        with s.monitor() as mon:
+            try:
+                for a, v in sentinels.items():
+                    mon.memory_write(a, bytes([v]))
+            finally:
+                mon.resume()
+        exercise = ('10 for i=1 to 50: a=rnd(1)*100: next\n'
+                    '20 a$="": for i=1 to 30: a$=a$+chr$(65+(i and 15)): next\n'
+                    '30 for i=1 to 5: b$=a$+a$: next\n'
+                    '40 print int(a); sqr(a)\n'
+                    '50 get k$\n'
+                    '60 print "ZPDONE"\n'
+                    'run\n')
+        with s.monitor() as mon:
+            try:
+                mon.keyboard_feed(ascii_to_petscii(exercise))
+            finally:
+                mon.resume()
+        wait_for_text(s, "ZPDONE", timeout=60)
+        import time as _t
+        _t.sleep(2)
+        with s.monitor() as mon:
+            try:
+                after = {a: mon.memory_read(a, 1)[0] for a in claimed}
+            finally:
+                mon.resume()
+        clobbered = {f"${a:02x}": (sentinels[a], after[a])
+                     for a in claimed if after[a] != sentinels[a]}
+        assert not clobbered, f"doc-claimed ZP bytes clobbered: {clobbered}"
+    finally:
+        s.stop()

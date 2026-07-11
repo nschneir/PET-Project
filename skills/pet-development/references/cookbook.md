@@ -91,8 +91,9 @@ machines (40xx/80xx, CRTC-based — including the default `pet4032`),
 `print chr$(14)` / `print chr$(142)` switch the same thing from PETSCII
 (and also adjust line spacing); the poke works on every model. Note this
 changes the **glyphs the CRT draws**, not the screen codes in memory — so
-`pet screen` text (which decodes screen codes) looks identical either
-way; check `pet screen --png` to see the case change.
+`pet screen` text (which decodes screen codes case-canonically — see
+petscii.md's "How `pet screen` decodes the screen" section) looks
+identical either way; check `pet screen --png` to see the case change.
 
 ```basic
 100 rem lowercase (business) character set

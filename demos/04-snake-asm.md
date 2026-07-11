@@ -1,4 +1,4 @@
-# Snake in 6502 assembly *(not yet dogfooded)*
+# Snake in 6502 assembly *(dogfooded 2026-07-11 — first-try pass)*
 
 Paste this prompt into your agent:
 
@@ -23,10 +23,13 @@ Paste this prompt into your agent:
 >
 > When something misbehaves, use the debugger — breakpoints, `pet step`,
 > `pet until` on your main loop, memory inspection — rather than guessing
-> from the source. Prove the game works by actually playing it with `pet
-> key`: show me the title screen, the snake moving and growing, a level-up,
-> a game-over, and a second game where the high score from the first one is
-> still on screen.
+> from the source. The machine runs far faster than real time, so drive the
+> game deterministically: inject keystrokes with `pet key` to start and
+> steer, and step the main loop (`pet until` on your per-move label) to
+> advance an exact number of frames and read the screen between them. Prove
+> it works by showing me the title screen, the snake moving and growing, a
+> level-up, a game-over, and a second game where the high score from the
+> first one is still on screen.
 
 **What success looks like:** an assembled program with a BASIC SYS stub and
 a real game state machine (title → play → game over → play again), GETIN

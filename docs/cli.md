@@ -21,10 +21,14 @@ exposes the same operations; see the README.
 - **Exit codes.** `0` on success; `1` on error, on a `pet wait` timeout, or on
   a failing `pet test`.
 - **Machine state.** Connecting to VICE's monitor stops the CPU; `pet` resumes
-  it after each command *except* the four that deliberately leave it stopped so
-  you can inspect it: **`pet step`**, **`pet finish`**, **`pet until`**, and
-  **`pet wait --break`** when a checkpoint fires. Everything else leaves the
-  machine running. `pet continue` resumes a stopped machine.
+  it after each command. **`pet step`**, **`pet finish`**, **`pet until`**, and
+  **`pet wait --break`** (on a checkpoint hit) halt the machine and report the
+  stopped state at the halt point. **Transport caveat:** VICE resumes the CPU
+  whenever a monitor connection closes, and each `pet` command is its own
+  connection — so a halt does not persist *across* commands unless a
+  breakpoint re-parks the machine. A per-session monitor daemon that holds
+  stopped state across commands is planned. `pet continue` resumes a stopped
+  machine.
 
 ---
 

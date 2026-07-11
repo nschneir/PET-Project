@@ -1,28 +1,46 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Instructions for AI coding agents working on this repository's code. (If you
+are here to *use* pet-tools to write PET software, read
+`skills/pet-development/SKILL.md` and `docs/cli.md` instead.)
 
 ## What this is
 
-PET Project (package `petlib`, distributed as `pet-tools`): an AI-oriented toolset for developing and debugging Commodore PET software on the VICE emulator. Two front ends — the `pet` CLI and the `pet-tools-mcp` MCP server — drive the same session machinery. The repo is public at https://github.com/nschneir/PET-Project; design docs under `docs/superpowers/` are local-only (gitignored, purged from published history) — never commit or push them.
+PET Project (package `petlib`, distributed as `pet-tools`): an AI-oriented
+toolset for developing and debugging Commodore PET software on the VICE
+emulator. Two front ends — the `pet` CLI and the `pet-tools-mcp` MCP server —
+drive the same session machinery.
+
+Where things are documented (don't duplicate them here):
+
+- `README.md` — install, quickstart, supported PET models, per-agent setup.
+- `docs/cli.md` — the full CLI reference (man page), one entry per command.
+- `skills/pet-development/` + `skills/6502-assembly/` — PET/6502 domain
+  knowledge: workflows, memory maps, zero page, ROM routines, cookbook.
 
 ## Commands
 
 ```sh
-pip install -e ".[dev]"        # install with pytest
+pip install -e ".[dev]"        # install with pytest + coverage
 
 pytest                          # full suite (vice-marked tests need xpet/VICE on PATH)
 pytest -m "not vice"            # unit tests only — no emulator required
 pytest tests/test_monitor.py    # one file
 pytest tests/test_monitor.py::test_name   # one test
 
-.venv/bin/python -m coverage run -m pytest && .venv/bin/python -m coverage combine && .venv/bin/python -m coverage report
+python -m coverage run -m pytest && python -m coverage combine && python -m coverage report
                                 # coverage (fail_under=90); subprocesses (daemon, MCP stdio) are measured too
 ```
 
-Tests marked `@pytest.mark.vice` launch a real VICE emulator (`xpet`); everything else runs against `tests/fake_vice.py`, an in-process fake of the VICE binary monitor. `pet build` needs cc65 (`ca65`/`ld65`); `pet basic` needs `petcat`; `pet disk` needs `c1541` — all external subprocesses.
+Tests marked `@pytest.mark.vice` launch a real VICE emulator (`xpet`);
+everything else runs against `tests/fake_vice.py`, an in-process fake of the
+VICE binary monitor. `pet build` needs cc65 (`ca65`/`ld65`); `pet basic`
+needs `petcat`; `pet disk` needs `c1541` — all external subprocesses.
 
-No linter/formatter is configured; match the existing style.
+Live-test caution: a setup failure inside a vice-marked test can skip
+teardown and leak a warp-mode xpet eating a CPU core. Check
+`pgrep -fl xpet` between live runs and kill leftovers. Give live tests
+generous timeouts (minutes, not seconds).
 
 ## Architecture
 
@@ -37,6 +55,51 @@ Layered, bottom-up in `src/petlib/`:
 
 Supporting modules: `machines.py` (PET model profiles — RAM size, screen width, zero-page differences), `build.py` (ca65/ld65), `basic.py` (petcat tokenize/detokenize), `disk.py` (c1541 d64 images), `screen.py`/`text.py` (screen RAM ↔ text), `symbols.py` (.lbl label files), `disasm.py`, `romdoc.py` (ROM identification/annotation — ships only original label annotations, never Commodore ROM bytes), `packaging.py` (`pet package` → shareable .d64/.prg), `testing.py` (declarative YAML test runner).
 
-## Docs are tested
+## Code quality
 
-The `tests/test_docs_*.py` files verify documentation against reality — e.g. every command path in `docs/cli.md` and the skills/README examples must exist in the real click tree (`tests/doc_helpers.py`). When you change the CLI surface, update `docs/cli.md`, `README.md`, and `skills/` in the same change or those tests fail.
+- **CLI/MCP lockstep is the cardinal rule.** Any new operation goes in
+  `ops.py` and is surfaced by both front ends; `cli.py` and `mcp_server.py`
+  stay thin. Before adding a command, check `docs/cli.md` for an existing
+  one that already covers the need.
+- Every CLI command supports `--json`; failures exit 1 via `fail()` with an
+  **actionable** message (say what happened *and* what to do next — e.g. a
+  timeout says the machine was left running). MCP tools return the same
+  structured data as the CLI's `--json` and let exceptions surface with
+  their messages intact.
+- No linter/formatter is configured; match the surrounding style (100-ish
+  column lines, `from __future__ import annotations`, type hints on public
+  signatures). Comments state contracts, hardware quirks, and non-obvious
+  *why* — see `monitor.py`/`daemon.py` for the house tone; no narration.
+- Never vendor Commodore ROM bytes or any copyrighted Commodore code into
+  the repo — ROM tooling reads bytes from the user's running emulator and
+  ships only original label annotations.
+
+## Testing expectations
+
+- TDD: write the failing test first; every behavior change lands with tests
+  in the same commit. Keep `pytest -m "not vice"` green at all times, and
+  keep coverage ≥ 90% (`fail_under` is enforced by the coverage config).
+- Use the house harnesses instead of inventing new ones:
+  - monitor-level: `tests/fake_vice.py` (`FakeVice` + `resp_frame`);
+  - CLI: `CliRunner` + `patch("petlib.cli.Session")` + a Mock monitor
+    (the `_fake()` helper pattern in `tests/test_cli_break.py`);
+  - MCP: in-memory client via `tests/test_mcp_scaffold.call_tool`;
+  - daemon: `PetDaemon` + a real socketpair (`tests/test_daemon.py`).
+- Reserve `@pytest.mark.vice` for what genuinely needs a live emulator;
+  unit-test everything else against the fakes.
+- **Docs are tested.** The `tests/test_docs_*.py` suite verifies docs
+  against reality: every command needs a `` ### `pet …` `` entry in
+  `docs/cli.md` (the check is bidirectional), README examples must parse,
+  cookbook recipes must assemble AND run correctly on a live PET
+  (`LIVE_RECIPES` in `tests/test_docs_cookbook.py`), and factual claims in
+  the skills references are asserted live where possible. When you change
+  the CLI surface or docs, update both sides in the same change — and give
+  new doc claims the same honesty treatment.
+
+## Git
+
+- Commit messages follow the existing `type(scope): summary` style
+  (`feat(cli): …`, `docs(cookbook): …`, `test(daemon): …`).
+- Commit locally; do not push unless the maintainer asks.
+- `docs/superpowers/` (design specs/plans in the maintainer's checkout) is
+  gitignored and local-only — never commit or push anything under it.

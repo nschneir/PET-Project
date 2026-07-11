@@ -299,9 +299,11 @@ def test_connect_vice_succeeds_and_sets_operational_timeout():
 
 def test_main_serves_then_quits():
     fake = FakeVice(_vice_handlers())
-    # A short path: macOS caps AF_UNIX sun_path at ~104 bytes and pytest's
-    # tmp_path blows past it.
-    sock = f"/tmp/pet-daemon-test-{os.getpid()}.sock"
+    # A short socket dir: macOS caps AF_UNIX sun_path at ~104 bytes and
+    # pytest's tmp_path blows past it (flake caught by Fable). mkdtemp under
+    # /tmp is short and collision-free.
+    sockdir = tempfile.mkdtemp(dir="/tmp")
+    sock = os.path.join(sockdir, "s.sock")
     t = threading.Thread(
         target=main,
         args=(["--name", "t", "--vice-port", str(fake.port), "--socket", sock],),
@@ -317,6 +319,7 @@ def test_main_serves_then_quits():
     assert not t.is_alive()
     assert not os.path.exists(sock)     # main() cleaned up its socket
     fake.close()
+    os.rmdir(sockdir)                   # empty now that main() unlinked the socket
 
 
 def test_connection_error_marshalled_and_daemon_quits():

@@ -105,3 +105,27 @@ def test_run_until_timeout_cleans_up_checkpoint():
     out = run_until(s, 0x1000, timeout=0.3)
     assert out["registers"] is None and out["reached"] == 0 and out["count"] == 1
     mon.checkpoint_delete.assert_called_once_with(7)  # no leaked checkpoint
+
+
+def test_session_labels_unreadable_file_returns_empty(tmp_path):
+    from petlib.ops import session_labels
+    s = Mock()
+    s.labels = str(tmp_path / "gone.lbl")     # a path that does not exist
+    assert session_labels(s) == {}
+
+
+def test_pc_symbol_none_without_labels():
+    from petlib.ops import pc_symbol
+    assert pc_symbol({}, {"PC": 0x1234}) is None
+
+
+def test_wait_for_mem_timeout_returns_last_value():
+    from petlib.ops import wait_for_mem
+    s = Mock()
+    mon = Mock()
+    s.monitor.return_value.__enter__ = Mock(return_value=mon)
+    s.monitor.return_value.__exit__ = Mock(return_value=False)
+    mon.memory_read.return_value = b"\x05"
+    with patch("petlib.ops.time.sleep"):
+        out = wait_for_mem(s, 0x8000, 0x2A, timeout=0.1)
+    assert out["fired"] is None and out["last_value"] == 5

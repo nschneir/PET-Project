@@ -53,3 +53,23 @@ def test_real_petcat_roundtrip(tmp_path):
     listing = detokenize(prg, "4.0")
     assert 'print "hello"' in listing
     assert "2+2" in listing
+
+
+def test_unknown_basic_version_raises():
+    from petlib.basic import BasicError, _dialect
+    with pytest.raises(BasicError, match="no petcat dialect"):
+        _dialect("9.9")
+
+
+def test_petcat_failure_surfaces_stderr(tmp_path, monkeypatch):
+    import subprocess
+
+    from petlib import basic
+
+    def fail(cmd, capture_output, text):
+        return subprocess.CompletedProcess(cmd, 1, stdout="", stderr="boom")
+    monkeypatch.setattr(basic.subprocess, "run", fail)
+    src = tmp_path / "p.bas"
+    src.write_text("10 print\n")
+    with pytest.raises(basic.BasicError, match="boom"):
+        basic.tokenize(src, tmp_path / "p.prg", "4.0")

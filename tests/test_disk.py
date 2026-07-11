@@ -55,3 +55,27 @@ def test_real_c1541_roundtrip(tmp_path):
 def test_real_c1541_d80(tmp_path):
     img = create_image(tmp_path / "t.d80")
     assert img.stat().st_size > 500_000  # 77-track image is big
+
+
+def test_c1541_failure_raises_disk_error(tmp_path, monkeypatch):
+    import subprocess
+
+    from petlib import disk
+
+    def fail(cmd, capture_output, text):
+        return subprocess.CompletedProcess(cmd, 1, stdout="", stderr="bad image")
+    monkeypatch.setattr(disk.subprocess, "run", fail)
+    with pytest.raises(disk.DiskError, match="bad image"):
+        disk.list_files(tmp_path / "x.d64")
+
+
+def test_get_file_missing_output_raises(tmp_path, monkeypatch):
+    import subprocess
+
+    from petlib import disk
+
+    def ok_but_writes_nothing(cmd, capture_output, text):
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+    monkeypatch.setattr(disk.subprocess, "run", ok_but_writes_nothing)
+    with pytest.raises(disk.DiskError, match="was not written"):
+        disk.get_file(tmp_path / "x.d64", "game", tmp_path / "out.prg")

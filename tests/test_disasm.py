@@ -52,3 +52,14 @@ def test_disassemble_indirect_and_indexed_indirect():
     assert lines[0].endswith("jmp ($0200)")
     assert lines[1].endswith("lda ($40,x)")
     assert lines[2].endswith("eor ($41),y")
+
+
+def test_implied_and_accumulator_modes():
+    lines = disassemble(b"\xea\x0a", 0xC000, {})    # NOP ; ASL A
+    assert "nop" in lines[0].lower()
+    assert lines[1].lower().rstrip().endswith(" a")
+
+
+def test_truncated_instruction_at_end():
+    lines = disassemble(b"\x4c\x00", 0xC000, {})    # JMP missing its high byte
+    assert len(lines) == 1                          # rendered as data, no crash

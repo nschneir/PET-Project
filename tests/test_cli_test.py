@@ -50,7 +50,7 @@ def test_run_load_error(tmp_path):
 
 
 def test_programs_runs_each_directory(tmp_path):
-    for d, ok in (("alpha", True), ("beta", False)):
+    for d in ("alpha", "beta"):
         (tmp_path / d).mkdir()
         (tmp_path / d / "expect.txt").write_text("X\n")
         (tmp_path / d / "program.bas").write_text("10 rem\n")

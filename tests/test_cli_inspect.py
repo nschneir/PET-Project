@@ -24,7 +24,7 @@ def _patched(mon):
 def test_screen_text():
     mon = Mock()
     fake, p = _patched(mon)
-    with p as S, patch("petlib.cli.read_screen_text", return_value="READY.") as rst:
+    with p as S, patch("petlib.cli.read_screen_text", return_value="READY."):
         S.attach.return_value = fake
         r = CliRunner().invoke(main, ["--json", "screen"])
     assert r.exit_code == 0, r.output

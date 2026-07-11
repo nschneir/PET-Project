@@ -10,10 +10,13 @@ import threading
 import time
 from unittest.mock import Mock
 
-from petlib.daemon import RUNNING, STOPPED, PetDaemon
+import pytest
+
+from petlib.daemon import RUNNING, STOPPED, PetDaemon, _connect_vice, main
 from petlib.daemon_client import DaemonMonitorClient
 from petlib.monitor import StopInfo
 from petlib.protocol import Command, ResponseType
+from tests.fake_vice import FakeVice, resp_frame
 
 
 def _hit_event(number=3):
@@ -264,3 +267,64 @@ def test_serve_forever_survives_bad_client_and_serves_next():
         listen.close()
         vice_a.close()
         vice_b.close()
+
+
+def _vice_handlers():
+    """Enough of a fake VICE for connect+ping+resume+quit. VICE echoes the
+    command code as the response type, so Command.X doubles as the rtype
+    (matches tests/test_monitor.py's frame convention)."""
+    return {
+        Command.PING: lambda b, rid: [resp_frame(Command.PING, 0, rid)],
+        Command.EXIT: lambda b, rid: [resp_frame(Command.EXIT, 0, rid)],
+        Command.QUIT: lambda b, rid: [resp_frame(Command.QUIT, 0, rid)],
+    }
+
+
+def test_connect_vice_gives_up_when_nothing_listens():
+    # no listener at all -> every attempt fails -> ConnectionError preserving
+    # the last underlying error (exercises the full ~8s retry loop)
+    with pytest.raises(ConnectionError, match="could not reach VICE"):
+        _connect_vice(port=1)
+
+
+def test_connect_vice_succeeds_and_sets_operational_timeout():
+    fake = FakeVice(_vice_handlers())
+    mon = _connect_vice(fake.port)
+    try:
+        assert mon.timeout == 5.0
+    finally:
+        mon.close()
+        fake.close()
+
+
+def test_main_serves_then_quits():
+    fake = FakeVice(_vice_handlers())
+    # A short path: macOS caps AF_UNIX sun_path at ~104 bytes and pytest's
+    # tmp_path blows past it.
+    sock = f"/tmp/pet-daemon-test-{os.getpid()}.sock"
+    t = threading.Thread(
+        target=main,
+        args=(["--name", "t", "--vice-port", str(fake.port), "--socket", sock],),
+        daemon=True)
+    t.start()
+    deadline = time.monotonic() + 5
+    while not os.path.exists(sock) and time.monotonic() < deadline:
+        time.sleep(0.05)
+    client = DaemonMonitorClient(sock)
+    client.quit()
+    client.close()
+    t.join(timeout=5)
+    assert not t.is_alive()
+    assert not os.path.exists(sock)     # main() cleaned up its socket
+    fake.close()
+
+
+def test_connection_error_marshalled_and_daemon_quits():
+    d, mon = _daemon()
+    mon.memory_read.side_effect = ConnectionError("xpet died")
+    b, f, t, _ = _talk(d)
+    resp = _rpc(f, "memory_read", 0x8000, 1)
+    assert resp["err"] == "ConnectionError" and "xpet died" in resp["msg"]
+    t.join(timeout=2)
+    assert d._quitting is True          # daemon gives up; nothing to restore
+    b.close()

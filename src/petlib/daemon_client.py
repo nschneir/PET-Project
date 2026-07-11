@@ -68,7 +68,7 @@ class DaemonMonitorClient:
         except OSError:
             pass
 
-    def __enter__(self) -> "DaemonMonitorClient":
+    def __enter__(self) -> DaemonMonitorClient:
         return self
 
     def __exit__(self, *exc) -> None:

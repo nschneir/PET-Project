@@ -12,7 +12,7 @@ requires-python = ">=3.11"
 dependencies = ["click>=8.1", "pillow>=10", "pyyaml>=6", "mcp>=1.28"]
 
 [project.optional-dependencies]
-dev = ["pytest>=8", "coverage>=7.10"]
+dev = ["pytest>=8", "coverage>=7.10", "ruff>=0.15"]
 
 [project.scripts]
 pet = "petlib.cli:main"
@@ -35,3 +35,10 @@ patch = ["subprocess"]
 [tool.coverage.report]
 show_missing = true
 fail_under = 90
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "UP", "I"]
+ignore = ["E702"]   # `a(); b()` teardown pairs in tests are house idiom

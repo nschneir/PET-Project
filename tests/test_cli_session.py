@@ -45,7 +45,8 @@ def test_session_stop_by_name():
 
 def test_session_error_json_exit_code():
     with patch("petlib.cli.Session") as S:
-        S.attach.side_effect = SessionError("no PET session running. Start one with: pet session start")
+        S.attach.side_effect = SessionError(
+            "no PET session running. Start one with: pet session start")
         r = CliRunner().invoke(main, ["--json", "session", "stop"])
     assert r.exit_code == 1
     assert "no PET session" in json.loads(r.output)["error"]

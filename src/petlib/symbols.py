@@ -25,7 +25,8 @@ def load_labels(path: str | Path) -> dict[str, int]:
 
 
 def save_labels(path: str | Path, labels: dict[str, int]) -> None:
-    lines = [f"al C:{addr:04x} .{name}" for name, addr in sorted(labels.items(), key=lambda kv: kv[1])]
+    lines = [f"al C:{addr:04x} .{name}"
+             for name, addr in sorted(labels.items(), key=lambda kv: kv[1])]
     Path(path).write_text("\n".join(lines) + "\n")
 
 

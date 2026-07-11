@@ -30,6 +30,8 @@ pytest tests/test_monitor.py::test_name   # one test
 
 python -m coverage run -m pytest && python -m coverage combine && python -m coverage report
                                 # coverage (fail_under=90); subprocesses (daemon, MCP stdio) are measured too
+
+ruff check src tests            # lint (config in pyproject.toml); must be clean
 ```
 
 Tests marked `@pytest.mark.vice` launch a real VICE emulator (`xpet`);
@@ -66,9 +68,12 @@ Supporting modules: `machines.py` (PET model profiles — RAM size, screen width
   timeout says the machine was left running). MCP tools return the same
   structured data as the CLI's `--json` and let exceptions surface with
   their messages intact.
-- No linter/formatter is configured; match the surrounding style (100-ish
-  column lines, `from __future__ import annotations`, type hints on public
-  signatures). Comments state contracts, hardware quirks, and non-obvious
+- Lint with `ruff check src tests` and keep it clean (rules E/F/W/B/UP/I,
+  line length 100 — configured in `pyproject.toml`). There is deliberately
+  **no auto-formatter**: match the surrounding style by hand
+  (`from __future__ import annotations`, type hints on public signatures,
+  and the aligned struct/profile tables in `protocol.py`/`machines.py` are
+  intentional). Comments state contracts, hardware quirks, and non-obvious
   *why* — see `monitor.py`/`daemon.py` for the house tone; no narration.
 - Never vendor Commodore ROM bytes or any copyrighted Commodore code into
   the repo — ROM tooling reads bytes from the user's running emulator and

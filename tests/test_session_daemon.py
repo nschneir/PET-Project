@@ -4,8 +4,13 @@ import time
 
 import pytest
 
-from petlib.session import (RESPAWN_LIMIT, RESPAWN_WINDOW, Session,
-                            SessionError, _default_socket_path)
+from petlib.session import (
+    RESPAWN_LIMIT,
+    RESPAWN_WINDOW,
+    Session,
+    SessionError,
+    _default_socket_path,
+)
 
 
 def _s(tmp_path, monkeypatch, name="cb"):

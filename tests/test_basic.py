@@ -1,8 +1,8 @@
+import shutil
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-import shutil
 
 from petlib.basic import PETCAT_DIALECTS, BasicError, detokenize, tokenize
 

@@ -64,7 +64,7 @@ _DIR_LINE = re.compile(r'^(\d+)\s+"([^"]*)"\s+(\S+)')
 def list_files(image: str | Path) -> dict:
     out = _run([str(image), "-list"])
     label, files, blocks_free = "", [], 0
-    for i, line in enumerate(out.splitlines()):
+    for line in out.splitlines():
         line = line.strip()
         if line.endswith("blocks free."):
             blocks_free = int(line.split()[0])

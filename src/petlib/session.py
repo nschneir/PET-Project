@@ -95,7 +95,7 @@ def _spawn_daemon(name: str, vice_port: int, sock_path: str) -> int:
     raise SessionError(f"session daemon failed to start (see {log_path})")
 
 
-def _kill_proc(proc: "subprocess.Popen") -> None:
+def _kill_proc(proc: subprocess.Popen) -> None:
     """Terminate a launched emulator and make sure it is actually gone —
     SIGTERM, wait, then SIGKILL — so a failed launch never orphans an xpet."""
     proc.terminate()
@@ -159,7 +159,7 @@ class Session:
             )
 
     @staticmethod
-    def _load_all() -> list["Session"]:
+    def _load_all() -> list[Session]:
         out = []
         for f in sorted(sessions_dir().glob("*.json")):
             r = json.loads(f.read_text())
@@ -183,7 +183,7 @@ class Session:
         warp: bool = False,
         binary: str | None = None,
         disk8: str | None = None,
-    ) -> "Session":
+    ) -> Session:
         profile = get_profile(model)
         exe = binary or os.environ.get("PET_TOOLS_XPET") or shutil.which(profile.vice_emulator)
         if not exe:
@@ -252,7 +252,7 @@ class Session:
         )
 
     @classmethod
-    def attach(cls, name: str | None = None) -> "Session":
+    def attach(cls, name: str | None = None) -> Session:
         live = cls._load_all()
         if name is not None:
             for s in live:
@@ -271,7 +271,7 @@ class Session:
         return live[0]
 
     @classmethod
-    def list_all(cls) -> list["Session"]:
+    def list_all(cls) -> list[Session]:
         return cls._load_all()
 
     def monitor(self):

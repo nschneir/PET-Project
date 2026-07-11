@@ -90,7 +90,7 @@ class MonitorClient:
             self._sock.close()
             self._sock = None
 
-    def __enter__(self) -> "MonitorClient":
+    def __enter__(self) -> MonitorClient:
         return self
 
     def __exit__(self, *exc) -> None:
@@ -273,7 +273,7 @@ class MonitorClient:
             self._sock.settimeout(max(0.05, deadline - time.monotonic()))
             try:
                 data = self._sock.recv(65536)
-            except (TimeoutError, socket.timeout):
+            except TimeoutError:
                 break
             if not data:
                 raise ConnectionError("VICE closed the monitor connection")

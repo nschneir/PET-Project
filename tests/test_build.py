@@ -1,4 +1,3 @@
-import os
 import stat
 from pathlib import Path
 
@@ -52,7 +51,8 @@ def test_build_asm_invokes_toolchain(tmp_path, monkeypatch):
 
 
 def test_build_error_includes_stderr(tmp_path, monkeypatch):
-    bad = _stub_tool(tmp_path, "ca65", "import sys; sys.stderr.write('prog.s(3): syntax error'); sys.exit(1)\n")
+    bad = _stub_tool(tmp_path, "ca65",
+                     "import sys; sys.stderr.write('prog.s(3): syntax error'); sys.exit(1)\n")
     monkeypatch.setenv("PET_TOOLS_CA65", str(bad))
     monkeypatch.setenv("PET_TOOLS_LD65", str(bad))
     src = tmp_path / "prog.s"

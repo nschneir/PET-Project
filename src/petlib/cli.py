@@ -15,19 +15,21 @@ from .build import BuildError, build_asm
 from .disasm import disassemble
 from .disk import DiskError, create_image, get_file, list_files, put_file
 from .machines import get_profile
-from .packaging import PackageError, package_program
 from .ops import (
     parse_number,
     parse_ref,
-    pc_symbol as _pc_symbol,
     run_until,
     session_labels,
     wait_for_break,
     wait_for_mem,
     wait_for_text,
 )
-from .romdoc import identify, rom_labels
+from .ops import (
+    pc_symbol as _pc_symbol,
+)
+from .packaging import PackageError, package_program
 from .protocol import CP_EXEC, CP_LOAD, CP_STORE
+from .romdoc import identify, rom_labels
 from .screen import read_screen_text, save_screenshot_png
 from .session import Session, SessionError
 from .symbols import format_addr
@@ -55,7 +57,7 @@ def attach(ctx: click.Context) -> Session:
         return Session.attach(ctx.obj["session"])
     except SessionError as e:
         fail(ctx, str(e))
-        raise AssertionError("unreachable")
+        raise AssertionError("unreachable") from None
 
 
 def resolve_ref(ctx: click.Context, labels: dict[str, int], ref: str) -> int:
@@ -63,7 +65,7 @@ def resolve_ref(ctx: click.Context, labels: dict[str, int], ref: str) -> int:
         return parse_ref(labels, ref)
     except KeyError as e:
         fail(ctx, str(e))
-        raise AssertionError("unreachable")
+        raise AssertionError("unreachable") from None
 
 
 @click.group()

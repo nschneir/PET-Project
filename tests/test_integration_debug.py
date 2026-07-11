@@ -162,3 +162,34 @@ def test_checkpoint_halt_reliability_under_warp(session, tmp_path):
         with session.monitor() as mon:
             mon.checkpoint_delete(ck.number)
             mon.resume()
+
+
+def test_until_reliability_and_count_under_warp(session, tmp_path):
+    """run_until must halt every time under warp, and --count must advance
+    exactly N loop iterations (WS2+WS3)."""
+    src = tmp_path / "hot2.s"
+    src.write_text(HOT_LOOP)
+    res = build_asm(src)
+    labels = load_labels(res.labels)
+    with session.monitor() as mon:
+        try:
+            mon.autostart(res.prg.resolve(), run=True)
+        finally:
+            mon.resume()
+    time.sleep(3.0)
+
+    for i in range(20):
+        out = run_until(session, labels["mainloop"], timeout=10.0)
+        assert out["registers"] is not None, f"until trial {i} timed out"
+        assert out["registers"]["PC"] == labels["mainloop"], f"until trial {i}"
+
+    # count semantics, halt-level: count=5 reports 5 arrivals and halts at
+    # mainloop. Exact-N *observation* across separate monitor connections is
+    # deliberately NOT asserted: VICE resumes the CPU whenever a monitor
+    # connection closes (2026-07-10 transport findings), so the counter
+    # free-runs between this process's connections. The cross-call exact-N
+    # assertion is the session-daemon plan's acceptance test; within-
+    # connection exactness is unit-tested in test_ops.py.
+    out = run_until(session, labels["mainloop"], timeout=15.0, count=5)
+    assert out["registers"] is not None and out["reached"] == 5
+    assert out["registers"]["PC"] == labels["mainloop"]

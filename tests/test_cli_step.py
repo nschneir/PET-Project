@@ -71,7 +71,7 @@ def test_until_symbol(tmp_path):
     from petlib.protocol import CP_EXEC, Checkpoint
     mon.checkpoint_set.return_value = Checkpoint(
         number=9, hit=False, start=0x040F, end=0x040F, stop=True, enabled=True,
-        op=CP_EXEC, temporary=True, hit_count=0, ignore_count=0,
+        op=CP_EXEC, temporary=False, hit_count=0, ignore_count=0,
         has_condition=False, memspace=0)
     mon.wait_for_stop.return_value = StopInfo(pc=0x040F, checkpoint=9)
     mon.registers.return_value = {"PC": 0x040F}
@@ -79,9 +79,11 @@ def test_until_symbol(tmp_path):
         S.attach.return_value = fake
         r = CliRunner().invoke(main, ["--json", "until", "loop"])
     assert r.exit_code == 0, r.output
-    mon.checkpoint_set.assert_called_once_with(0x040F, op=CP_EXEC, temporary=True)
+    mon.checkpoint_set.assert_called_once_with(0x040F, op=CP_EXEC, temporary=False)
+    mon.checkpoint_delete.assert_called_once_with(9)
     mon.resume.assert_called_once()     # resumed to run TO the target
     assert json.loads(r.output)["pc_symbol"] == "loop"
+    assert json.loads(r.output)["count"] == 1
 
 
 def test_until_timeout_fails():
@@ -92,6 +94,7 @@ def test_until_timeout_fails():
         op=CP_EXEC, temporary=True, hit_count=0, ignore_count=0,
         has_condition=False, memspace=0)
     mon.wait_for_stop.return_value = None
+    mon.checkpoint_list.return_value = []
     with patch("petlib.cli.Session") as S:
         S.attach.return_value = fake
         r = CliRunner().invoke(main, ["--json", "until", "$2000", "--timeout", "1"])
@@ -107,3 +110,22 @@ def test_reg_pc_annotation(tmp_path):
         r = CliRunner().invoke(main, ["--json", "reg"])
     out = json.loads(r.output)
     assert out["pc_symbol"] == "start"
+
+
+def test_until_count(tmp_path):
+    fake, mon = _fake(labels=_labels_file(tmp_path))
+    from petlib.protocol import CP_EXEC, Checkpoint
+    mon.checkpoint_set.return_value = Checkpoint(
+        number=4, hit=False, start=0x040F, end=0x040F, stop=True, enabled=True,
+        op=CP_EXEC, temporary=False, hit_count=0, ignore_count=0,
+        has_condition=False, memspace=0)
+    mon.wait_for_stop.side_effect = [StopInfo(pc=0x040F, checkpoint=4)] * 3
+    mon.registers.return_value = {"PC": 0x040F}
+    with patch("petlib.cli.Session") as S:
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["--json", "until", "loop", "--count", "3"])
+    assert r.exit_code == 0, r.output
+    out = json.loads(r.output)
+    assert out["count"] == 3 and out["stopped"] is True
+    assert mon.resume.call_count == 3          # one per frame
+    mon.checkpoint_delete.assert_called_once_with(4)

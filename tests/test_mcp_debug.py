@@ -68,6 +68,7 @@ def test_until_timeout_returns_error():
     s, mon = _fake()
     mon.checkpoint_set.return_value = _ck(start=0x2000)
     mon.wait_for_stop.return_value = None
+    mon.checkpoint_list.return_value = []
     with patch("petlib.mcp_server.Session") as S:
         S.attach.return_value = s
         err, out = call_tool("pet_until", {"ref": "$2000", "timeout": 1})

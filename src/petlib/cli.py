@@ -500,13 +500,15 @@ def watch_add(ctx, ref, on_load, on_store, length):
          f"watchpoint #{ck.number} at {format_addr(labels, addr)} len={length} ({_op_name(op)})")
 
 
-def _emit_stopped_regs(ctx, labels, regs):
+def _emit_stopped_regs(ctx, labels, regs, extra=None):
     sym = _pc_symbol(labels, regs)
     human = "  ".join(f"{k}={v:04x}" for k, v in sorted(regs.items()))
     if sym:
         human += f"  ({sym})"
-    emit(ctx, {"registers": regs, "pc_symbol": sym, "stopped": True},
-         human + "  [stopped]")
+    data = {"registers": regs, "pc_symbol": sym, "stopped": True}
+    if extra:
+        data.update(extra)
+    emit(ctx, data, human + "  [stopped]")
 
 
 @main.command("step")
@@ -545,18 +547,24 @@ def continue_cmd(ctx):
 
 @main.command("until")
 @click.argument("ref")
+@click.option("--count", default=1, show_default=True,
+              help="Stop at the Nth arrival at REF (frame stepping on a loop label).")
 @click.option("--timeout", default=30.0, show_default=True)
 @click.pass_context
-def until_cmd(ctx, ref, timeout):
-    """Run until REF (address or symbol) is executed; stays stopped there."""
+def until_cmd(ctx, ref, count, timeout):
+    """Run until REF (address or symbol) is executed; stays stopped there.
+
+    With --count N, REF must be reached N times — deterministic frame
+    stepping when REF is the program's main-loop label."""
     s = attach(ctx)
     labels = session_labels(s)
     addr = resolve_ref(ctx, labels, ref)
-    regs = run_until(s, addr, timeout)
-    if regs is None:
-        fail(ctx, f"timeout: {format_addr(labels, addr)} not reached in {timeout}s")
+    out = run_until(s, addr, timeout, count=count)
+    if out["registers"] is None:
+        fail(ctx, f"timeout: {format_addr(labels, addr)} reached "
+                  f"{out['reached']}/{count} time(s) in {timeout}s")
         return
-    _emit_stopped_regs(ctx, labels, regs)
+    _emit_stopped_regs(ctx, labels, out["registers"], extra={"count": count})
 
 
 @main.command("wait")

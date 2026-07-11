@@ -3,7 +3,7 @@ from unittest.mock import Mock, patch
 import pytest
 
 from petlib.monitor import StopInfo
-from petlib.ops import parse_number, parse_ref, wait_for_break, wait_for_text
+from petlib.ops import parse_number, parse_ref, run_until, wait_for_break, wait_for_text
 from petlib.protocol import CP_EXEC, Checkpoint
 
 
@@ -75,3 +75,33 @@ def test_wait_for_break_flag_poll_catches_missed_event():
     mon.registers.return_value = {"PC": 0x040D}
     out = wait_for_break(s, timeout=5)
     assert out["fired"] == "break" and out["checkpoint"] == 3
+
+
+def _ck7(hit=False, hit_count=0):
+    return Checkpoint(number=7, hit=hit, start=0x1000, end=0x1000, stop=True,
+                      enabled=True, op=CP_EXEC, temporary=False,
+                      hit_count=hit_count, ignore_count=0,
+                      has_condition=False, memspace=0)
+
+
+def test_run_until_count_uses_persistent_checkpoint():
+    s, mon = _fake_session()
+    mon.checkpoint_set.return_value = _ck7()
+    mon.wait_for_stop.side_effect = [StopInfo(pc=0x1000, checkpoint=7)] * 2
+    mon.registers.return_value = {"PC": 0x1000}
+    out = run_until(s, 0x1000, timeout=5, count=2)
+    assert out["registers"]["PC"] == 0x1000
+    assert out["reached"] == 2 and out["count"] == 2
+    mon.checkpoint_set.assert_called_once_with(0x1000, op=CP_EXEC, temporary=False)
+    mon.checkpoint_delete.assert_called_once_with(7)
+    assert mon.resume.call_count == 2          # exactly one resume per arrival
+
+
+def test_run_until_timeout_cleans_up_checkpoint():
+    s, mon = _fake_session()
+    mon.checkpoint_set.return_value = _ck7()
+    mon.wait_for_stop.return_value = None
+    mon.checkpoint_list.return_value = [_ck7()]      # never hit
+    out = run_until(s, 0x1000, timeout=0.3)
+    assert out["registers"] is None and out["reached"] == 0 and out["count"] == 1
+    mon.checkpoint_delete.assert_called_once_with(7)  # no leaked checkpoint

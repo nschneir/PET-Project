@@ -123,13 +123,35 @@ def wait_for_break(session, timeout: float = 30.0) -> dict:
             # client's connect-stop): loop — the flag poll decides.
 
 
-def run_until(session, addr: int, timeout: float = 30.0) -> dict | None:
-    """Temporary exec checkpoint + run; registers at stop (machine stays
-    stopped), or None on timeout."""
+def run_until(session, addr: int, timeout: float = 30.0, count: int = 1) -> dict:
+    """Run until addr is executed `count` times; the machine stays stopped at
+    the final arrival ("frame stepping" when addr is a main-loop label).
+
+    Uses a persistent checkpoint plus the same durable-flag polling as
+    wait_for_break (hit / hit_count survive a lost STOPPED event). Returns
+    {"registers": regs-or-None, "reached": k, "count": count}; registers is
+    None on timeout, in which case the checkpoint is removed and the machine
+    is left running."""
+    start = time.monotonic()
+    deadline = start + timeout
     with session.monitor() as mon:
-        mon.checkpoint_set(addr, op=CP_EXEC, temporary=True)
-        mon.resume()
-        info = mon.wait_for_stop(timeout)
-        if info is None:
-            return None
-        return mon.registers()
+        ck = mon.checkpoint_set(addr, op=CP_EXEC, temporary=False)
+        for i in range(count):
+            mon.resume()
+            while True:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    mon.checkpoint_delete(ck.number)
+                    mon.resume()
+                    return {"registers": None, "reached": i, "count": count}
+                info = mon.wait_for_stop(min(1.0, remaining))
+                if info is not None and info.checkpoint == ck.number:
+                    break
+                cur = next((c for c in mon.checkpoint_list()
+                            if c.number == ck.number), None)
+                if cur is not None and (cur.hit or cur.hit_count > i):
+                    break                        # durable flag caught it
+                mon.resume()                     # the list stopped the machine
+        regs = mon.registers()
+        mon.checkpoint_delete(ck.number)
+        return {"registers": regs, "reached": count, "count": count}

@@ -261,16 +261,19 @@ def pet_continue(session: str | None = None) -> dict:
 
 
 @srv.tool()
-def pet_until(ref: str, timeout: float = 30.0, session: str | None = None) -> dict:
-    """Run until an address/symbol is executed; machine stays stopped there."""
+def pet_until(ref: str, timeout: float = 30.0, count: int = 1,
+              session: str | None = None) -> dict:
+    """Run until an address/symbol is executed count times; machine stays
+    stopped there. count>1 = deterministic frame stepping on a loop label."""
     s = _attach(session)
     labels = session_labels(s)
     addr = parse_ref(labels, ref)
-    regs = run_until(s, addr, timeout)
-    if regs is None:
+    out = run_until(s, addr, timeout, count=count)
+    if out["registers"] is None:
         raise RuntimeError(
-            f"timeout: {format_addr(labels, addr)} not reached in {timeout}s")
-    return _stopped_regs(s, regs)
+            f"timeout: {format_addr(labels, addr)} reached "
+            f"{out['reached']}/{count} time(s) in {timeout}s")
+    return {**_stopped_regs(s, out["registers"]), "count": count}
 
 
 @srv.tool()

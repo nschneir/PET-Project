@@ -210,12 +210,17 @@ Resume a stopped machine. JSON: `{"running": true}`.
 
 ### `pet until`
 
-Run until `REF` (address or symbol) is executed; **stays stopped** there.
+Run until `REF` (address or symbol) is executed; **halts at the Nth
+arrival** and reports the registers there.
 
 - `REF` — address or symbol.
+- `--count N` (default `1`) — halt at the Nth arrival at REF (frame
+  stepping when REF is the program's main-loop label).
 - `--timeout SECS` (default `30`).
 
-JSON: `{"registers", "pc_symbol", "stopped": true}`. Exit 1 on timeout.
+JSON: `{"registers", "pc_symbol", "stopped": true, "count"}`. Exit 1 on
+timeout (the error reports how many arrivals were reached); after a timeout
+the machine is left running and the checkpoint is removed.
 
 ---
 

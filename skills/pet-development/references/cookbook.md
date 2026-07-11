@@ -221,6 +221,11 @@ pet continue                  # back to real time
 No in-program stepping scaffolding (gate flags, poke-to-advance loops) is
 needed — the debugger provides deterministic stepping from outside.
 
+Caveat: `pet until` can only fire while the program still visits the label.
+If play can branch away (death, menu, pause), the wait times out — and on
+timeout the machine is left RUNNING with the checkpoint removed. For those
+states, break at a code path that must still execute instead.
+
 ## Verifying a recipe-based program
 
 Run it and assert on the screen, exactly like the tests here do:

@@ -95,3 +95,26 @@ def test_wait_text_timeout_not_error():
         err, out = call_tool("pet_wait_text", {"text": "NEVER", "timeout": 0.3})
     assert err is False
     assert out["fired"] is None and "STUCK" in out["screen"]
+
+
+def test_until_timeout_error_is_loud():
+    s, _ = _fake()
+    with patch("petlib.mcp_server.Session") as S, \
+         patch("petlib.mcp_server.run_until",
+               return_value={"registers": None, "reached": 0, "count": 2}):
+        S.attach.return_value = s
+        err, out = call_tool("pet_until", {"ref": "$040d", "count": 2,
+                                           "timeout": 0.1})
+    assert err is True
+    assert "left RUNNING" in out["raw"] and "branch away" in out["raw"]
+
+
+def test_wait_break_timeout_reports_running():
+    s, _ = _fake()
+    with patch("petlib.mcp_server.Session") as S, \
+         patch("petlib.mcp_server.wait_for_break",
+               return_value={"fired": None, "timeout": 0.1}):
+        S.attach.return_value = s
+        err, out = call_tool("pet_wait_break", {"timeout": 0.1})
+    assert err is False and out["fired"] is None
+    assert out["machine"] == "running"

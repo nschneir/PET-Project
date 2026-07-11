@@ -140,3 +140,18 @@ def test_until_timeout_reports_progress():
         r = CliRunner().invoke(main, ["until", "$040d", "--count", "3",
                                       "--timeout", "0.1"])
     assert r.exit_code == 1 and "1/3" in r.output
+
+
+def test_until_timeout_is_loud():
+    fake, mon = _fake()
+    with patch("petlib.cli.Session") as S, \
+         patch("petlib.cli.run_until",
+               return_value={"registers": None, "reached": 1, "count": 3}):
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["--json", "until", "$040d",
+                                      "--count", "3", "--timeout", "0.1"])
+    assert r.exit_code == 1
+    out = json.loads(r.output)
+    assert out["machine"] == "running" and out["checkpoint_removed"] is True
+    assert out["reached"] == 1 and out["count"] == 3
+    assert "left RUNNING" in out["error"] and "branch away" in out["error"]

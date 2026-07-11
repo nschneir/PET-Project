@@ -44,9 +44,9 @@ def emit(ctx: click.Context, data: dict, human: str) -> None:
         click.echo(human)
 
 
-def fail(ctx: click.Context, message: str) -> None:
+def fail(ctx: click.Context, message: str, extra: dict | None = None) -> None:
     if ctx.obj["json"]:
-        click.echo(_json.dumps({"error": message}))
+        click.echo(_json.dumps({"error": message, **(extra or {})}))
     else:
         click.echo(f"error: {message}", err=True)
     sys.exit(1)
@@ -662,8 +662,15 @@ def until_cmd(ctx, ref, count, timeout):
     addr = resolve_ref(ctx, labels, ref)
     out = run_until(s, addr, timeout, count=count)
     if out["registers"] is None:
-        fail(ctx, f"timeout: {format_addr(labels, addr)} reached "
-                  f"{out['reached']}/{count} time(s) in {timeout}s")
+        where = format_addr(labels, addr)
+        fail(ctx,
+             f"timeout: {where} reached {out['reached']}/{count} time(s) in "
+             f"{timeout}s — machine left RUNNING, checkpoint removed. If the "
+             f"program can branch away from {where} (death, menu, pause), it "
+             "may never be reached again; set a breakpoint at a code path "
+             "that must still execute and use 'pet wait --break'.",
+             extra={"reached": out["reached"], "count": count,
+                    "machine": "running", "checkpoint_removed": True})
         return
     _emit_stopped_regs(ctx, labels, out["registers"], extra={"count": count})
 
@@ -690,7 +697,9 @@ def wait_cmd(ctx, text_cond, mem_cond, break_cond, timeout):
     if break_cond:
         out = wait_for_break(s, timeout)
         if not out.get("fired"):
-            fail(ctx, f"timeout: no checkpoint hit within {timeout}s")
+            fail(ctx, f"timeout: no checkpoint hit within {timeout}s — machine "
+                      "left running; your checkpoints remain set.",
+                 extra={"machine": "running"})
             return
         sym = _pc_symbol(labels, out.pop("registers"))
         emit(ctx, {"fired": "break", "checkpoint": out["checkpoint"],
@@ -704,7 +713,8 @@ def wait_cmd(ctx, text_cond, mem_cond, break_cond, timeout):
             emit(ctx, {"fired": "text", "elapsed": out["elapsed"]}, "text condition met")
             return
         fail(ctx, f"timeout after {timeout}s waiting for --text {text_cond}"
-                  f"; last screen:\n{out['screen']}")
+                  f"; last screen:\n{out['screen']}",
+             extra={"machine": "running"})
         return
 
     try:
@@ -718,7 +728,8 @@ def wait_cmd(ctx, text_cond, mem_cond, break_cond, timeout):
     if out["fired"]:
         emit(ctx, {"fired": "mem", "elapsed": out["elapsed"]}, "mem condition met")
         return
-    fail(ctx, f"timeout after {timeout}s waiting for --mem {mem_cond}")
+    fail(ctx, f"timeout after {timeout}s waiting for --mem {mem_cond}",
+         extra={"machine": "running"})
 
 
 @main.group()

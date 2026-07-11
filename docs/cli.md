@@ -251,6 +251,13 @@ JSON: `{"registers", "pc_symbol", "stopped": true, "count"}`. Exit 1 on
 timeout (the error reports how many arrivals were reached); after a timeout
 the machine is left running and the checkpoint is removed.
 
+On timeout `pet until` exits 1, **leaves the machine RUNNING**, and removes
+the checkpoint it set (JSON: `"machine": "running"`,
+`"checkpoint_removed": true`). Beware the branch-away deadlock: if the
+program can stop visiting REF (death, menu, pause screen), `until REF` can
+never fire — set a breakpoint at a code path that must still execute and use
+`pet wait --break` instead.
+
 ---
 
 ## Waiting
@@ -270,6 +277,9 @@ Exactly one of `--text`/`--mem`/`--break` is required. JSON on fire:
 `{"fired": "text"|"mem", "elapsed"}` or `{"fired": "break", "checkpoint",
 "pc", "pc_symbol", "elapsed"}`. Exit 1 on timeout (the error carries the last
 screen for `--text`).
+
+On timeout `pet wait` exits 1 and the machine is **left running**;
+checkpoints you set remain set (JSON gains `"machine": "running"`).
 
 ---
 

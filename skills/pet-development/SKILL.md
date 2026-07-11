@@ -115,6 +115,7 @@ source of bugs:
 |---------|------------|
 | Screen shows graphics glyphs instead of text | Uppercase in the `.bas` source — rewrite keywords AND strings lowercase. |
 | `pet wait --text` times out | `pet screen` and look. The program may be awaiting input (feed it with `pet basic type` or a `key` step), still loading, or crashed. |
+| `pet until LABEL` times out on a label that used to fire | The program branched away (death/menu/pause) and never executes LABEL again. Break at a code path that must still run and `pet wait --break`. |
 | Program seems to hang | Sample it: run `pet reg` two or three times and compare PC. PC stuck in your code = your loop is wrong; PC around $E4xx = the machine is idling in BASIC waiting for input. |
 | Assembly crashes or drops to READY immediately | The SYS stub math is off — `pet rom disasm 1037 16` and confirm your first instruction is at $040D. |
 | `?SYNTAX ERROR` when running a loaded program | Inspect what actually loaded: `pet basic detokenize file.prg`. |

@@ -120,3 +120,28 @@ def test_wait_mem_timeout():
         S.attach.return_value = fake
         r = CliRunner().invoke(main, ["wait", "--mem", "$8000=42", "--timeout", "0.1"])
     assert r.exit_code == 1 and "timeout" in r.output.lower()
+
+
+def test_wait_break_timeout_says_machine_running():
+    fake, mon = _fake()
+    with patch("petlib.cli.Session") as S, \
+         patch("petlib.cli.wait_for_break", return_value={"fired": None}):
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["--json", "wait", "--break",
+                                      "--timeout", "0.1"])
+    assert r.exit_code == 1
+    out = json.loads(r.output)
+    assert out["machine"] == "running"
+    assert "left running" in out["error"] and "remain set" in out["error"]
+
+
+def test_wait_text_timeout_carries_machine_field():
+    fake, mon = _fake()
+    with patch("petlib.cli.Session") as S, \
+         patch("petlib.cli.wait_for_text",
+               return_value={"fired": None, "timeout": 0.1, "screen": "READY."}):
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["--json", "wait", "--text", "X",
+                                      "--timeout", "0.1"])
+    assert r.exit_code == 1
+    assert json.loads(r.output)["machine"] == "running"

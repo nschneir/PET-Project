@@ -266,15 +266,21 @@ def pet_continue(session: str | None = None) -> dict:
 def pet_until(ref: str, timeout: float = 30.0, count: int = 1,
               session: str | None = None) -> dict:
     """Run until an address/symbol is executed count times; machine stays
-    stopped there. count>1 = deterministic frame stepping on a loop label."""
+    stopped there. count>1 = deterministic frame stepping on a loop label.
+    On timeout: raises with the machine LEFT RUNNING and the checkpoint
+    removed."""
     s = _attach(session)
     labels = session_labels(s)
     addr = parse_ref(labels, ref)
     out = run_until(s, addr, timeout, count=count)
     if out["registers"] is None:
+        where = format_addr(labels, addr)
         raise RuntimeError(
-            f"timeout: {format_addr(labels, addr)} reached "
-            f"{out['reached']}/{count} time(s) in {timeout}s")
+            f"timeout: {where} reached {out['reached']}/{count} time(s) in "
+            f"{timeout}s — machine left RUNNING, checkpoint removed. If the "
+            f"program can branch away from {where} (death, menu, pause), it "
+            "may never be reached again; set a breakpoint at a code path "
+            "that must still execute and use pet_wait_break.")
     return {**_stopped_regs(s, out["registers"]), "count": count}
 
 
@@ -299,11 +305,15 @@ def pet_wait_mem(addr: str, equals: str, timeout: float = 30.0,
 @srv.tool()
 def pet_wait_break(timeout: float = 30.0, session: str | None = None) -> dict:
     """Block until a breakpoint/watchpoint fires; reports checkpoint id, PC,
-    and registers. Machine is left stopped when it fires."""
+    and registers. Machine is left stopped when it fires. On timeout the
+    machine is LEFT RUNNING (your checkpoints remain set) and the result is
+    {"fired": null, "machine": "running", ...} — data, not an error."""
     s = _attach(session)
     out = wait_for_break(s, timeout)
     if out.get("fired"):
         out["pc_symbol"] = pc_symbol(session_labels(s), out.pop("registers"))
+    else:
+        out["machine"] = "running"
     return out
 
 

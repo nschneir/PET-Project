@@ -18,6 +18,13 @@ def _blocks(lang: str) -> list[str]:
     return re.findall(rf"```{lang}\n(.*?)```", COOKBOOK.read_text(), re.S)
 
 
+def _block_by_key(lang: str, key: str) -> str:
+    hits = [b for b in _blocks(lang) if key in b.splitlines()[0]]
+    assert len(hits) == 1, \
+        f"expected exactly 1 {lang} block whose first line contains {key!r}, found {len(hits)}"
+    return hits[0]
+
+
 def test_cookbook_has_recipes():
     assert len(_blocks("basic")) >= 3
     assert len(_blocks("asm")) >= 2
@@ -47,43 +54,43 @@ def test_asm_recipes_assemble(tmp_path):
 # --- live: each recipe runs and behaves as the cookbook promises -----------
 
 LIVE_RECIPES = [
-    # (name, lang, block index, steps)
-    ("basic-game-loop", "basic", 0, [
+    # (name, lang, first-line key, steps)
+    ("basic-game-loop", "basic", "press q to quit", [
         {"wait": {"text": "PRESS Q TO QUIT"}},
         {"wait": {"text": "..."}},            # frames ticking
         {"key": "q"},
         {"wait": {"text": "BYE"}},
     ]),
-    ("basic-poke-stars", "basic", 1, [
+    ("basic-poke-stars", "basic", "three stars", [
         {"wait": {"text": "DONE"}},
         # 32768 + 40*5 + 10 = $80D2 holds screen code 42 ('*')
         {"assert": {"mem": "$80D2", "equals": 42}},
     ]),
-    ("basic-beep", "basic", 2, [
+    ("basic-beep", "basic", "gosub 900", [
         {"wait": {"text": "BEEPED"}},
     ]),
-    ("asm-ball", "asm", 0, [
+    ("asm-ball", "asm", "ball.s", [
         {"wait": {"text": "*"}},              # the ball is on screen
         {"key": "q"},
         {"wait": {"text": "READY."}},         # clean exit to BASIC
     ]),
-    ("asm-beep", "asm", 1, [
+    ("asm-beep", "asm", "beep.s", [
         {"wait": {"text": "OK"}},
     ]),
-    ("asm-frame-counter", "asm", 2, [
+    ("asm-frame-counter", "asm", "frame counter", [
         {"wait": {"text": "FRAME COUNTER"}},
     ]),
-    ("asm-random-lfsr", "asm", 3, [
+    ("asm-random-lfsr", "asm", "random.s", [
         # LFSR from seed $2A is fully deterministic: 21, 178, 89
         {"wait": {"mem": "$03F2", "equals": 89}},
         {"assert": {"mem": "$03F0", "equals": 21}},
         {"assert": {"mem": "$03F1", "equals": 178}},
     ]),
-    ("asm-plotaddr", "asm", 4, [
+    ("asm-plotaddr", "asm", "plot.s", [
         # row 10 * 40 + col 20 = 420 -> $8000 + $1A4; '*' is screen code 42
         {"wait": {"mem": "$81A4", "equals": 42}},
     ]),
-    ("asm-poke-text", "asm", 5, [
+    ("asm-poke-text", "asm", "hud.s", [
         {"wait": {"text": "SCORE 000"}},
         # 'S' folds to screen code 19 at $8000 + 2*40 + 5 = $8055
         {"assert": {"mem": "$8055", "equals": 19}},
@@ -91,20 +98,26 @@ LIVE_RECIPES = [
 ]
 
 
+def test_every_live_recipe_key_resolves():
+    for name, lang, key, _steps in LIVE_RECIPES:
+        block = _block_by_key(lang, key)
+        assert block.strip(), name
+
+
 @pytest.mark.vice
 @pytest.mark.skipif(
     not (shutil.which("xpet") or os.environ.get("PET_TOOLS_XPET")),
     reason="xpet not installed",
 )
-@pytest.mark.parametrize("name,lang,idx,steps",
+@pytest.mark.parametrize("name,lang,key,steps",
                          LIVE_RECIPES, ids=[r[0] for r in LIVE_RECIPES])
-def test_cookbook_recipe_runs_live(tmp_path, monkeypatch, name, lang, idx, steps):
+def test_cookbook_recipe_runs_live(tmp_path, monkeypatch, name, lang, key, steps):
     if lang == "asm" and shutil.which("ca65") is None \
             and not os.environ.get("PET_TOOLS_CA65"):
         pytest.skip("cc65 not installed")
     monkeypatch.setenv("PET_TOOLS_HOME", str(tmp_path))
     src = tmp_path / f"{name}{'.bas' if lang == 'basic' else '.s'}"
-    src.write_text(_blocks(lang)[idx])
+    src.write_text(_block_by_key(lang, key))
     spec = {"name": name, "machine": "pet4032", "timeout": 30,
             "autorun": True, "program": str(src), "steps": steps}
     result = run_test(spec)

@@ -14,6 +14,9 @@ exposes the same operations; see the README.
   - `--json` — emit machine-readable JSON on stdout instead of human text.
     This is the intended interface for AI agents. Every command supports it.
   - `--session, -s NAME` — target a specific session by name.
+  - `--version` — print `pet <version>` and exit.
+  - `--help` — print usage and exit. Works on every command and group
+    (e.g. `pet session start --help`).
 - **Numbers.** Address and value arguments accept `$hex` (e.g. `$8000`),
   `0xhex`, or decimal. Where a label file is registered on the session (via
   `pet build`/`pet run` of assembly, or `pet load --symbols`), a **symbol
@@ -28,6 +31,21 @@ exposes the same operations; see the README.
   `pet continue`, an explicitly-resuming command (`pet run`, `pet load`,
   `pet disk boot`, `pet session reset`), or a new halt. Inspection commands
   (`screen`, `mem`, `reg`, ...) never disturb the state.
+
+---
+
+## Help and version
+
+### `pet help`
+
+Print help for `pet` or one of its commands, then exit. Equivalent to the
+`--help` option, but as a subcommand.
+
+- `COMMAND...` (optional) — a command path to describe; with no argument,
+  prints the top-level help.
+
+Examples: `pet help`, `pet help session`, `pet help session start`. No
+session required.
 
 ---
 

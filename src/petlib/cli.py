@@ -9,6 +9,7 @@ from pathlib import Path
 
 import click
 
+from . import __version__
 from .basic import BasicError, detokenize, tokenize
 from .build import BuildError, build_asm
 from .disasm import disassemble
@@ -66,6 +67,8 @@ def resolve_ref(ctx: click.Context, labels: dict[str, int], ref: str) -> int:
 
 
 @click.group()
+@click.version_option(__version__, "--version", prog_name="pet",
+                      message="%(prog)s %(version)s")
 @click.option("--json", "json_out", is_flag=True, help="Machine-readable JSON output.")
 @click.option("--session", "-s", "session_name", default=None, help="Target session name.")
 @click.pass_context
@@ -74,19 +77,49 @@ def main(ctx: click.Context, json_out: bool, session_name: str | None) -> None:
     ctx.obj = {"json": json_out, "session": session_name}
 
 
+@main.command(add_help_option=False)
+@click.argument("command", nargs=-1)
+@click.pass_context
+def help(ctx: click.Context, command: tuple[str, ...]) -> None:
+    """Show help for pet or a specific command.
+
+    With no argument, prints the top-level help. Otherwise give a command
+    path to describe, e.g. `pet help session start`.
+    """
+    node: click.Command = main
+    sub_ctx = ctx.find_root()
+    for name in command:
+        nxt = node.get_command(sub_ctx, name) if isinstance(node, click.Group) else None
+        if nxt is None:
+            fail(ctx, f"no such command: {' '.join(command)}")
+        sub_ctx = click.Context(nxt, info_name=name, parent=sub_ctx)
+        node = nxt
+    click.echo(node.get_help(sub_ctx))
+
+
 @main.group()
 def session() -> None:
     """Manage emulator sessions."""
 
 
 @session.command("start")
-@click.option("--model", default="pet4032", show_default=True)
-@click.option("--name", "-s", default=None)
-@click.option("--headless", is_flag=True)
-@click.option("--warp", is_flag=True)
+@click.option("--model", default="pet4032", show_default=True,
+              help="PET model to boot: pet2001-4k, pet2001, pet3032, "
+                   "pet4032, pet8032, or pet8296.")
+@click.option("--name", "-s", default=None,
+              help="Session name (defaults to the model name).")
+@click.option("--headless", is_flag=True,
+              help="Run without a VICE window (video/audio dummied).")
+@click.option("--warp", is_flag=True,
+              help="Run at maximum speed — recommended for automation.")
 @click.option("--disk", "disk8", default=None, help="Attach a d64/d80/d82 image to drive 8.")
 @click.pass_context
 def session_start(ctx, model, name, headless, warp, disk8):
+    """Boot a fresh emulated PET and start its monitor daemon.
+
+    Leaves the machine running; reports the new session's name, model, pid,
+    and monitor port.
+    """
     try:
         s = Session.launch(model=model, name=name, headless=headless, warp=warp, disk8=disk8)
     except (SessionError, DiskError, KeyError) as e:
@@ -99,6 +132,7 @@ def session_start(ctx, model, name, headless, warp, disk8):
 @session.command("list")
 @click.pass_context
 def session_list(ctx):
+    """List the running sessions (dead ones are pruned)."""
     live = Session.list_all()
     emit(ctx,
          {"sessions": [{"name": s.name, "model": s.model, "pid": s.pid, "port": s.port}
@@ -113,6 +147,10 @@ def session_list(ctx):
               help="Session to stop (same as the positional NAME).")
 @click.pass_context
 def session_stop(ctx, name, name_opt):
+    """Stop a session, kill its daemon, and remove its registry record.
+
+    NAME defaults to the current (or only) running session.
+    """
     if name and name_opt and name != name_opt:
         fail(ctx, f"conflicting session names: positional {name!r} vs --name {name_opt!r}")
         return
@@ -129,6 +167,7 @@ def session_stop(ctx, name, name_opt):
 @click.option("--hard", is_flag=True, help="Power-cycle instead of soft reset.")
 @click.pass_context
 def session_reset(ctx, hard):
+    """Reset the running machine (BASIC warm start); leaves it running."""
     s = attach(ctx)
     with s.monitor() as mon:
         mon.reset(hard=hard)
@@ -148,10 +187,15 @@ def _hexdump(addr: int, data: bytes) -> str:
 
 
 @main.command("screen")
-@click.option("--png", "png_path", default=None, type=click.Path(dir_okay=False))
+@click.option("--png", "png_path", default=None, type=click.Path(dir_okay=False),
+              help="Save a PNG screenshot to this path instead of printing text.")
 @click.pass_context
 def screen_cmd(ctx, png_path):
-    """Show the emulated screen (text by default, --png for an image)."""
+    """Show the emulated screen — decoded text by default, or a PNG with --png.
+
+    Printing the screen is the preferred way to observe program output. Does
+    not disturb run/stop state.
+    """
     s = attach(ctx)
     with s.monitor() as mon:
         try:
@@ -176,6 +220,11 @@ def mem() -> None:
 @click.argument("length", default="256")
 @click.pass_context
 def mem_read(ctx, addr, length):
+    """Dump LENGTH bytes of memory from ADDR as a hex + ASCII dump.
+
+    ADDR is $hex/0x/decimal or a symbol; LENGTH (default 256) is decimal
+    or $hex. Does not disturb run/stop state.
+    """
     s = attach(ctx)
     start = resolve_ref(ctx, session_labels(s), addr)
     n = parse_number(length)
@@ -193,6 +242,11 @@ def mem_read(ctx, addr, length):
 @click.argument("values", nargs=-1, required=True)
 @click.pass_context
 def mem_write(ctx, addr, values):
+    """Write one or more byte VALUES to memory starting at ADDR.
+
+    ADDR is $hex/0x/decimal or a symbol; each VALUE is a byte ($hex/0x/
+    decimal). Does not disturb run/stop state.
+    """
     s = attach(ctx)
     start = resolve_ref(ctx, session_labels(s), addr)
     data = bytes(parse_number(v) for v in values)
@@ -229,6 +283,7 @@ def reg(ctx) -> None:
 @click.argument("value")
 @click.pass_context
 def reg_set(ctx, name, value):
+    """Set register NAME (PC, A, X, Y, or SP) to VALUE ($hex/0x/decimal)."""
     s = attach(ctx)
     v = parse_number(value)
     with s.monitor() as mon:
@@ -242,11 +297,16 @@ def reg_set(ctx, name, value):
 
 @main.command("build")
 @click.argument("source", type=click.Path(exists=True, dir_okay=False, path_type=Path))
-@click.option("-o", "--output", type=click.Path(dir_okay=False, path_type=Path), default=None)
-@click.option("--model", default="pet4032", show_default=True)
+@click.option("-o", "--output", type=click.Path(dir_okay=False, path_type=Path), default=None,
+              help="Output .prg path (defaults next to SOURCE).")
+@click.option("--model", default="pet4032", show_default=True,
+              help="Target model — selects the BASIC load address.")
 @click.pass_context
 def build_cmd(ctx, source, output, model):
-    """Assemble 6502 source to a .prg (+ VICE label file) with ca65/ld65."""
+    """Assemble 6502 SOURCE to a .prg (+ VICE label file) with ca65/ld65.
+
+    Offline; no session required.
+    """
     try:
         profile = get_profile(model)
         res = build_asm(source, out_prg=output, basic_start=profile.basic_start)
@@ -266,7 +326,8 @@ def build_cmd(ctx, source, output, model):
 @click.option("--title", default=None,
               help="CBM file/disk name (uppercased, max 16 chars; defaults "
                    "to the source stem).")
-@click.option("--model", default="pet4032", show_default=True)
+@click.option("--model", default="pet4032", show_default=True,
+              help="Target model — selects the BASIC load address.")
 @click.pass_context
 def package_cmd(ctx, source, output, title, model):
     """Package SOURCE into an artifact any VICE user can run."""
@@ -287,10 +348,13 @@ def basic() -> None:
 
 @basic.command("tokenize")
 @click.argument("source", type=click.Path(exists=True, dir_okay=False, path_type=Path))
-@click.option("-o", "--output", type=click.Path(dir_okay=False, path_type=Path), default=None)
-@click.option("--model", default="pet4032", show_default=True)
+@click.option("-o", "--output", type=click.Path(dir_okay=False, path_type=Path), default=None,
+              help="Output .prg path (defaults to SOURCE with a .prg suffix).")
+@click.option("--model", default="pet4032", show_default=True,
+              help="Model — selects the BASIC version.")
 @click.pass_context
 def basic_tokenize(ctx, source, output, model):
+    """Tokenize a BASIC .bas SOURCE into a .prg (offline; no session)."""
     out = output or source.with_suffix(".prg")
     try:
         profile = get_profile(model)
@@ -303,9 +367,11 @@ def basic_tokenize(ctx, source, output, model):
 
 @basic.command("detokenize")
 @click.argument("prg", type=click.Path(exists=True, dir_okay=False, path_type=Path))
-@click.option("--model", default="pet4032", show_default=True)
+@click.option("--model", default="pet4032", show_default=True,
+              help="Model — selects the BASIC version.")
 @click.pass_context
 def basic_detokenize(ctx, prg, model):
+    """Detokenize a .prg back into a BASIC listing (offline; no session)."""
     try:
         profile = get_profile(model)
         listing = detokenize(prg, profile.basic_version)
@@ -343,8 +409,10 @@ def basic_type(ctx, source, do_run):
 
 @main.command("load")
 @click.argument("prg", type=click.Path(exists=True, dir_okay=False, path_type=Path))
-@click.option("--run/--no-run", "do_run", default=True, show_default=True)
-@click.option("--symbols", type=click.Path(exists=True, dir_okay=False, path_type=Path), default=None)
+@click.option("--run/--no-run", "do_run", default=True, show_default=True,
+              help="Type RUN after loading.")
+@click.option("--symbols", type=click.Path(exists=True, dir_okay=False, path_type=Path),
+              default=None, help="Register a VICE label file for symbolic debugging.")
 @click.pass_context
 def load_cmd(ctx, prg, do_run, symbols):
     """Load (and by default RUN) a .prg on the running PET via autostart."""
@@ -404,9 +472,10 @@ def break_() -> None:
 @break_.command("add")
 @click.argument("ref")
 @click.option("--condition", default=None, help="VICE condition, e.g. 'A != 0'.")
-@click.option("--temporary", is_flag=True)
+@click.option("--temporary", is_flag=True, help="Delete the breakpoint after it fires once.")
 @click.pass_context
 def break_add(ctx, ref, condition, temporary):
+    """Set an execution breakpoint at REF (an address or a symbol)."""
     s = attach(ctx)
     labels = session_labels(s)
     addr = resolve_ref(ctx, labels, ref)
@@ -437,6 +506,7 @@ def _op_name(op: int) -> str:
 @break_.command("list")
 @click.pass_context
 def break_list(ctx):
+    """List all checkpoints (breakpoints and watchpoints) with hit counts."""
     s = attach(ctx)
     labels = session_labels(s)
     with s.monitor() as mon:
@@ -461,6 +531,7 @@ def break_list(ctx):
 @click.argument("ck_id", type=int)
 @click.pass_context
 def break_remove(ctx, ck_id):
+    """Remove checkpoint CK_ID (its number from `pet break list`)."""
     s = attach(ctx)
     with s.monitor() as mon:
         try:
@@ -474,6 +545,7 @@ def break_remove(ctx, ck_id):
 @click.argument("ck_id", type=int)
 @click.pass_context
 def break_enable(ctx, ck_id):
+    """Enable checkpoint CK_ID."""
     s = attach(ctx)
     with s.monitor() as mon:
         try:
@@ -487,6 +559,7 @@ def break_enable(ctx, ck_id):
 @click.argument("ck_id", type=int)
 @click.pass_context
 def break_disable(ctx, ck_id):
+    """Disable checkpoint CK_ID without removing it."""
     s = attach(ctx)
     with s.monitor() as mon:
         try:
@@ -503,11 +576,12 @@ def watch() -> None:
 
 @watch.command("add")
 @click.argument("ref")
-@click.option("--load", "on_load", is_flag=True)
-@click.option("--store", "on_store", is_flag=True)
-@click.option("--length", default=1, show_default=True)
+@click.option("--load", "on_load", is_flag=True, help="Break on reads.")
+@click.option("--store", "on_store", is_flag=True, help="Break on writes.")
+@click.option("--length", default=1, show_default=True, help="Number of bytes to watch.")
 @click.pass_context
 def watch_add(ctx, ref, on_load, on_store, length):
+    """Set a watchpoint on the bytes at REF (default: both load and store)."""
     s = attach(ctx)
     labels = session_labels(s)
     addr = resolve_ref(ctx, labels, ref)
@@ -573,7 +647,8 @@ def continue_cmd(ctx):
 @click.argument("ref")
 @click.option("--count", default=1, show_default=True,
               help="Stop at the Nth arrival at REF (frame stepping on a loop label).")
-@click.option("--timeout", default=30.0, show_default=True)
+@click.option("--timeout", default=30.0, show_default=True,
+              help="Give up after this many seconds.")
 @click.pass_context
 def until_cmd(ctx, ref, count, timeout):
     """Run until REF (address or symbol) is executed; stays stopped there.
@@ -595,10 +670,15 @@ def until_cmd(ctx, ref, count, timeout):
 @click.option("--text", "text_cond", default=None, help="Wait for screen text.")
 @click.option("--mem", "mem_cond", default=None, help="ADDR=VALUE, e.g. '$1000=42'.")
 @click.option("--break", "break_cond", is_flag=True, help="Wait for a checkpoint hit.")
-@click.option("--timeout", default=30.0, show_default=True)
+@click.option("--timeout", default=30.0, show_default=True,
+              help="Give up after this many seconds.")
 @click.pass_context
 def wait_cmd(ctx, text_cond, mem_cond, break_cond, timeout):
-    """Block until a condition fires; reports which one in JSON."""
+    """Block until exactly one condition fires; report which one.
+
+    Give exactly one of --text, --mem, or --break. This is the primary
+    synchronization primitive for scripted use. Exit 1 on timeout.
+    """
     if sum(bool(x) for x in (text_cond, mem_cond, break_cond)) != 1:
         fail(ctx, "give exactly one of --text, --mem, --break")
         return
@@ -646,10 +726,13 @@ def disk() -> None:
 
 @disk.command("create")
 @click.argument("image", type=click.Path(dir_okay=False, path_type=Path))
-@click.option("--label", default="disk", show_default=True)
-@click.option("--id", "disk_id", default="00", show_default=True)
+@click.option("--label", default="disk", show_default=True,
+              help="Disk name shown in the directory header.")
+@click.option("--id", "disk_id", default="00", show_default=True,
+              help="Two-character disk ID.")
 @click.pass_context
 def disk_create(ctx, image, label, disk_id):
+    """Create an empty disk image (d64/d80/d82, inferred from the extension)."""
     try:
         img = create_image(image, label=label, disk_id=disk_id)
     except DiskError as e:
@@ -662,6 +745,7 @@ def disk_create(ctx, image, label, disk_id):
 @click.argument("image", type=click.Path(exists=True, dir_okay=False, path_type=Path))
 @click.pass_context
 def disk_ls(ctx, image):
+    """List the directory of a disk IMAGE (offline; no session)."""
     try:
         d = list_files(image)
     except DiskError as e:
@@ -681,6 +765,10 @@ def disk_ls(ctx, image):
 @click.argument("name", required=False, default=None)
 @click.pass_context
 def disk_put(ctx, image, file, name):
+    """Copy a host FILE into IMAGE, optionally under CBM NAME.
+
+    NAME defaults to the file's stem. Offline; no session.
+    """
     try:
         cbm = put_file(image, file, name)
     except DiskError as e:
@@ -696,6 +784,10 @@ def disk_put(ctx, image, file, name):
                 type=click.Path(dir_okay=False, path_type=Path))
 @click.pass_context
 def disk_get(ctx, image, name, dest):
+    """Extract file NAME from IMAGE to DEST (defaults to NAME.prg).
+
+    Offline; no session.
+    """
     dest = dest or Path(f"{name}.prg")
     try:
         out = get_file(image, name, dest)
@@ -728,6 +820,7 @@ def rom() -> None:
 @rom.command("info")
 @click.pass_context
 def rom_info(ctx):
+    """Identify the loaded ROM set — BASIC/KERNAL/editor names and hashes."""
     s = attach(ctx)
     with s.monitor() as mon:
         try:

@@ -183,13 +183,18 @@ def test_until_reliability_and_count_under_warp(session, tmp_path):
         assert out["registers"] is not None, f"until trial {i} timed out"
         assert out["registers"]["PC"] == labels["mainloop"], f"until trial {i}"
 
-    # count semantics, halt-level: count=5 reports 5 arrivals and halts at
-    # mainloop. Exact-N *observation* across separate monitor connections is
-    # deliberately NOT asserted: VICE resumes the CPU whenever a monitor
-    # connection closes (2026-07-10 transport findings), so the counter
-    # free-runs between this process's connections. The cross-call exact-N
-    # assertion is the session-daemon plan's acceptance test; within-
-    # connection exactness is unit-tested in test_ops.py.
+    # count semantics, end to end: the loop body is `inc $033A ; jmp mainloop`,
+    # so the counter advances by exactly N between two stops N frames apart.
+    # The reads happen over SEPARATE monitor connections — the session daemon
+    # is what makes this exact (spec acceptance; pre-daemon this read +158).
+    with session.monitor() as mon:
+        c0 = mon.memory_read(0x033A, 1)[0]
+        mon.release()                    # parked; must stay parked
     out = run_until(session, labels["mainloop"], timeout=15.0, count=5)
     assert out["registers"] is not None and out["reached"] == 5
-    assert out["registers"]["PC"] == labels["mainloop"]
+    with session.monitor() as mon:
+        c1 = mon.memory_read(0x033A, 1)[0]
+        mon.release()
+    assert (c1 - c0) % 256 == 5
+    with session.monitor() as mon:
+        mon.resume()                     # leave the machine running

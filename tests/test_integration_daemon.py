@@ -3,13 +3,19 @@ transport bugs (2026-07-10 findings)."""
 
 import json
 import os
+import shutil
 import signal
+import subprocess
+import sys
 import time
 from pathlib import Path
 
 import pytest
 
+from petlib.build import build_asm
 from petlib.session import Session, _pid_alive
+from petlib.symbols import load_labels
+from tests.test_integration_debug import HOT_LOOP
 from tests.vice_helpers import wait_for_text
 
 pytestmark = [
@@ -61,3 +67,59 @@ def test_daemon_crash_respawns_with_warning(session, capsys):
         mon.release()
     assert session.daemon_pid != old and _pid_alive(session.daemon_pid)
     assert "respawning" in capsys.readouterr().err
+
+
+PET = Path(sys.executable).parent / "pet"
+
+
+def _pet_json(*args):
+    """Run the real pet CLI in a SEPARATE OS PROCESS — the original failure
+    mode was per-process monitor connections."""
+    out = subprocess.run([str(PET), "--json", *args],
+                         capture_output=True, text=True, env=os.environ.copy())
+    assert out.returncode == 0, f"pet {args}: {out.stderr}\n{out.stdout}"
+    return json.loads(out.stdout)
+
+
+def test_cross_process_stopped_state(session):
+    """THE headline regression (findings §3.2 / DX Task-10 probe): a halt
+    must survive across separate pet processes. Pre-daemon this free-ran
+    (PC e0c3 -> e0c1)."""
+    pc1 = _pet_json("step")["registers"]["PC"]
+    pc2 = _pet_json("reg")["registers"]["PC"]
+    pc3 = _pet_json("reg")["registers"]["PC"]
+    assert pc1 == pc2 == pc3
+    _pet_json("continue")
+
+
+needs_cc65 = pytest.mark.skipif(
+    shutil.which("ca65") is None and not os.environ.get("PET_TOOLS_CA65"),
+    reason="cc65 not installed")
+
+
+@needs_cc65
+def test_idle_checkpoint_park_survives_inspection(session, tmp_path):
+    """A checkpoint hit with NO client attached must flip the daemon to
+    STOPPED (idle event pump) — otherwise the next inspection's release()
+    would destroy the parked state."""
+    src = tmp_path / "hot.s"
+    src.write_text(HOT_LOOP)
+    res = build_asm(src)
+    labels = load_labels(res.labels)
+    with session.monitor() as mon:
+        try:
+            mon.autostart(res.prg.resolve(), run=True)
+        finally:
+            mon.resume()
+    time.sleep(3.0)
+    with session.monitor() as mon:
+        ck = mon.checkpoint_set(labels["mainloop"])
+        mon.release()                    # running; the hit is imminent
+    time.sleep(1.5)                      # the hit happens while idle
+    with session.monitor() as mon:
+        assert mon.registers()["PC"] == labels["mainloop"]
+        mon.release()                    # must NOT resume a parked machine
+    with session.monitor() as mon:       # still parked after inspection
+        assert mon.registers()["PC"] == labels["mainloop"]
+        mon.checkpoint_delete(ck.number)
+        mon.resume()

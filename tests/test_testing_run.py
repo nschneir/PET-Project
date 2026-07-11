@@ -1,3 +1,4 @@
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
@@ -114,3 +115,60 @@ def test_boot_timeout_is_error():
         with pytest.raises(TestError, match="READY"):
             run_test(_spec(), launch=launch)
     s.stop.assert_called_once()
+
+
+def test_wait_mem_polls_until_value():
+    s, mon = _fake_session()
+    launch = Mock(return_value=s)
+    mon.memory_read.side_effect = [b"\x00", b"\x00", b"\x2a"]
+    spec = _spec(steps=[{"wait": {"mem": "$8000", "equals": "$2a"}}])
+    with patch("petlib.testing.read_screen_text", return_value="READY."), \
+         patch("petlib.testing.time.sleep"):
+        result = run_test(spec, launch=launch)
+    assert result.passed is True
+    assert mon.memory_read.call_count == 3
+
+
+def test_wait_mem_timeout_reports_last_value():
+    s, mon = _fake_session()
+    launch = Mock(return_value=s)
+    mon.memory_read.return_value = b"\x07"
+    spec = _spec(steps=[{"wait": {"mem": "$8000", "equals": "$2a", "timeout": 0.2}}])
+    with patch("petlib.testing.read_screen_text", return_value="READY."), \
+         patch("petlib.testing.time.sleep"):
+        result = run_test(spec, launch=launch)
+    assert result.passed is False
+    assert "was 7" in result.steps[0].detail and "wanted 42" in result.steps[0].detail
+
+
+def test_assert_reg_unknown_register_fails_cleanly():
+    s, mon = _fake_session()
+    launch = Mock(return_value=s)
+    mon.registers.return_value = {"PC": 0x1234, "A": 0}
+    spec = _spec(steps=[{"assert": {"reg": "q", "equals": 1}}])
+    with patch("petlib.testing.read_screen_text", return_value="READY."):
+        result = run_test(spec, launch=launch)
+    assert result.passed is False and "no register" in result.steps[0].detail
+
+
+def test_assert_reg_in_range_fail_branch():
+    s, mon = _fake_session()
+    launch = Mock(return_value=s)
+    mon.registers.return_value = {"PC": 0xC500}
+    spec = _spec(steps=[{"assert": {"reg": "pc", "in_range": ["$0400", "$0500"]}}])
+    with patch("petlib.testing.read_screen_text", return_value="READY."):
+        result = run_test(spec, launch=launch)
+    assert result.passed is False and "not in" in result.steps[0].detail
+
+
+def test_autorun_false_load_never_finishes():
+    s, _ = _fake_session()
+    launch = Mock(return_value=s)
+    spec = _spec(autorun=False, timeout=0.2, program="whatever.prg", steps=[])
+    # First _wait_screen (READY gate) passes; second (load gate) never does.
+    # Patching _wait_screen directly avoids the 45s/15s real-time deadlines.
+    with patch("petlib.testing._wait_screen",
+               side_effect=[(True, "READY."), (False, "LOADING")]), \
+         patch("petlib.testing._prepare", return_value=Path("x.prg")), \
+         pytest.raises(TestError, match="never finished loading"):
+        run_test(spec, launch=launch)

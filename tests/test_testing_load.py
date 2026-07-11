@@ -2,7 +2,8 @@ from pathlib import Path
 
 import pytest
 
-from petlib.testing import TestError, load_test, program_test
+from petlib.machines import get_profile
+from petlib.testing import TestError, _prepare, load_test, program_test
 
 
 def _write(tmp_path, text, name="t.yaml"):
@@ -82,3 +83,21 @@ def test_program_test_synthesis():
 def test_program_test_rejects_non_program_dir(tmp_path):
     with pytest.raises(TestError, match="example-program"):
         program_test(tmp_path)
+
+
+def test_load_test_rejects_non_mapping(tmp_path):
+    f = tmp_path / "bad.yaml"
+    f.write_text("- just\n- a list\n")
+    with pytest.raises(TestError, match="YAML mapping"):
+        load_test(f)
+
+
+def test_prepare_prg_passthrough(tmp_path):
+    prg = tmp_path / "x.prg"
+    prg.write_bytes(b"\x01\x04")
+    assert _prepare(str(prg), get_profile("pet4032")) == prg
+
+
+def test_prepare_unknown_extension(tmp_path):
+    with pytest.raises(TestError, match="cannot run"):
+        _prepare(str(tmp_path / "x.txt"), get_profile("pet4032"))

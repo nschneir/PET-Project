@@ -70,6 +70,9 @@ LIVE_RECIPES = [
     ("asm-beep", "asm", 1, [
         {"wait": {"text": "OK"}},
     ]),
+    ("asm-frame-counter", "asm", 2, [
+        {"wait": {"text": "FRAME COUNTER"}},
+    ]),
 ]
 
 
@@ -91,3 +94,43 @@ def test_cookbook_recipe_runs_live(tmp_path, monkeypatch, name, lang, idx, steps
             "autorun": True, "program": str(src), "steps": steps}
     result = run_test(spec)
     assert result.passed, [s.detail for s in result.steps] + [result.screen]
+
+
+@pytest.mark.vice
+@pytest.mark.skipif(
+    not (shutil.which("xpet") or os.environ.get("PET_TOOLS_XPET")),
+    reason="xpet not installed")
+def test_cookbook_frame_stepping_workflow_live(tmp_path, monkeypatch):
+    """The frame-stepping recipe delivers what it promises: until --count N
+    advances FRAMES by exactly N."""
+    if shutil.which("ca65") is None and not os.environ.get("PET_TOOLS_CA65"):
+        pytest.skip("cc65 not installed")
+    from petlib.ops import run_until
+    from petlib.session import Session
+    from petlib.symbols import load_labels
+    from tests.vice_helpers import wait_for_text
+    monkeypatch.setenv("PET_TOOLS_HOME", str(tmp_path))
+    src = tmp_path / "counter.s"
+    src.write_text(_blocks("asm")[2])
+    res = build_asm(src)
+    labels = load_labels(res.labels)
+    s = Session.launch(model="pet4032", name="cbstep", headless=True, warp=True)
+    try:
+        wait_for_text(s, "READY.")
+        with s.monitor() as mon:
+            try:
+                mon.autostart(res.prg.resolve(), run=True)
+            finally:
+                mon.resume()
+        wait_for_text(s, "FRAME COUNTER", timeout=45.0)
+        out = run_until(s, labels["mainloop"], timeout=15.0)
+        assert out["registers"] is not None
+        with s.monitor() as mon:
+            f0 = mon.memory_read(labels["FRAMES"], 1)[0]     # stays stopped
+        out = run_until(s, labels["mainloop"], timeout=30.0, count=5)
+        assert out["registers"] is not None and out["reached"] == 5
+        with s.monitor() as mon:
+            f1 = mon.memory_read(labels["FRAMES"], 1)[0]
+        assert (f1 - f0) % 256 == 5
+    finally:
+        s.stop()

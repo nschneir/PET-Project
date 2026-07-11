@@ -156,6 +156,71 @@ bw:     cmp     JIFFLO
         rts
 ```
 
+### Frame stepping: inspect a game loop one frame at a time
+
+Debugging an animated program by letting it free-run is guesswork. Instead,
+run to the loop-top label with `pet until` and use `--count` to advance an
+exact number of frames, inspecting between steps. This program bumps
+`FRAMES` once per pass and spins a character in the top-right corner:
+
+```asm
+; frame counter: the smallest "game loop", for frame-stepping practice.
+JIFFLO = $8F
+CHROUT = $FFD2
+SCREEN = $8000
+
+        .segment "LOADADDR"
+        .word   $0401
+        .segment "EXEHDR"
+        .word   nextln
+        .word   10
+        .byte   $9E, "1037", $00
+nextln: .word   $0000
+
+        .segment "CODE"
+start:  ldx     #0
+banner: lda     msg,x
+        beq     init
+        jsr     CHROUT
+        inx
+        bne     banner
+init:   lda     #0
+        sta     FRAMES
+mainloop:
+        inc     FRAMES          ; one more frame
+        lda     FRAMES
+        and     #3
+        tax
+        lda     spin,x
+        sta     SCREEN+39       ; spinner, top-right corner
+        ldy     #6              ; pace: 6 jiffies = 1/10 s per frame
+pace:   lda     JIFFLO
+pw:     cmp     JIFFLO
+        beq     pw
+        dey
+        bne     pace
+        jmp     mainloop
+
+msg:    .byte   "FRAME COUNTER", $0D, $00
+spin:   .byte   45, 78, 66, 77  ; screen codes: - / | \ (graphics slashes)
+
+        .segment "BSS"
+FRAMES: .res 1
+```
+
+The workflow, after `pet run counter.s` (which registers the labels):
+
+```
+pet until mainloop            # run to the top of the next frame, stay stopped
+pet mem read FRAMES 1         # symbols work here
+pet until mainloop --count 5  # advance exactly 5 frames, stay stopped
+pet mem read FRAMES 1         # the counter went up by exactly 5
+pet continue                  # back to real time
+```
+
+No in-program stepping scaffolding (gate flags, poke-to-advance loops) is
+needed — the debugger provides deterministic stepping from outside.
+
 ## Verifying a recipe-based program
 
 Run it and assert on the screen, exactly like the tests here do:

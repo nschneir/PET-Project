@@ -12,7 +12,7 @@ requires-python = ">=3.11"
 dependencies = ["click>=8.1", "pillow>=10", "pyyaml>=6", "mcp>=1.28"]
 
 [project.optional-dependencies]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "coverage>=7.10"]
 
 [project.scripts]
 pet = "petlib.cli:main"
@@ -24,3 +24,14 @@ packages = ["src/petlib"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = ["vice: requires a working xpet (VICE) installation on PATH"]
+
+[tool.coverage.run]
+source = ["petlib"]
+branch = true
+parallel = true
+sigterm = true
+patch = ["subprocess"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 90

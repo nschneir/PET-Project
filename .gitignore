@@ -14,3 +14,6 @@ dist/
 scratch/
 books/
 docs/superpowers/
+.coverage
+.coverage.*
+htmlcov/

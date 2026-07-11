@@ -12,7 +12,7 @@ import pytest
 
 from petlib.daemon import STOPPED, PetDaemon
 from petlib.daemon_client import DaemonMonitorClient
-from petlib.monitor import MonitorClient, StopInfo
+from petlib.monitor import MonitorClient, MonitorError, StopInfo
 from petlib.protocol import CP_EXEC, Checkpoint
 
 
@@ -154,3 +154,56 @@ def test_direct_monitorclient_release_aliases_resume():
     m.resume = lambda: calls.append(1)
     m.release()
     assert calls == [1]
+
+
+# --- passthrough methods and failure modes (reuse the `served` fixture) -------
+
+@pytest.mark.parametrize("method,args,monattr", [
+    ("reset", (True,), "reset"),
+    ("keyboard_feed", (b"RUN\r",), "keyboard_feed"),
+    ("vice_info", (), "vice_info"),
+    ("checkpoint_toggle", (1, False), "checkpoint_toggle"),
+    ("condition_set", (1, "A == 0"), "condition_set"),
+])
+def test_passthrough_methods(served, method, args, monattr):
+    c, mon, _ = served
+    getattr(mon, monattr).return_value = "ok"   # JSON-serializable; void methods ignore it
+    getattr(c, method)(*args)
+    assert getattr(mon, monattr).called
+
+
+def test_display_and_palette_marshalling(served):
+    c, mon, _ = served
+    mon.display.return_value = (320, 200, b"\x00\x01")
+    assert c.display() == (320, 200, b"\x00\x01")
+    mon.palette.return_value = [(0, 0, 0), (255, 255, 255)]
+    assert c.palette() == [(0, 0, 0), (255, 255, 255)]
+
+
+def test_quit_swallows_connection_teardown(served):
+    c, mon, _ = served
+    mon.quit.side_effect = ConnectionError("gone")
+    c.quit()                    # must not raise
+
+
+def test_remote_exception_reraises(served):
+    c, mon, _ = served
+    mon.memory_read.side_effect = MonitorError(0x01, 0x02)
+    with pytest.raises(MonitorError):
+        c.memory_read(0x8000, 1)
+
+
+def test_daemon_gone_raises_connection_error(served):
+    c, mon, _ = served
+    # shutdown (not close): close leaves the fd open via the makefile ref, so
+    # the request would still reach the daemon. SHUT_RDWR makes the client's
+    # own send fail (BrokenPipe) — the real "connection dead" path.
+    c._sock.shutdown(socket.SHUT_RDWR)
+    with pytest.raises((ConnectionError, OSError)):
+        c.registers()
+
+
+def test_wait_for_stop_stretches_socket_timeout(served):
+    c, mon, _ = served
+    mon.wait_for_stop.return_value = None
+    assert c.wait_for_stop(0.1) is None

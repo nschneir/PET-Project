@@ -79,6 +79,15 @@ LIVE_RECIPES = [
         {"assert": {"mem": "$03F0", "equals": 21}},
         {"assert": {"mem": "$03F1", "equals": 178}},
     ]),
+    ("asm-plotaddr", "asm", 4, [
+        # row 10 * 40 + col 20 = 420 -> $8000 + $1A4; '*' is screen code 42
+        {"wait": {"mem": "$81A4", "equals": 42}},
+    ]),
+    ("asm-poke-text", "asm", 5, [
+        {"wait": {"text": "SCORE 000"}},
+        # 'S' folds to screen code 19 at $8000 + 2*40 + 5 = $8055
+        {"assert": {"mem": "$8055", "equals": 19}},
+    ]),
 ]
 
 

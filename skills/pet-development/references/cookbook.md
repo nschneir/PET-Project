@@ -290,3 +290,112 @@ seed:   .byte   1
 
 Range tricks: `and #$1f` for 0-31, or reject-and-retry (`cmp #40 / bcs
 random`) for an unbiased 0-39.
+
+## Point a pointer at screen row/column (plotaddr)
+
+Everything that draws needs `screen address = $8000 + row*width + col`.
+On 40-column machines `row*40 = row*32 + row*8` — three shifts and an
+add, no lookup table. The pointer lives in zero page ($FB/$FC — see
+zero-page.md) so `(PTR),y` indirection works. On 80-column machines
+(8032/8296) a row is 80 bytes: use `row*64 + row*16` (one more shift
+pair) instead.
+
+```asm
+; plot.s — plotaddr: point PTR ($FB/$FC) at screen row/column.
+; In: A = row (0-24), Y = column (0-39). Demo puts a '*' at row 10, col 20.
+PTR = $fb
+
+        .segment "LOADADDR"
+        .word   $0401
+        .segment "EXEHDR"
+        .word   nextln
+        .word   10
+        .byte   $9E, "1037", $00
+nextln: .word   $0000
+
+        .segment "CODE"
+start:  lda     #$93
+        jsr     $ffd2           ; clear the screen
+        lda     #10             ; row 10
+        ldy     #20             ; column 20
+        jsr     plotaddr
+        lda     #$2a            ; screen code for '*'
+        ldy     #0
+        sta     (PTR),y
+        rts                     ; back to BASIC (READY.)
+
+plotaddr:
+        sty     PTR             ; park the column in PTR low
+        asl                     ; row*2
+        asl                     ; row*4
+        asl                     ; row*8  (max 192 — still one byte)
+        sta     row8
+        lda     #0
+        sta     PTR+1
+        lda     row8
+        asl                     ; row*16 ...
+        rol     PTR+1
+        asl                     ; row*32, high bits in PTR+1
+        rol     PTR+1
+        clc
+        adc     row8            ; + row*8 = row*40 (low byte)
+        bcc     nocarry
+        inc     PTR+1
+nocarry:
+        clc
+        adc     PTR             ; + column
+        sta     PTR
+        lda     PTR+1
+        adc     #$80            ; + $8000 screen base (carry rides along)
+        sta     PTR+1
+        rts
+
+row8:   .byte   0
+```
+
+## Static text without CHROUT (poke screen codes)
+
+CHROUT ($FFD2) prints *at the cursor*: it moves the cursor and scrolls
+the screen at the bottom row — wrong for a fixed HUD, score, or label.
+Poke screen codes directly instead. ASCII source text folds to screen
+codes with one compare: codes below $40 (digits, punctuation, space)
+already ARE screen codes; letters $41-$5A fold down by $40
+(`cmp #$40` leaves carry set exactly when the subtract is needed).
+
+```asm
+; hud.s — write a zero-terminated label by poking screen codes.
+; Demo: "SCORE 000" at row 2, column 5. PTR = $FB/$FC (see zero-page.md).
+PTR = $fb
+
+        .segment "LOADADDR"
+        .word   $0401
+        .segment "EXEHDR"
+        .word   nextln
+        .word   10
+        .byte   $9E, "1037", $00
+nextln: .word   $0000
+
+        .segment "CODE"
+start:  lda     #$93
+        jsr     $ffd2           ; clear the screen
+        lda     #<($8000 + 2*40 + 5)
+        sta     PTR
+        lda     #>($8000 + 2*40 + 5)
+        sta     PTR+1           ; row 2, column 5
+        ldy     #0
+loop:   lda     msg,y
+        beq     done
+        cmp     #$40
+        bcc     put             ; digit/punct/space: already a screen code
+        sbc     #$40            ; letter: fold (carry set by the cmp)
+put:    sta     (PTR),y
+        iny
+        bne     loop
+done:   rts                     ; back to BASIC (READY.)
+
+msg:    .byte   "SCORE 000", 0
+```
+
+The label reads back through `pet screen` (letters and digits round-trip
+through the decoder — see petscii.md), so `pet wait --text "SCORE 000"`
+works as a completion signal.

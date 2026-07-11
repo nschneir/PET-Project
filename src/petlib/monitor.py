@@ -159,6 +159,12 @@ class MonitorClient:
         self.events.clear()
         self.request(Command.EXIT)
 
+    def release(self) -> None:
+        """Restore-prior-state verb. On a direct connection there is no held
+        state to restore, so it simply resumes (pre-daemon behavior); the
+        session daemon's proxy overrides this with real state restoration."""
+        self.resume()
+
     def _register_map(self) -> dict[int, str]:
         if not hasattr(self, "_regmap"):
             body = self.request(Command.REGISTERS_AVAILABLE, b"\x00").body

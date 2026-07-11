@@ -1,7 +1,6 @@
 """Direct tests for MCP tools that previously had no unit coverage.
 Harness identical to test_mcp_session.py: in-memory MCP client, mocked Session."""
 
-from pathlib import Path
 from unittest.mock import Mock, patch
 
 import pytest
@@ -232,13 +231,13 @@ def test_disk_create_put_get(tmp_path):
     assert err is False and out == {"image": str(img)}
     ci.assert_called_once_with(img, label="work", disk_id="00")
 
-    with patch("petlib.mcp_server.put_file", return_value="game") as pf:
+    with patch("petlib.mcp_server.put_file", return_value="game"):
         err, out = call_tool("pet_disk_put",
                              {"image": str(img), "file": str(tmp_path / "g.prg")})
     assert err is False and out == {"image": str(img), "name": "game"}
 
     with patch("petlib.mcp_server.get_file",
-               return_value=tmp_path / "out.prg") as gf:
+               return_value=tmp_path / "out.prg"):
         err, out = call_tool("pet_disk_get",
                              {"image": str(img), "name": "game",
                               "dest": str(tmp_path / "out.prg")})

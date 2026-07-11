@@ -27,7 +27,7 @@ def test_rom_info():
     assert r.exit_code == 0, r.output
     ident.assert_called_once_with(mon)
     assert json.loads(r.output)["kernal"] == "kernal-4.bin"
-    mon.resume.assert_called_once()
+    mon.release.assert_called_once()
 
 
 def test_rom_disasm_symbolic_start():
@@ -42,4 +42,4 @@ def test_rom_disasm_symbolic_start():
     assert out["start"] == 0xFFD2
     assert any("jmp $f266" in ln for ln in out["lines"])
     assert out["lines"][0] == "CHROUT:"       # annotated from the curated ROM DB
-    mon.resume.assert_called_once()
+    mon.release.assert_called_once()

@@ -39,7 +39,7 @@ def test_break_add_symbolic(tmp_path):
         err, out = call_tool("pet_break_add", {"ref": "start"})
     assert err is False and out["id"] == 1
     mon.checkpoint_set.assert_called_once_with(0x040D, op=CP_EXEC, temporary=False)
-    mon.resume.assert_called_once()
+    mon.release.assert_called_once()
 
 
 def test_watch_add_store(tmp_path):

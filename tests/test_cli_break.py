@@ -34,7 +34,7 @@ def test_break_add_symbolic(tmp_path):
     mon.checkpoint_set.assert_called_once_with(0x040D, op=CP_EXEC, temporary=False)
     out = json.loads(r.output)
     assert out["id"] == 1 and "start" in out["address"]
-    mon.resume.assert_called_once()
+    mon.release.assert_called_once()
 
 
 def test_break_add_with_condition():

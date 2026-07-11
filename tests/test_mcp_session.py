@@ -37,7 +37,7 @@ def test_screen_text():
         S.attach.return_value = s
         err, out = call_tool("pet_screen_text", {})
     assert err is False and out["text"] == "READY."
-    mon.resume.assert_called_once()
+    mon.release.assert_called_once()
 
 
 def test_no_session_is_actionable_error(tmp_path):

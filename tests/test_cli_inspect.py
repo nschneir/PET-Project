@@ -29,7 +29,7 @@ def test_screen_text():
         r = CliRunner().invoke(main, ["--json", "screen"])
     assert r.exit_code == 0, r.output
     assert json.loads(r.output)["text"] == "READY."
-    mon.resume.assert_called_once()
+    mon.release.assert_called_once()
 
 
 def test_mem_read_hexdump():
@@ -42,7 +42,7 @@ def test_mem_read_hexdump():
     assert r.exit_code == 0
     assert r.output.startswith("8000: 00 01 02")
     mon.memory_read.assert_called_once_with(0x8000, 16)
-    mon.resume.assert_called_once()
+    mon.release.assert_called_once()
 
 
 def test_mem_write():
@@ -53,7 +53,7 @@ def test_mem_write():
         r = CliRunner().invoke(main, ["mem", "write", "$8000", "0x01", "2", "$FF"])
     assert r.exit_code == 0
     mon.memory_write.assert_called_once_with(0x8000, bytes([1, 2, 0xFF]))
-    mon.resume.assert_called_once()
+    mon.release.assert_called_once()
 
 
 def test_reg_get_and_set():

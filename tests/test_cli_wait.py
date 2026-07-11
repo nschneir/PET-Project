@@ -36,7 +36,7 @@ def test_wait_text_fires():
     assert r.exit_code == 0, r.output
     out = json.loads(r.output)
     assert out["fired"] == "text"
-    assert mon.resume.call_count == 2   # one per poll
+    assert mon.release.call_count == 2   # one per poll
 
 
 def test_wait_text_timeout_includes_screen():

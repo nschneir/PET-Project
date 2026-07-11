@@ -163,7 +163,7 @@ def screen_cmd(ctx, png_path):
                 text = read_screen_text(mon, s.profile)
                 emit(ctx, {"text": text, "rows": text.splitlines()}, text)
         finally:
-            mon.resume()
+            mon.release()
 
 
 @main.group()
@@ -183,7 +183,7 @@ def mem_read(ctx, addr, length):
         try:
             data = mon.memory_read(start, n)
         finally:
-            mon.resume()
+            mon.release()
     emit(ctx, {"addr": start, "length": len(data), "hex": data.hex()},
          _hexdump(start, data))
 
@@ -200,7 +200,7 @@ def mem_write(ctx, addr, values):
         try:
             mon.memory_write(start, data)
         finally:
-            mon.resume()
+            mon.release()
     emit(ctx, {"addr": start, "written": len(data)},
          f"wrote {len(data)} byte(s) at ${start:04x}")
 
@@ -216,7 +216,7 @@ def reg(ctx) -> None:
         try:
             regs = mon.registers()
         finally:
-            mon.resume()
+            mon.release()
     sym = _pc_symbol(session_labels(s), regs)
     human = "  ".join(f"{k}={v:04x}" for k, v in sorted(regs.items()))
     if sym:
@@ -235,7 +235,7 @@ def reg_set(ctx, name, value):
         try:
             mon.set_register(name, v)
         finally:
-            mon.resume()
+            mon.release()
     emit(ctx, {"register": name.upper(), "value": v},
          f"{name.upper()} = ${v:04x}")
 
@@ -336,7 +336,7 @@ def basic_type(ctx, source, do_run):
         try:
             mon.keyboard_feed(petscii)
         finally:
-            mon.resume()
+            mon.release()
     emit(ctx, {"typed": str(source), "run": do_run},
          f"typed {source}{' and RUN' if do_run else ''}")
 
@@ -416,7 +416,7 @@ def break_add(ctx, ref, condition, temporary):
             if condition:
                 mon.condition_set(ck.number, condition)
         finally:
-            mon.resume()
+            mon.release()
     emit(ctx, {"id": ck.number, "address": format_addr(labels, addr),
                "condition": condition, "temporary": temporary},
          f"breakpoint #{ck.number} at {format_addr(labels, addr)}"
@@ -443,7 +443,7 @@ def break_list(ctx):
         try:
             cks = mon.checkpoint_list()
         finally:
-            mon.resume()
+            mon.release()
     rows = [{"id": ck.number, "address": format_addr(labels, ck.start),
              "end": ck.end, "op": _op_name(ck.op), "enabled": ck.enabled,
              "hits": ck.hit_count, "has_condition": ck.has_condition}
@@ -466,7 +466,7 @@ def break_remove(ctx, ck_id):
         try:
             mon.checkpoint_delete(ck_id)
         finally:
-            mon.resume()
+            mon.release()
     emit(ctx, {"removed": ck_id}, f"removed #{ck_id}")
 
 
@@ -479,7 +479,7 @@ def break_enable(ctx, ck_id):
         try:
             mon.checkpoint_toggle(ck_id, True)
         finally:
-            mon.resume()
+            mon.release()
     emit(ctx, {"enabled": ck_id}, f"enabled #{ck_id}")
 
 
@@ -492,7 +492,7 @@ def break_disable(ctx, ck_id):
         try:
             mon.checkpoint_toggle(ck_id, False)
         finally:
-            mon.resume()
+            mon.release()
     emit(ctx, {"disabled": ck_id}, f"disabled #{ck_id}")
 
 
@@ -518,7 +518,7 @@ def watch_add(ctx, ref, on_load, on_store, length):
         try:
             ck = mon.checkpoint_set(addr, addr + length - 1, op=op)
         finally:
-            mon.resume()
+            mon.release()
     emit(ctx, {"id": ck.number, "address": format_addr(labels, addr),
                "length": length, "op": _op_name(op)},
          f"watchpoint #{ck.number} at {format_addr(labels, addr)} len={length} ({_op_name(op)})")
@@ -733,7 +733,7 @@ def rom_info(ctx):
         try:
             info = identify(mon)
         finally:
-            mon.resume()
+            mon.release()
     human = "\n".join(
         [f"basic:  {info['basic']}", f"kernal: {info['kernal']}",
          f"editor: {info['editor']}"]
@@ -756,7 +756,7 @@ def rom_disasm(ctx, start, length):
         try:
             data = mon.memory_read(addr, n)
         finally:
-            mon.resume()
+            mon.release()
     lines = disassemble(data, addr, labels)
     emit(ctx, {"start": addr, "length": n, "lines": lines}, "\n".join(lines))
 
@@ -839,5 +839,5 @@ def key_type(ctx, text):
         try:
             mon.keyboard_feed(petscii)
         finally:
-            mon.resume()
+            mon.release()
     emit(ctx, {"typed_chars": len(petscii)}, f"typed {text!r}")

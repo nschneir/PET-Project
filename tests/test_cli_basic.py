@@ -45,7 +45,7 @@ def test_type_feeds_keyboard_and_run(tmp_path):
     assert r.exit_code == 0, r.output
     fed = b"".join(c.args[0] for c in mon.keyboard_feed.call_args_list)
     assert fed == b'10 PRINT "HI"\rRUN\r'
-    mon.resume.assert_called_once()
+    mon.release.assert_called_once()
 
 
 def test_key_type_feeds_text_directly():
@@ -55,4 +55,4 @@ def test_key_type_feeds_text_directly():
         r = CliRunner().invoke(main, ["key", "type", "50\n"])
     assert r.exit_code == 0, r.output
     mon.keyboard_feed.assert_called_once_with(b"50\r")
-    mon.resume.assert_called_once()
+    mon.release.assert_called_once()

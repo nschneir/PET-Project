@@ -94,6 +94,7 @@ def test_labels_path_persists(home):
 
 
 def test_launch_disk8_args(home, tmp_path, monkeypatch):
+    monkeypatch.setenv("PET_TOOLS_NO_DAEMON", "1")  # this test is about xpet args
     captured = {}
 
     class FakeProc:
@@ -137,6 +138,7 @@ def test_launch_disk8_args(home, tmp_path, monkeypatch):
 def test_launch_retries_transient_monitor_failure(home, monkeypatch):
     """A first slow/failed monitor connect should be retried, the failed proc
     killed (no orphan), and a second attempt succeed."""
+    monkeypatch.setenv("PET_TOOLS_NO_DAEMON", "1")  # xpet retry logic, not the daemon
     procs = []
 
     class FakeProc:

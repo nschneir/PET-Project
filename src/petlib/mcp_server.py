@@ -92,7 +92,7 @@ def pet_screen_text(session: str | None = None) -> dict:
         try:
             text = read_screen_text(mon, s.profile)
         finally:
-            mon.resume()
+            mon.release()
     return {"text": text, "rows": text.splitlines()}
 
 
@@ -105,7 +105,7 @@ def pet_screenshot(path: str, session: str | None = None) -> dict:
         try:
             w, h = save_screenshot_png(mon, path)
         finally:
-            mon.resume()
+            mon.release()
     return {"png": path, "width": w, "height": h}
 
 
@@ -119,7 +119,7 @@ def pet_mem_read(addr: str, length: int = 256, session: str | None = None) -> di
         try:
             data = mon.memory_read(a, length)
         finally:
-            mon.resume()
+            mon.release()
     return {"addr": a, "length": len(data), "hex": data.hex()}
 
 
@@ -132,7 +132,7 @@ def pet_mem_write(addr: str, values: list[int], session: str | None = None) -> d
         try:
             mon.memory_write(a, bytes(values))
         finally:
-            mon.resume()
+            mon.release()
     return {"addr": a, "written": len(values)}
 
 
@@ -145,7 +145,7 @@ def pet_reg_get(session: str | None = None) -> dict:
         try:
             regs = mon.registers()
         finally:
-            mon.resume()
+            mon.release()
     return {"registers": regs, "pc_symbol": pc_symbol(session_labels(s), regs)}
 
 
@@ -158,7 +158,7 @@ def pet_reg_set(name: str, value: str, session: str | None = None) -> dict:
         try:
             mon.set_register(name, v)
         finally:
-            mon.resume()
+            mon.release()
     return {"register": name.upper(), "value": v}
 
 
@@ -176,7 +176,7 @@ def pet_break_add(ref: str, condition: str | None = None,
             if condition:
                 mon.condition_set(ck.number, condition)
         finally:
-            mon.resume()
+            mon.release()
     return {"id": ck.number, "address": format_addr(labels, addr),
             "condition": condition, "temporary": temporary}
 
@@ -190,7 +190,7 @@ def pet_break_list(session: str | None = None) -> dict:
         try:
             cks = mon.checkpoint_list()
         finally:
-            mon.resume()
+            mon.release()
     return {"breakpoints": [
         {"id": ck.number, "address": format_addr(labels, ck.start), "end": ck.end,
          "op": ck.op, "enabled": ck.enabled, "hits": ck.hit_count,
@@ -207,7 +207,7 @@ def pet_break_remove(checkpoint_id: int, session: str | None = None) -> dict:
         try:
             mon.checkpoint_delete(checkpoint_id)
         finally:
-            mon.resume()
+            mon.release()
     return {"removed": checkpoint_id}
 
 
@@ -225,7 +225,7 @@ def pet_watch_add(ref: str, on_load: bool = False, on_store: bool = False,
         try:
             ck = mon.checkpoint_set(addr, addr + length - 1, op=op)
         finally:
-            mon.resume()
+            mon.release()
     return {"id": ck.number, "address": format_addr(labels, addr), "length": length}
 
 
@@ -386,7 +386,7 @@ def pet_basic_type(text: str, run: bool = False,
         try:
             mon.keyboard_feed(petscii)
         finally:
-            mon.resume()
+            mon.release()
     return {"typed_chars": len(petscii), "run": run}
 
 
@@ -435,7 +435,7 @@ def pet_rom_info(session: str | None = None) -> dict:
         try:
             return identify(mon)
         finally:
-            mon.resume()
+            mon.release()
 
 
 @srv.tool()
@@ -450,7 +450,7 @@ def pet_rom_disasm(start: str, length: int = 32,
         try:
             data = mon.memory_read(addr, length)
         finally:
-            mon.resume()
+            mon.release()
     return {"start": addr, "length": length,
             "lines": disassemble(data, addr, labels)}
 

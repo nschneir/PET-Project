@@ -54,7 +54,7 @@ def _screen(session) -> str:
         try:
             return read_screen_text(mon, session.profile)
         finally:
-            mon.resume()
+            mon.release()
 
 
 def wait_for_text(session, text: str, timeout: float = 30.0) -> dict:
@@ -78,7 +78,7 @@ def wait_for_mem(session, addr: int, value: int, timeout: float = 30.0) -> dict:
             try:
                 val = mon.memory_read(addr, 1)[0]
             finally:
-                mon.resume()
+                mon.release()
         if val == value:
             return {"fired": "mem", "elapsed": round(time.monotonic() - start, 3)}
         time.sleep(0.4)

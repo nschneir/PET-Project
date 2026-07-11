@@ -1,0 +1,95 @@
+"""petlib.packaging: source -> runnable .prg / autostart-first disk image."""
+
+import os
+import shutil
+from pathlib import Path
+
+import pytest
+
+from petlib.packaging import PackageError, cbm_title, package_program
+
+needs_cc65 = pytest.mark.skipif(
+    shutil.which("ca65") is None and not os.environ.get("PET_TOOLS_CA65"),
+    reason="cc65 not installed")
+needs_petcat = pytest.mark.skipif(
+    shutil.which("petcat") is None, reason="petcat not installed")
+needs_c1541 = pytest.mark.skipif(
+    shutil.which("c1541") is None and not os.environ.get("PET_TOOLS_C1541"),
+    reason="c1541 not installed")
+
+HELLO_ASM = Path("tests/programs/hello-asm/program.s")
+HELLO_BAS = Path("tests/programs/hello-basic/program.bas")
+
+
+def test_cbm_title_rules():
+    assert cbm_title("snake") == "SNAKE"
+    assert cbm_title("hi there-2") == "HI THERE-2"
+    with pytest.raises(PackageError):
+        cbm_title("")
+    with pytest.raises(PackageError):
+        cbm_title("x" * 17)
+    with pytest.raises(PackageError):
+        cbm_title('bad"name')
+    with pytest.raises(PackageError):
+        cbm_title("em—dash")           # no em dash in PETSCII
+
+
+def test_bad_output_extension_fails_before_building(tmp_path):
+    with pytest.raises(PackageError) as e:
+        package_program(HELLO_ASM, out=tmp_path / "x.tap")
+    assert ".tap" in str(e.value) and ".d64" in str(e.value)
+
+
+@needs_cc65
+def test_package_prg_only(tmp_path):
+    out = package_program(HELLO_ASM, out=tmp_path / "hello.prg", title="hello")
+    assert out["image"] is None and out["title"] == "HELLO"
+    assert Path(out["prg"]).read_bytes()[:2] == b"\x01\x04"
+    assert out["run"] == f"xpet {tmp_path / 'hello.prg'}"
+
+
+@needs_cc65
+@needs_c1541
+def test_package_d64_autostart_first(tmp_path):
+    from petlib.disk import list_files
+    out = package_program(HELLO_ASM, out=tmp_path / "hello.d64", title="hello")
+    assert out["image"] == str(tmp_path / "hello.d64")
+    assert out["run"] == f"xpet {tmp_path / 'hello.d64'}"
+    d = list_files(out["image"])
+    assert d["files"], "image has no files"
+    assert d["files"][0]["name"] == "hello"      # first file = autostart target
+    assert d["files"][0]["type"].lower().startswith("prg")
+    assert Path(out["prg"]).exists()             # the intermediate .prg is kept
+
+
+@needs_petcat
+@needs_c1541
+def test_package_bas_source(tmp_path):
+    out = package_program(HELLO_BAS, out=tmp_path / "hi.d64")
+    assert out["title"] == "PROGRAM"             # defaults to the source stem
+    assert Path(out["prg"]).read_bytes()[:2] == b"\x01\x04"
+
+
+@pytest.mark.vice
+@needs_cc65
+@needs_c1541
+@pytest.mark.skipif(
+    not (shutil.which("xpet") or os.environ.get("PET_TOOLS_XPET")),
+    reason="xpet not installed")
+def test_packaged_disk_boots_live(tmp_path, monkeypatch):
+    """The spec's acceptance test: a packaged d64 autostarts in stock VICE."""
+    from petlib.session import Session
+    from tests.vice_helpers import wait_for_text
+    monkeypatch.setenv("PET_TOOLS_HOME", str(tmp_path))
+    out = package_program(HELLO_ASM, out=tmp_path / "hello.d64", title="hello")
+    s = Session.launch(model="pet4032", name="pkgtest", headless=True, warp=True)
+    try:
+        wait_for_text(s, "READY.")
+        with s.monitor() as mon:
+            try:
+                mon.autostart(Path(out["image"]).resolve(), run=True)
+            finally:
+                mon.resume()
+        wait_for_text(s, "HELLO FROM ASM", timeout=45.0)
+    finally:
+        s.stop()

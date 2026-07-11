@@ -95,6 +95,12 @@ LIVE_RECIPES = [
         # 'S' folds to screen code 19 at $8000 + 2*40 + 5 = $8055
         {"assert": {"mem": "$8055", "equals": 19}},
     ]),
+    ("asm-digits", "asm", "digits.s", [
+        {"wait": {"text": "142"}},
+        # '1' = screen code 49, at $8000 + 30
+        {"assert": {"mem": "$801E", "equals": 49}},
+        {"assert": {"mem": "$8020", "equals": 50}},   # '2' = 50
+    ]),
 ]
 
 

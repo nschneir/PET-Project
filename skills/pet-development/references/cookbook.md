@@ -20,6 +20,7 @@ Assembly:
 - [Cheap pseudo-random byte (8-bit Galois LFSR)](#cheap-pseudo-random-byte-8-bit-galois-lfsr)
 - [Point a pointer at screen row/column (plotaddr)](#point-a-pointer-at-screen-rowcolumn-plotaddr)
 - [Static text without CHROUT (poke screen codes)](#static-text-without-chrout-poke-screen-codes)
+- [Print a number as decimal digits](#print-a-number-as-decimal-digits)
 
 ## BASIC recipes
 
@@ -402,6 +403,61 @@ msg:    .byte   "SCORE 000", 0
 The label reads back through `pet screen` (letters and digits round-trip
 through the decoder — see petscii.md), so `pet wait --text "SCORE 000"`
 works as a completion signal.
+
+### Print a number as decimal digits
+
+A HUD label is static; the score isn't. This converts a byte (0–255) to
+three decimal digits by repeated subtraction and pokes them as screen
+codes — digit `d` is screen code `48+d`, so `ora #48` converts directly.
+Values below 100 show leading zeros (`007`); blank them by comparing the
+digit to `#48` before storing if you care.
+
+```asm
+; digits.s — poke a byte as three decimal digits (demo: 142 at row 0, col 30).
+POS = $8000 + 0*40 + 30
+
+        .segment "LOADADDR"
+        .word   $0401
+        .segment "EXEHDR"
+        .word   nextln
+        .word   10
+        .byte   $9E, "1037", $00
+nextln: .word   $0000
+
+        .segment "CODE"
+start:  lda     #$93
+        jsr     $ffd2           ; clear the screen
+        lda     #142
+        jsr     putnum
+        rts                     ; back to BASIC (READY.)
+
+; A = value 0-255 -> three screen-code digits at POS
+putnum: ldy     #0
+hund:   cmp     #100
+        bcc     hdone
+        sbc     #100            ; carry is set by the cmp
+        iny
+        bne     hund
+hdone:  pha                     ; remainder 0-99
+        tya
+        ora     #48             ; digit -> screen code '0'-'9'
+        sta     POS
+        pla
+        ldy     #0
+tens:   cmp     #10
+        bcc     tdone
+        sbc     #10
+        iny
+        bne     tens
+tdone:  pha
+        tya
+        ora     #48
+        sta     POS+1
+        pla
+        ora     #48
+        sta     POS+2
+        rts
+```
 
 ## Verifying a recipe-based program
 

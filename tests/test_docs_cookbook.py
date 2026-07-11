@@ -114,6 +114,16 @@ LIVE_RECIPES = [
         # ACR ($E84B), which is a plain register and reads back the 0 we wrote.
         {"assert": {"mem": "59467", "equals": 0}},   # $E84B ACR: sound off
     ]),
+    ("basic-charset", "basic", "lowercase (business)", [
+        {"wait": {"text": "HELLO FROM BUSINESS MODE"}},   # decoder is case-canonical
+        {"assert": {"mem": "59468", "equals": 14}},        # VIA PCR readback
+    ]),
+    ("basic-score-hud", "basic", "score digits", [
+        {"wait": {"text": "DONE"}},
+        {"assert": {"mem": "$801E", "equals": 49}},   # '1' at $8000+30
+        {"assert": {"mem": "$801F", "equals": 52}},   # '4'
+        {"assert": {"mem": "$8020", "equals": 50}},   # '2'
+    ]),
 ]
 
 

@@ -12,6 +12,8 @@ BASIC:
 - [Game loop: non-blocking key read + jiffy pacing](#game-loop-non-blocking-key-read--jiffy-pacing)
 - [Poke characters at a screen position](#poke-characters-at-a-screen-position)
 - [Sound: a beep subroutine](#sound-a-beep-subroutine)
+- [Switch character sets: uppercase/graphics vs lowercase](#switch-character-sets-uppercasegraphics-vs-lowercase)
+- [Score HUD: poke a changing number to the screen](#score-hud-poke-a-changing-number-to-the-screen)
 
 Assembly:
 - [Game loop: poll GETIN, move a ball, pace with the jiffy clock](#game-loop-poll-getin-move-a-ball-pace-with-the-jiffy-clock)
@@ -77,6 +79,45 @@ this works). Keep the subroutine and call it wherever a game needs a beep:
 ```
 
 Vary 59464 (the pitch: lower = higher note) and the 15-jiffy duration.
+
+### Switch character sets: uppercase/graphics vs lowercase
+
+The PET has two character sets, selected by the VIA peripheral control
+register: `poke 59468,12` gives uppercase + graphics (the power-on set);
+`poke 59468,14` gives lowercase + uppercase ("business" mode) — in it,
+unshifted letters render lowercase and shifted ones uppercase. Text
+adventures and anything wordy want mode 14. On the 12-inch-screen
+machines (40xx/80xx, CRTC-based — including the default `pet4032`),
+`print chr$(14)` / `print chr$(142)` switch the same thing from PETSCII
+(and also adjust line spacing); the poke works on every model. Note this
+changes the **glyphs the CRT draws**, not the screen codes in memory — so
+`pet screen` text (which decodes screen codes) looks identical either
+way; check `pet screen --png` to see the case change.
+
+```basic
+100 rem lowercase (business) character set
+110 poke 59468,14
+120 print "hello from business mode"
+130 rem to switch back: poke 59468,12
+```
+
+### Score HUD: poke a changing number to the screen
+
+PRINT scrolls at the bottom and moves the cursor — wrong for a fixed
+score display. Poke the digits instead: `STR$` gives the digits as
+PETSCII, and for digits the PETSCII value IS the screen code (48–57), so
+`ASC` of each character pokes directly. (`STR$` puts a sign blank first —
+start at character 2.)
+
+```basic
+100 rem score digits at row 0, column 30
+110 s=142
+120 s$=str$(s)
+130 for i=2 to len(s$)
+140 poke 32768+30+i-2, asc(mid$(s$,i,1))
+150 next
+160 print "done"
+```
 
 ## Assembly recipes
 

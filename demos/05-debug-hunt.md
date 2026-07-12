@@ -1,4 +1,4 @@
-# Debug hunt *(not yet dogfooded)*
+# Debug hunt *(dogfooded 2026-07-11 — first-try pass)*
 
 Paste this prompt (including the listing) into your agent:
 

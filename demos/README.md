@@ -13,11 +13,11 @@ They're graded — start at 01 if you're new:
 | 02 | Bouncing ball | BASIC | Screen-memory animation | ✅ passed |
 | 03 | Sieve benchmark | BASIC + asm | Timing, iteration, a ~93× asm speedup | ✅ passed |
 | 04 | Snake | 6502 assembly | The full assembler + debugger workflow | ✅ passed |
-| 05 | Debug hunt | BASIC + debugger | Breakpoints, stepping, memory inspection | not yet |
+| 05 | Debug hunt | BASIC + debugger | Breakpoints, stepping, memory inspection | ✅ passed |
 | 06 | Space Invaders | 6502 assembly | Arcade-fidelity spec, CB2 sound, review loop, packaging | not yet |
 
 Dogfooding status: each prompt is validated by handing it to a real AI agent
-(given only this toolset) and confirming the result independently. Demos 01–04
+(given only this toolset) and confirming the result independently. Demos 01–05
 have passed on the first agent attempt; each file carries its dogfood date.
 Prompts not yet validated are marked *(not yet dogfooded)*.
 

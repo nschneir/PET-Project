@@ -1,11 +1,11 @@
 import os
-import re
 import shutil
 from pathlib import Path
 
 import pytest
 
 from petlib.build import build_asm
+from tests.doc_helpers import code_blocks
 
 SKILL = Path("skills/6502-assembly/SKILL.md")
 
@@ -22,7 +22,7 @@ def test_hardware_doc_base_addresses():
 )
 def test_skill_skeleton_assembles(tmp_path):
     text = SKILL.read_text()
-    blocks = re.findall(r"```(?:asm|ca65)\n(.*?)```", text, re.S)
+    blocks = code_blocks(text, "(?:asm|ca65)")
     assert blocks, "6502-assembly SKILL.md must contain an ```asm skeleton block"
     src = tmp_path / "skeleton.s"
     src.write_text(blocks[0])

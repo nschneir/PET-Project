@@ -1,8 +1,12 @@
 import json
-import re
 from pathlib import Path
 
-from tests.doc_helpers import BOOT_FREE, mentioned_commands, valid_mention_paths
+from tests.doc_helpers import (
+    BOOT_FREE,
+    code_blocks,
+    mentioned_commands,
+    valid_mention_paths,
+)
 
 README = Path("README.md")
 
@@ -27,7 +31,7 @@ def test_agents_section_covers_the_majors():
 
 def test_readme_mcp_json_snippet_parses():
     text = README.read_text()
-    blocks = re.findall(r"```json\n(.*?)```", text, re.S)
+    blocks = code_blocks(text, "json")
     for block in blocks:
         json.loads(block)  # every fenced JSON snippet must be valid
     assert any("pet-tools-mcp" in b for b in blocks), \

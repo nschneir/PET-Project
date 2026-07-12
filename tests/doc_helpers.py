@@ -36,6 +36,11 @@ def valid_mention_paths() -> set[str]:
     return commands | groups
 
 
+def code_blocks(text: str, lang: str) -> list[str]:
+    """Fenced ```lang code blocks; lang may be a regex alternation."""
+    return re.findall(rf"```{lang}\n(.*?)```", text, re.S)
+
+
 DOC_HEADING = re.compile(r"^### `(pet[^`]*)`", re.M)
 
 

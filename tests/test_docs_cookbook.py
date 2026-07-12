@@ -10,16 +10,17 @@ import pytest
 from petlib.basic import tokenize
 from petlib.build import build_asm
 from petlib.testing import run_test
+from tests.doc_helpers import code_blocks
 
 COOKBOOK = Path("skills/pet-development/references/cookbook.md")
 
 
 def _blocks(lang: str) -> list[str]:
-    return re.findall(rf"```{lang}\n(.*?)```", COOKBOOK.read_text(), re.S)
+    return code_blocks(COOKBOOK.read_text(), lang)
 
 
 def _block_by_key(lang: str, key: str) -> str:
-    hits = [b for b in _blocks(lang) if key in b.splitlines()[0]]
+    hits = [b for b in _blocks(lang) if key in (b.splitlines() or [""])[0]]
     assert len(hits) == 1, \
         f"expected exactly 1 {lang} block whose first line contains {key!r}, found {len(hits)}"
     return hits[0]
@@ -70,7 +71,12 @@ LIVE_RECIPES = [
         {"wait": {"text": "BEEPED"}},
     ]),
     ("asm-ball", "asm", "ball.s", [
-        {"wait": {"text": "*"}},              # the ball is on screen
+        # the program's first act is a $93 clear, which wipes the boot
+        # banner: home cell $8000 goes '*' ($2A) -> space. Waiting on that
+        # proves the code is running — the boot screen's own '*'s and
+        # READY. would satisfy the next two waits otherwise.
+        {"wait": {"mem": "$8000", "equals": 32}},
+        {"wait": {"text": "*"}},              # the ball — only '*' left now
         {"key": "q"},
         {"wait": {"text": "READY."}},         # clean exit to BASIC
     ]),
@@ -128,14 +134,13 @@ LIVE_RECIPES = [
 
 
 def test_every_live_recipe_key_resolves():
-    for name, lang, key, _steps in LIVE_RECIPES:
-        block = _block_by_key(lang, key)
-        assert block.strip(), name
+    for _name, lang, key, _steps in LIVE_RECIPES:
+        _block_by_key(lang, key)
 
 
 def _slug(title: str) -> str:
-    """GitHub-style anchor slug."""
-    keep = [c for c in title.lower() if c.isalnum() or c in " -"]
+    """GitHub-style anchor slug: word chars (incl. '_') kept, spaces -> '-'."""
+    keep = [c for c in title.lower() if c.isalnum() or c in " -_"]
     return "".join(keep).replace(" ", "-")
 
 
@@ -145,10 +150,14 @@ def test_toc_lists_every_recipe_bidirectionally():
     toc = text.split("## Contents")[1].split("\n## ")[0]
     headings = re.findall(r"^### (.+)$", text, re.M)
     toc_entries = re.findall(r"\[([^\]]+)\]\(#([^)]+)\)", toc)
-    listed = {t for t, _ in toc_entries}
-    assert set(headings) == listed, (
-        f"TOC/heading mismatch: missing {set(headings) - listed}, "
-        f"stale {listed - set(headings)}")
+    listed = [t for t, _ in toc_entries]
+    assert sorted(headings) == sorted(listed), (
+        f"TOC/heading mismatch: missing {set(headings) - set(listed)}, "
+        f"stale {set(listed) - set(headings)}")
+    # GitHub dedupes repeated anchors with -1/-2 suffixes _slug doesn't
+    # model, so recipe titles must stay slug-unique.
+    anchors = [a for _, a in toc_entries]
+    assert len(set(anchors)) == len(anchors), f"duplicate anchors in TOC: {anchors}"
     for title, anchor in toc_entries:
         assert anchor == _slug(title), f"bad anchor for {title!r}: {anchor}"
 
@@ -188,7 +197,7 @@ def test_cookbook_frame_stepping_workflow_live(tmp_path, monkeypatch):
     from tests.vice_helpers import wait_for_text
     monkeypatch.setenv("PET_TOOLS_HOME", str(tmp_path))
     src = tmp_path / "counter.s"
-    src.write_text(_blocks("asm")[2])
+    src.write_text(_block_by_key("asm", "frame counter"))
     res = build_asm(src)
     labels = load_labels(res.labels)
     s = Session.launch(model="pet4032", name="cbstep", headless=True, warp=True)

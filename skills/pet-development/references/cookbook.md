@@ -108,7 +108,8 @@ PRINT scrolls at the bottom and moves the cursor — wrong for a fixed
 score display. Poke the digits instead: `STR$` gives the digits as
 PETSCII, and for digits the PETSCII value IS the screen code (48–57), so
 `ASC` of each character pokes directly. (`STR$` puts a sign blank first —
-start at character 2.)
+start at character 2.) A number that can *shrink* in width (100 → 99)
+leaves its old last digit behind, so blank the cell after the digits too:
 
 ```basic
 100 rem score digits at row 0, column 30
@@ -117,7 +118,8 @@ start at character 2.)
 130 for i=2 to len(s$)
 140 poke 32768+30+i-2, asc(mid$(s$,i,1))
 150 next
-160 print "done"
+160 poke 32768+30+len(s$)-1,32 : rem blank trailing cell
+170 print "done"
 ```
 
 ## Assembly recipes
@@ -336,8 +338,11 @@ nofb:   sta     seed
 seed:   .byte   1
 ```
 
-Range tricks: `and #$1f` for 0-31, or reject-and-retry (`cmp #40 / bcs
-random`) for an unbiased 0-39.
+Range tricks, applied after `jsr random`: `and #$1f` for 0-31, or
+reject-and-retry — `retry: jsr random / cmp #40 / bcs retry` — for an
+unbiased 0-39. Branch back to the `jsr`, never into `random` itself:
+entering the routine without a `jsr` means its `rts` pops *your* caller's
+return address and control unwinds one level too far.
 
 ### Point a pointer at screen row/column (plotaddr)
 
@@ -510,9 +515,11 @@ vector at `($90)` — repoint it and your code runs every frame while BASIC
 carries on. Rules: install with interrupts disabled (`sei`/`cli`), save
 the old vector and **chain to it** (`jmp (oldvec)`) so the clock and
 keyboard keep working, and keep the wedge short (it steals time from
-every frame). `oldvec` sits in the code so it can't land on a page
-boundary — `jmp (indirect)` has the famous 6502 bug when its operand
-straddles `$xxFF`. The demo counts 60 interrupts (~1 second), then
+every frame). One trap: `jmp (indirect)` has the famous 6502 bug when its
+operand's low byte sits at `$xxFF`, so check that `oldvec` doesn't land
+there — fine in this small demo (it assembles around `$0446`), but verify
+in the label file (`pet build` emits one) whenever you embed the wedge in
+a bigger program. The demo counts 60 interrupts (~1 second), then
 unhooks itself and stores `$2A` at `$03F1` as a done marker.
 
 ```asm
@@ -563,11 +570,11 @@ oldvec: .word   0
 ### Play a melody from a note table
 
 The beep recipes hold one tone; a tune is just a table of timer-2 periods
-played in sequence. Periods come from the chromatic scale in the hardware
-reference (`250, 236, 223, 210, 198, 187, 176, 166, 157, 148, 139, 132`,
-halve for the next octave up; frequency ≈ 1,000,000/(16×T)). A zero
-terminates the table. As always: zero `$E848` AND `$E84B` at the end or
-the last note plays forever.
+played in sequence. Periods come from the chromatic-scale table in the
+hardware reference (hardware.md) — this demo uses `250, 198, 166, 125`,
+and halving a period raises the note an octave. A zero terminates the
+table. As always: zero `$E848` AND `$E84B` at the end or the last note
+plays forever.
 
 ```asm
 ; tune.s — four-note rising jingle from a period table, then DONE.

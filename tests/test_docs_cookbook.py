@@ -83,6 +83,19 @@ LIVE_RECIPES = [
     ("asm-beep", "asm", "beep.s", [
         {"wait": {"text": "OK"}},
     ]),
+    ("asm-keyhold", "asm", "keyhold.s", [
+        # one full iteration draws the paddle (the first mainloop arrival
+        # is before any draw), then the poke/until pair IS pet key hold
+        {"until": {"ref": "mainloop", "count": 2}},
+        {"assert": {"mem": "@12,20", "equals": 81}},
+        {"poke": {"addr": "$97", "values": [68]}},     # hold D ($44)...
+        {"until": {"ref": "mainloop"}},
+        {"poke": {"addr": "$97", "values": [68]}},
+        {"until": {"ref": "mainloop"}},
+        {"assert": {"mem": "@12,22", "equals": 81}},   # slid two columns
+        {"assert": {"mem": "pos", "equals": 22}},      # symbol addressing
+        {"assert": {"mem": "@12,20", "equals": 32}},   # old cell erased
+    ]),
     ("asm-frame-counter", "asm", "frame counter", [
         {"wait": {"text": "FRAME COUNTER"}},
     ]),

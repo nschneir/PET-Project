@@ -17,6 +17,7 @@ BASIC:
 
 Assembly:
 - [Game loop: poll GETIN, move a ball, pace with the jiffy clock](#game-loop-poll-getin-move-a-ball-pace-with-the-jiffy-clock)
+- [Held-key input: steer with the key-down state at $97](#held-key-input-steer-with-the-key-down-state-at-97)
 - [Sound: a beep from machine code](#sound-a-beep-from-machine-code)
 - [Frame stepping: inspect a game loop one frame at a time](#frame-stepping-inspect-a-game-loop-one-frame-at-a-time)
 - [Cheap pseudo-random byte (8-bit Galois LFSR)](#cheap-pseudo-random-byte-8-bit-galois-lfsr)
@@ -176,7 +177,74 @@ pos:    .byte   0
 
 To steer instead of auto-move, compare A against `#'A'`/`#'D'` after GETIN
 and adjust `pos` accordingly; for keys *held down* (no repeat delay), read
-the key-down location `$97` instead — see the hardware reference.
+the key-down location `$97` instead — the next recipe.
+
+### Held-key input: steer with the key-down state at $97
+
+GETIN returns *buffered* keypresses — good for menus, wrong for action
+controls, where a held key must move you every frame and releasing must
+stop you. The IRQ keyboard scanner maintains the key held right now at
+`$97` (`$FF` = none). **On BASIC 4 machines the value is the key's
+PETSCII** ('A' reads `$41`); on BASIC 2 it is a raw matrix index — so
+target the 4032 and ship with `xpet -model 4032` (see zero-page.md). A
+paddle on row 12 that slides while A or D is held:
+
+```asm
+; keyhold.s — a paddle steered by HELD A/D keys read from $97.
+CHROUT  = $FFD2
+JIFFLO  = $8F
+KEYDOWN = $97                   ; key down right now (BASIC 4: PETSCII)
+ROW12   = $8000 + 40*12
+
+        .segment "LOADADDR"
+        .word   $0401
+        .segment "EXEHDR"
+        .word   nextln
+        .word   10
+        .byte   $9E, "1037", $00
+nextln: .word   $0000
+
+        .segment "CODE"
+start:  lda     #$93
+        jsr     CHROUT          ; clear the screen
+mainloop:
+        ldx     pos
+        lda     KEYDOWN
+        cmp     #'A'            ; held A: slide left...
+        bne     notl
+        cpx     #0
+        beq     notl            ; ...unless at the wall
+        lda     #$20
+        sta     ROW12,x         ; erase, move
+        dex
+notl:   lda     KEYDOWN
+        cmp     #'D'            ; held D: slide right
+        bne     notr
+        cpx     #39
+        beq     notr
+        lda     #$20
+        sta     ROW12,x
+        inx
+notr:   stx     pos
+        lda     #81             ; the paddle (screen code: filled circle)
+        sta     ROW12,x
+        ldy     #3              ; pace: ~20 moves/second while held
+pace:   lda     JIFFLO
+pw:     cmp     JIFFLO
+        beq     pw
+        dey
+        bne     pace
+        jmp     mainloop
+
+pos:    .byte   20
+```
+
+No key down, no motion; hold a key and it glides. Test it exactly like a
+player holding the key: `pet run keyhold.s`, then
+`pet key hold d --frames 5 --at mainloop` — the CLI re-pokes `$97` before
+each frame (the IRQ rewrites it every tick) and frame-steps to your loop
+label; read `pet mem get pos` between holds. In a `pet test run` YAML the
+same protocol is the `poke:` + `until:` step pair.
 
 ### Sound: a beep from machine code
 

@@ -187,12 +187,15 @@ pet-tools needed on their end:
 That assembles the program and writes it as the first file on a fresh disk
 image, so it autostarts. The recipient just needs VICE installed:
 
-    xpet snake.d64        # boots an emulated PET and runs SNAKE
+    xpet -model 4032 snake.d64    # boots the tested PET model, runs SNAKE
 
-The bare `.prg` (also produced) works too — `xpet snake.prg` autostarts it,
-as does VICE's File → Smart attach. Disk images travel better: they carry a
-real CBM directory, so `LOAD"SNAKE",8` then `RUN` works the old-fashioned
-way. Neither artifact contains ROMs or anything from this toolset.
+(`pet package` prints this exact command; the `-model` flag matters because
+stock xpet boots its own default model, and ROM behavior differs between
+BASIC generations — a game reading held keys from $97 goes silently deaf on
+the wrong one.) The bare `.prg` (also produced) works too, as does VICE's
+File → Smart attach. Disk images travel better: they carry a real CBM
+directory, so `LOAD"SNAKE",8` then `RUN` works the old-fashioned way.
+Neither artifact contains ROMs or anything from this toolset.
 
 ## Status
 
@@ -211,8 +214,14 @@ inspection steps (the debugger works the way you'd hope); `pet package` for
 shareable `.d64`/`.prg` artifacts; the `pet2001-4k` launch profile;
 `pet status` (and run/stop state on `pet reg`); `pet mem find` byte-pattern
 search and decimal reads (`pet mem get`, `--decimal`, `bytes[]` in JSON);
-`pet break clear`/`pet watch clear`; and loud `pet until`/`pet wait` timeouts
-that say the machine was left running.
+`pet break clear`/`pet watch clear`; loud `pet until`/`pet wait` timeouts
+that say the machine was left running; **fast frame stepping** (`pet until
+LABEL --count 200` runs in well under a second — the count loop lives in the
+daemon and stop events are consumed the moment they land); `pet key hold`
+for held-key game input via the `$97` key-down state; address forms
+`symbol+offset` and `@row,col` everywhere an address is accepted;
+`poke:`/`until:` steps in the `pet test run` YAML for deterministic game
+regression tests; and `pet package` run hints that pin the emulated model.
 
 ## AI Disclosure
 

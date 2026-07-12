@@ -20,7 +20,10 @@ exposes the same operations; see the README.
 - **Numbers.** Address and value arguments accept `$hex` (e.g. `$8000`),
   `0xhex`, or decimal. Where a label file is registered on the session (via
   `pet build`/`pet run` of assembly, or `pet load --symbols`), a **symbol
-  name** is accepted anywhere an address is.
+  name** is accepted anywhere an address is. Addresses additionally accept
+  an **offset** (`alienX+49`, `$8000+40`) and a **screen cell** `@row,col`
+  (e.g. `@23,18`), resolved against the session model's real screen base
+  and width — 40 vs 80 columns handled for you.
 - **Exit codes.** `0` on success; `1` on error, on a `pet wait` timeout, or on
   a failing `pet test`.
 - **Machine state.** Every session runs a monitor daemon that owns the one
@@ -316,7 +319,9 @@ across subsequent commands — until you `pet continue`.
 - `REF` — address or symbol.
 - `--count N` (default `1`) — stop at the Nth arrival at REF. With REF set
   to the program's main-loop label this is deterministic **frame stepping**
-  (see the cookbook's frame-stepping recipe).
+  (see the cookbook's frame-stepping recipe). The count loop runs inside
+  the session daemon, so large counts are fast (hundreds of frames per
+  second of wall clock, not one per half-second).
 - `--timeout SECS` (default `30`).
 
 JSON: `{"registers", "pc_symbol", "stopped": true, "count"}`. Exit 1 on
@@ -380,14 +385,20 @@ operation; no session required.
   program file. Existing outputs are overwritten.
 - `--title NAME` — the CBM file/disk name (uppercased, max 16 characters;
   defaults to the source stem).
-- `--model MODEL` (default `pet4032`) — selects the BASIC load address.
+- `--model MODEL` (default `pet4032`) — selects the BASIC load address and
+  is pinned in the reported run command.
 
-The recipient needs only stock VICE: `xpet game.d64` (or `xpet game.prg`)
-autostarts it, and from inside the emulator `LOAD"NAME",8` then `RUN` works
-the traditional way. No ROMs or pet-tools ship in the artifact.
+The recipient needs only stock VICE: `xpet -model 4032 game.d64` (or the
+`.prg`) autostarts it, and from inside the emulator `LOAD"NAME",8` then
+`RUN` works the traditional way. No ROMs or pet-tools ship in the artifact.
+The `-model` flag matters: stock xpet boots its own default model, and ROM
+behavior differs silently between BASIC generations (the `$97` key-down
+byte holds PETSCII on BASIC 4 but a matrix index on BASIC 2 — a shipped
+game's keyboard can go dead with an identical-looking screen).
 
 JSON: `{"prg", "image", "title", "run"}` — `run` is the exact command to
-hand to the recipient; `image` is `null` for `.prg`-only output.
+hand to the recipient (model pinned); `image` is `null` for `.prg`-only
+output.
 
 ---
 
@@ -542,7 +553,11 @@ steps:
   - key:    "run\n"                         # type keys (\n = RETURN)
   - wait:   { text: "HELLO", timeout: 5 }   # per-step timeout override
   - wait:   { mem: "$1000", equals: 42 }    # byte reaches a value
+  - until:  { ref: mainloop, count: 3 }     # frame-step to a label; the
+                                            #   machine STAYS stopped there
+  - poke:   { addr: "$97", values: [68] }   # write bytes (state-preserving)
   - assert: { screen: "READY." }            # substring on screen now
+  - assert: { mem: "@12,20", equals: 81 }   # screen cell row 12, col 20
   - assert: { mem: "$8000", equals_text: "HELLO" }  # screen RAM as text
   - assert: { mem: "$1000", equals: [1, 2, 3] }     # exact bytes
   - assert: { reg: pc, in_range: ["$C000", "$E000"] }
@@ -550,8 +565,14 @@ steps:
 ```
 
 Step kinds: `wait` (poll until true or timeout — fails the test on
-timeout), `key` (feed keyboard input), `assert` (check once, now).
-Addresses and values accept `$hex`/`0xhex`/decimal.
+timeout), `key` (feed keyboard input), `assert` (check once, now),
+`poke` (write bytes; `value:` or `values:`), and `until` (run to `ref`
+`count` times via a checkpoint and leave the machine stopped there —
+deterministic frame stepping; fails on timeout with the reached count).
+A `poke` right before an `until` is the held-key protocol (`pet key
+hold` as steps). Step addresses accept everything the CLI does —
+`$hex`/`0xhex`/decimal, symbols from the built program's label file,
+`symbol+offset`, and `@row,col`.
 
 JSON: `{"passed", "tests": [<report>]}`. Exit 1 if the test fails.
 

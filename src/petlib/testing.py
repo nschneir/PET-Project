@@ -18,8 +18,10 @@ import yaml
 from .basic import tokenize
 from .build import build_asm
 from .machines import get_profile
+from .ops import parse_ref, run_until
 from .screen import read_screen_text
 from .session import Session
+from .symbols import load_labels
 from .text import ascii_to_petscii, screen_to_text
 
 
@@ -27,7 +29,14 @@ class TestError(Exception):
     __test__ = False  # not a pytest test class despite the Test* name
 
 
-_STEP_KINDS = ("wait", "key", "assert")
+_STEP_KINDS = ("wait", "key", "assert", "poke", "until")
+
+#: required and allowed keys for the step kinds that take a mapping we
+#: fully define (the older kinds predate validation and stay lenient).
+_STEP_KEYS = {
+    "poke": ({"addr"}, {"addr", "value", "values"}),
+    "until": ({"ref"}, {"ref", "count", "timeout"}),
+}
 
 
 def _num(v) -> int:
@@ -63,6 +72,24 @@ def load_test(path: str | Path) -> dict:
             raise TestError(
                 f"{path}: step {i} must be a single {'/'.join(_STEP_KINDS)} mapping"
             )
+        kind = next(iter(step))
+        if kind in _STEP_KEYS:
+            required, allowed = _STEP_KEYS[kind]
+            arg = step[kind]
+            if not isinstance(arg, dict):
+                raise TestError(f"{path}: step {i} ({kind}) must be a mapping")
+            missing = required - arg.keys()
+            unknown = arg.keys() - allowed
+            if missing:
+                raise TestError(
+                    f"{path}: step {i} ({kind}) missing {sorted(missing)}")
+            if unknown:
+                raise TestError(
+                    f"{path}: step {i} ({kind}) has unknown keys "
+                    f"{sorted(unknown)} (allowed: {sorted(allowed)})")
+            if kind == "poke" and not ({"value", "values"} & arg.keys()):
+                raise TestError(
+                    f"{path}: step {i} (poke) needs value or values")
     return spec
 
 
@@ -115,15 +142,17 @@ class TestResult:
         }
 
 
-def _prepare(program: str, profile) -> Path:
+def _prepare(program: str, profile) -> tuple[Path, Path | None]:
+    """Build/tokenize the program; returns (prg, label file or None)."""
     src = Path(program)
     ext = src.suffix.lower()
     if ext == ".prg":
-        return src
+        return src, None
     if ext == ".bas":
-        return tokenize(src, src.with_suffix(".prg"), profile.basic_version)
+        return tokenize(src, src.with_suffix(".prg"), profile.basic_version), None
     if ext == ".s":
-        return build_asm(src, basic_start=profile.basic_start).prg
+        out = build_asm(src, basic_start=profile.basic_start)
+        return out.prg, out.labels
     raise TestError(f"cannot run {ext!r} programs (use .bas, .s, or .prg)")
 
 
@@ -132,7 +161,8 @@ def _screen(session) -> str:
         try:
             return read_screen_text(mon, session.profile)
         finally:
-            mon.resume()
+            mon.release()          # preserve run/stop state (an until step
+                                   # deliberately leaves the machine stopped)
 
 
 def _wait_screen(session, pred, timeout: float) -> tuple[bool, str]:
@@ -150,14 +180,43 @@ def _loaded(text: str) -> bool:
     return "LOADING" in text and text.rfind("READY.") > text.rfind("LOADING")
 
 
-def _do_step(session, kind: str, arg, default_timeout: float) -> tuple[bool, str]:
+def _do_step(session, kind: str, arg, default_timeout: float,
+             labels: dict[str, int] | None = None) -> tuple[bool, str]:
+    labels = labels or {}
+
+    def _addr(v) -> int:
+        # symbols, symbol+offset, and @row,col all work in step addresses
+        return parse_ref(labels, v, screen_base=session.profile.screen_addr,
+                         screen_width=session.profile.screen_cols)
+
     if kind == "key":
         with session.monitor() as mon:
             try:
                 mon.keyboard_feed(ascii_to_petscii(str(arg)))
             finally:
-                mon.resume()
+                mon.release()
         return True, f"typed {arg!r}"
+
+    if kind == "poke":
+        addr = _addr(arg["addr"])
+        vals = arg["values"] if "values" in arg else [arg["value"]]
+        data = bytes(_num(v) for v in vals)
+        with session.monitor() as mon:
+            try:
+                mon.memory_write(addr, data)
+            finally:
+                mon.release()  # a stopped machine STAYS stopped for the next
+        return True, f"poked {len(data)} byte(s) at ${addr:04x}"  # until step
+
+    if kind == "until":
+        timeout = arg.get("timeout", default_timeout)
+        count = int(arg.get("count", 1))
+        addr = _addr(arg["ref"])
+        out = run_until(session, addr, timeout=timeout, count=count)
+        if out["registers"] is None:
+            return False, (f"until ${addr:04x}: reached {out['reached']}/{count}"
+                           f" in {timeout}s (machine left running)")
+        return True, f"until ${addr:04x} x{count} (machine stopped there)"
 
     if kind == "wait":
         timeout = arg.get("timeout", default_timeout)
@@ -166,7 +225,7 @@ def _do_step(session, kind: str, arg, default_timeout: float) -> tuple[bool, str
             return ok, (f"text {arg['text']!r} seen" if ok
                         else f"text {arg['text']!r} not seen in {timeout}s")
         if "mem" in arg:
-            addr, want = _num(arg["mem"]), _num(arg["equals"])
+            addr, want = _addr(arg["mem"]), _num(arg["equals"])
             deadline = time.monotonic() + timeout
             val = None
             while time.monotonic() < deadline:
@@ -174,7 +233,7 @@ def _do_step(session, kind: str, arg, default_timeout: float) -> tuple[bool, str
                     try:
                         val = mon.memory_read(addr, 1)[0]
                     finally:
-                        mon.resume()
+                        mon.release()
                 if val == want:
                     return True, f"mem ${addr:04x} == {want}"
                 time.sleep(0.3)
@@ -188,7 +247,7 @@ def _do_step(session, kind: str, arg, default_timeout: float) -> tuple[bool, str
         return ok, (f"screen contains {arg['screen']!r}" if ok
                     else f"screen missing {arg['screen']!r}")
     if "mem" in arg:
-        addr = _num(arg["mem"])
+        addr = _addr(arg["mem"])
         with session.monitor() as mon:
             try:
                 if "equals_text" in arg:
@@ -200,7 +259,7 @@ def _do_step(session, kind: str, arg, default_timeout: float) -> tuple[bool, str
                               else bytes([_num(want)]))
                     data = mon.memory_read(addr, len(want_b))
             finally:
-                mon.resume()
+                mon.release()
         if "equals_text" in arg:
             got = screen_to_text(data, len(want_t))
             ok = got == want_t
@@ -212,7 +271,7 @@ def _do_step(session, kind: str, arg, default_timeout: float) -> tuple[bool, str
             try:
                 regs = mon.registers()
             finally:
-                mon.resume()
+                mon.release()
         name = str(arg["reg"]).upper()
         if name not in regs:
             return False, f"no register {name!r} (have {', '.join(sorted(regs))})"
@@ -240,13 +299,16 @@ def run_test(spec: dict, launch=Session.launch) -> TestResult:
         ok, screen_text = _wait_screen(session, lambda t: "READY." in t, 45.0)
         if not ok:
             raise TestError(f"machine never reached READY.; screen:\n{screen_text}")
+        labels: dict[str, int] = {}
         if spec.get("program"):
-            prg = _prepare(spec["program"], profile)
+            prg, lbl = _prepare(spec["program"], profile)
+            if lbl is not None and Path(lbl).exists():
+                labels = load_labels(lbl)   # until/poke steps take symbols
             with session.monitor() as mon:
                 try:
                     mon.autostart(Path(prg).resolve(), run=spec["autorun"])
                 finally:
-                    mon.resume()
+                    mon.release()
             if not spec["autorun"]:
                 ok, screen_text = _wait_screen(session, _loaded, spec["timeout"] + 15)
                 if not ok:
@@ -254,7 +316,8 @@ def run_test(spec: dict, launch=Session.launch) -> TestResult:
         passed = True
         for i, step in enumerate(spec["steps"], start=1):
             kind = next(iter(step))
-            ok, detail = _do_step(session, kind, step[kind], spec["timeout"])
+            ok, detail = _do_step(session, kind, step[kind], spec["timeout"],
+                                  labels=labels)
             steps.append(StepResult(index=i, kind=kind, ok=ok, detail=detail))
             if not ok:
                 passed = False

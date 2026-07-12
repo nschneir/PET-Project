@@ -43,6 +43,35 @@ def test_happy_path_key_wait_assert(tmp_path):
     s.stop.assert_called_once()
 
 
+def test_poke_and_until_steps():
+    s, mon = _fake_session()
+    launch = Mock(return_value=s)
+    spec = _spec(steps=[
+        {"poke": {"addr": "$97", "values": [68]}},
+        {"until": {"ref": "$0419", "count": 3}},
+    ])
+    with patch("petlib.testing.read_screen_text", return_value="READY."), \
+         patch("petlib.testing.run_until",
+               return_value={"registers": {"PC": 0x0419}, "reached": 3,
+                             "count": 3}) as ru:
+        result = run_test(spec, launch=launch)
+    assert result.passed is True
+    mon.memory_write.assert_called_once_with(0x97, bytes([68]))
+    ru.assert_called_once_with(s, 0x0419, timeout=2, count=3)
+
+
+def test_until_timeout_fails_step_with_progress():
+    s, mon = _fake_session()
+    launch = Mock(return_value=s)
+    spec = _spec(steps=[{"until": {"ref": "$0419", "count": 5, "timeout": 1}}])
+    with patch("petlib.testing.read_screen_text", return_value="READY."), \
+         patch("petlib.testing.run_until",
+               return_value={"registers": None, "reached": 2, "count": 5}):
+        result = run_test(spec, launch=launch)
+    assert result.passed is False
+    assert "2/5" in result.steps[0].detail
+
+
 def test_fail_fast_captures_screen():
     s, mon = _fake_session()
     launch = Mock(return_value=s)
@@ -169,6 +198,6 @@ def test_autorun_false_load_never_finishes():
     # Patching _wait_screen directly avoids the 45s/15s real-time deadlines.
     with patch("petlib.testing._wait_screen",
                side_effect=[(True, "READY."), (False, "LOADING")]), \
-         patch("petlib.testing._prepare", return_value=Path("x.prg")), \
+         patch("petlib.testing._prepare", return_value=(Path("x.prg"), None)), \
          pytest.raises(TestError, match="never finished loading"):
         run_test(spec, launch=launch)

@@ -48,6 +48,34 @@ def test_bad_step_rejected(tmp_path):
         load_test(f)
 
 
+def test_load_accepts_poke_and_until_steps(tmp_path):
+    f = _write(tmp_path, (
+        "steps:\n"
+        "  - poke:  { addr: \"$97\", values: [68] }\n"
+        "  - poke:  { addr: \"$97\", value: 68 }\n"
+        "  - until: { ref: tick, count: 3, timeout: 10 }\n"
+        "  - until: { ref: \"$0419\" }\n"
+    ))
+    spec = load_test(f)
+    assert [next(iter(s)) for s in spec["steps"]] == ["poke", "poke",
+                                                      "until", "until"]
+
+
+def test_load_rejects_malformed_poke_and_until(tmp_path):
+    f = _write(tmp_path, "steps:\n  - until: { count: 3 }\n")
+    with pytest.raises(TestError, match="ref"):
+        load_test(f)
+    f = _write(tmp_path, "steps:\n  - until: { ref: x, frames: 2 }\n")
+    with pytest.raises(TestError, match="frames"):
+        load_test(f)
+    f = _write(tmp_path, "steps:\n  - poke: { values: [1] }\n")
+    with pytest.raises(TestError, match="addr"):
+        load_test(f)
+    f = _write(tmp_path, "steps:\n  - poke: { addr: \"$97\" }\n")
+    with pytest.raises(TestError, match="value"):
+        load_test(f)
+
+
 def test_spec_example_shape(tmp_path):
     prog = tmp_path / "hello.bas"
     prog.write_text('10 print "hello, world"\n')
@@ -95,7 +123,7 @@ def test_load_test_rejects_non_mapping(tmp_path):
 def test_prepare_prg_passthrough(tmp_path):
     prg = tmp_path / "x.prg"
     prg.write_bytes(b"\x01\x04")
-    assert _prepare(str(prg), get_profile("pet4032")) == prg
+    assert _prepare(str(prg), get_profile("pet4032")) == (prg, None)
 
 
 def test_prepare_unknown_extension(tmp_path):

@@ -29,8 +29,44 @@ def parse_number(s) -> int:
     return int(s, 10)
 
 
-def parse_ref(labels: dict[str, int], ref) -> int:
-    r = str(ref)
+def parse_ref(labels: dict[str, int], ref, *, screen_base: int | None = None,
+              screen_width: int | None = None) -> int:
+    """Address forms: $hex / 0xhex / decimal / symbol, plus:
+
+    - `base+N` / `base-N` — a numeric or symbol base with an offset
+      (e.g. `alienX+49`, `$8000+40`). Only applied when the tail parses
+      as a number, so hyphenated symbol names still resolve whole.
+    - `@row,col` — a screen cell, resolved against the session's screen
+      geometry (40- vs 80-column models differ; callers pass it from the
+      machine profile).
+    """
+    r = str(ref).strip()
+    if r.startswith("@"):
+        if screen_base is None or screen_width is None:
+            raise ValueError(
+                f"{r!r}: @row,col needs a session's screen geometry — use it "
+                "where a running session provides the model")
+        try:
+            row_s, col_s = r[1:].split(",", 1)
+            row, col = parse_number(row_s), parse_number(col_s)
+        except ValueError:
+            raise ValueError(f"{r!r}: expected @row,col, e.g. @23,18") from None
+        if not 0 <= row <= 24:
+            raise ValueError(f"{r!r}: row {row} outside 0-24")
+        if not 0 <= col < screen_width:
+            raise ValueError(f"{r!r}: col {col} outside 0-{screen_width - 1}")
+        return screen_base + row * screen_width + col
+    for sign, sep in ((1, "+"), (-1, "-")):
+        if sep in r[1:]:
+            base_s, off_s = r.rsplit(sep, 1)
+            try:
+                off = parse_number(off_s)
+            except ValueError:
+                continue                 # not an offset (hyphenated name etc.)
+            try:
+                return parse_ref(labels, base_s) + sign * off
+            except (KeyError, ValueError):
+                continue                 # whole string may still be a symbol
     if r.startswith(("$", "0x", "0X")) or r.isdigit():
         return parse_number(r)
     return resolve(labels, r)  # KeyError with candidates on unknown symbol

@@ -24,6 +24,42 @@ def test_parse_number_and_ref():
         parse_ref({}, "nosuch")
 
 
+def test_parse_ref_symbol_plus_offset():
+    labels = {"alienx": 0x1000}
+    assert parse_ref(labels, "alienX+49") == 0x1031
+    assert parse_ref(labels, "alienx+$10") == 0x1010
+    assert parse_ref(labels, "alienx-1") == 0x0FFF
+
+
+def test_parse_ref_number_plus_offset():
+    assert parse_ref({}, "$8000+40") == 0x8028
+    assert parse_ref({}, "$8000+$28") == 0x8028
+
+
+def test_parse_ref_hyphenated_symbol_still_resolves():
+    # A '-' split must not break symbols that merely contain a dash.
+    labels = {"loop-top": 0x2000}
+    assert parse_ref(labels, "loop-top") == 0x2000
+
+
+def test_parse_ref_rowcol():
+    assert parse_ref({}, "@23,18", screen_base=0x8000, screen_width=40) == 0x83AA
+    assert parse_ref({}, "@0,0", screen_base=0x8000, screen_width=40) == 0x8000
+    assert parse_ref({}, "@1,33", screen_base=0x8000, screen_width=80) == 0x8071
+
+
+def test_parse_ref_rowcol_without_geometry_raises():
+    with pytest.raises(ValueError, match="session"):
+        parse_ref({}, "@1,2")
+
+
+def test_parse_ref_rowcol_out_of_range():
+    with pytest.raises(ValueError, match="row"):
+        parse_ref({}, "@25,0", screen_base=0x8000, screen_width=40)
+    with pytest.raises(ValueError, match="col"):
+        parse_ref({}, "@0,40", screen_base=0x8000, screen_width=40)
+
+
 def test_wait_for_text_fires_and_times_out():
     s, mon = _fake_session()
     with patch("petlib.ops.read_screen_text", side_effect=["A", "B READY."]):

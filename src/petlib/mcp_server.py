@@ -48,6 +48,14 @@ def _attach(session: str | None = None) -> Session:
     return Session.attach(session)
 
 
+def _ref(s, ref, labels=None):
+    """parse_ref with the session's screen geometry so @row,col works."""
+    if labels is None:
+        labels = session_labels(s)
+    return parse_ref(labels, ref, screen_base=s.profile.screen_addr,
+                     screen_width=s.profile.screen_cols)
+
+
 @srv.tool()
 def pet_session_list() -> dict:
     """List running emulated PET sessions (name, model, pid, monitor port)."""
@@ -130,7 +138,7 @@ def pet_mem_read(addr: str, length: int = 256, session: str | None = None) -> di
     from the loaded label file. Returns hex-encoded bytes plus "bytes" as a
     decimal int array."""
     s = _attach(session)
-    a = parse_ref(session_labels(s), addr)
+    a = _ref(s, addr)
     with s.monitor() as mon:
         try:
             data = mon.memory_read(a, length)
@@ -149,7 +157,7 @@ def pet_mem_find(values: list[str], start: str = "$0000",
     clipped the list. Does not disturb run/stop state."""
     s = _attach(session)
     labels = session_labels(s)
-    begin = parse_ref(labels, start)
+    begin = _ref(s, start, labels)
     pattern = bytes(parse_number(v) for v in values)
     with s.monitor() as mon:
         try:
@@ -165,7 +173,7 @@ def pet_mem_find(values: list[str], start: str = "$0000",
 def pet_mem_write(addr: str, values: list[int], session: str | None = None) -> dict:
     """Write bytes to emulated memory. addr accepts $hex/0xhex/decimal/symbol."""
     s = _attach(session)
-    a = parse_ref(session_labels(s), addr)
+    a = _ref(s, addr)
     with s.monitor() as mon:
         try:
             mon.memory_write(a, bytes(values))
@@ -208,7 +216,7 @@ def pet_break_add(ref: str, condition: str | None = None,
     use pet_wait_break to block until it fires."""
     s = _attach(session)
     labels = session_labels(s)
-    addr = parse_ref(labels, ref)
+    addr = _ref(s, ref, labels)
     with s.monitor() as mon:
         try:
             ck = mon.checkpoint_set(addr, op=CP_EXEC, temporary=temporary)
@@ -283,7 +291,7 @@ def pet_watch_add(ref: str, on_load: bool = False, on_store: bool = False,
     """Set a watchpoint on a memory range (default: both load and store)."""
     s = _attach(session)
     labels = session_labels(s)
-    addr = parse_ref(labels, ref)
+    addr = _ref(s, ref, labels)
     op = (CP_LOAD if on_load else 0) | (CP_STORE if on_store else 0)
     if not op:
         op = CP_LOAD | CP_STORE
@@ -337,7 +345,7 @@ def pet_until(ref: str, timeout: float = 30.0, count: int = 1,
     removed."""
     s = _attach(session)
     labels = session_labels(s)
-    addr = parse_ref(labels, ref)
+    addr = _ref(s, ref, labels)
     out = run_until(s, addr, timeout, count=count)
     if out["registers"] is None:
         where = format_addr(labels, addr)
@@ -364,7 +372,7 @@ def pet_wait_mem(addr: str, equals: str, timeout: float = 30.0,
                  session: str | None = None) -> dict:
     """Block until the byte at addr equals the value ($hex/decimal accepted)."""
     s = _attach(session)
-    return wait_for_mem(s, parse_ref(session_labels(s), addr),
+    return wait_for_mem(s, _ref(s, addr),
                         parse_number(equals), timeout)
 
 
@@ -485,7 +493,7 @@ def pet_key_hold(key: str, at: str, frames: int = 1, timeout: float = 30.0,
     on BASIC 2)."""
     s = _attach(session)
     labels = session_labels(s)
-    addr = parse_ref(labels, at)
+    addr = _ref(s, at, labels)
     out = key_hold(s, key, addr, frames=frames, timeout=timeout)
     if out["registers"] is None:
         raise RuntimeError(
@@ -550,7 +558,7 @@ def pet_rom_disasm(start: str, length: int = 32,
     start accepts $hex/0xhex/decimal or a symbol (e.g. CHROUT)."""
     s = _attach(session)
     labels = {**rom_labels(s.profile.basic_version), **session_labels(s)}
-    addr = parse_ref(labels, start)
+    addr = _ref(s, start, labels)
     with s.monitor() as mon:
         try:
             data = mon.memory_read(addr, length)

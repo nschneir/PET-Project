@@ -127,12 +127,30 @@ JSON (text): `{"text", "rows": [...]}`. JSON (`--png`): `{"png", "width",
 ### `pet key type`
 
 Type text into the running PET's keyboard buffer (`\n` = RETURN). Use it to
-answer `INPUT` prompts, steer games, or drive menus; for typing in whole
-programs prefer `pet basic type`.
+answer `INPUT` prompts or drive menus; for typing in whole programs prefer
+`pet basic type`. Buffered keys never touch the live key-down state at `$97`
+— to steer a game that reads held keys, use `pet key hold`.
 
 - `TEXT` — the keystrokes (letters are case-folded to the PET's convention).
 
 JSON: `{"typed_chars"}`. Machine state preserved.
+
+### `pet key hold`
+
+Hold KEY down for N game ticks by re-poking the key-down byte `$97` before
+each one: write the key's PETSCII, run to the frame anchor, repeat. The
+machine ends **stopped** at the anchor (resume with `pet continue`). BASIC 4
+models only — `$97` holds a raw matrix index on BASIC 2 machines. For a
+fully deterministic first frame, stop at the anchor first (`pet until REF`).
+
+- `KEY` — one character, or `space`.
+- `--at REF` (required) — the frame anchor: a label or address executed once
+  per game tick (your main-loop label).
+- `--frames N` (default `1`) — how many ticks to hold the key across.
+- `--timeout SECS` (default `30`) — per-frame wait limit.
+
+JSON: `{"registers", "pc_symbol", "stopped": true, "frames"}`. On a frame
+timeout: exit 1, machine left running, checkpoint removed.
 
 ---
 

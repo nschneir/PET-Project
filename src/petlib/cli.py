@@ -28,6 +28,12 @@ from .ops import (
     wait_for_text,
 )
 from .ops import (
+    key_hold as ops_key_hold,
+)
+from .ops import (
+    key_type as ops_key_type,
+)
+from .ops import (
     pc_symbol as _pc_symbol,
 )
 from .packaging import PackageError, package_program
@@ -1068,16 +1074,50 @@ def key() -> None:
 @click.pass_context
 def key_type(ctx, text):
     """Type TEXT into the running PET (\\n = RETURN). For whole programs
-    prefer `pet basic type`; this is for interactive input and game keys."""
+    prefer `pet basic type`; this is for interactive input and menus.
+    Buffered keys never touch the live key-down state — games reading $97
+    need `pet key hold`."""
+    s = attach(ctx)
     try:
-        petscii = ascii_to_petscii(text)
+        out = ops_key_type(s, text)
     except ValueError as e:
         fail(ctx, str(e))
         return
+    emit(ctx, out, f"typed {text!r}")
+
+
+@key.command("hold")
+@click.argument("keyname", metavar="KEY")
+@click.option("--at", "at_ref", required=True, metavar="REF",
+              help="Frame anchor: a label or address executed once per game "
+                   "tick (your main-loop label).")
+@click.option("--frames", default=1, show_default=True,
+              help="How many ticks to hold the key across.")
+@click.option("--timeout", default=30.0, show_default=True,
+              help="Per-frame wait limit, seconds.")
+@click.pass_context
+def key_hold(ctx, keyname, at_ref, frames, timeout):
+    """Hold KEY down for N game ticks by re-poking $97 before each one.
+
+    Drives games that read the live key-down state: writes the key's
+    PETSCII to $97, runs to REF, repeats — the machine ends STOPPED at
+    REF (continue with `pet continue`). KEY is one character, or `space`.
+    BASIC 4 models only: $97 holds a matrix index on BASIC 2. For a
+    deterministic first frame, stop at REF first (`pet until REF`).
+    """
     s = attach(ctx)
-    with s.monitor() as mon:
-        try:
-            mon.keyboard_feed(petscii)
-        finally:
-            mon.release()
-    emit(ctx, {"typed_chars": len(petscii)}, f"typed {text!r}")
+    labels = session_labels(s)
+    addr = resolve_ref(ctx, labels, at_ref)
+    try:
+        out = ops_key_hold(s, keyname, addr, frames=frames, timeout=timeout)
+    except ValueError as e:
+        fail(ctx, str(e))
+        return
+    if out["registers"] is None:
+        fail(ctx, f"timeout: only {out['frames']}/{frames} frame(s) reached "
+                  f"{format_addr(labels, addr)} — machine left RUNNING, "
+                  "checkpoint removed. Is REF really executed every tick?",
+             extra={"frames": out["frames"], "requested": frames})
+        return
+    _emit_stopped_regs(ctx, labels, out["registers"],
+                       extra={"frames": out["frames"]})

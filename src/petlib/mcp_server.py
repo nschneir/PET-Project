@@ -20,6 +20,8 @@ from .machines import get_profile
 from .ops import (
     clear_checkpoints,
     find_bytes,
+    key_hold,
+    key_type,
     machine_state,
     parse_number,
     parse_ref,
@@ -462,6 +464,35 @@ def pet_basic_type(text: str, run: bool = False,
         finally:
             mon.release()
     return {"typed_chars": len(petscii), "run": run}
+
+
+@srv.tool()
+def pet_key_type(text: str, session: str | None = None) -> dict:
+    """Type text into the running PET's keyboard buffer (\\n = RETURN).
+    Buffered keys never touch the live key-down state — games reading $97
+    need pet_key_hold."""
+    s = _attach(session)
+    return key_type(s, text)
+
+
+@srv.tool()
+def pet_key_hold(key: str, at: str, frames: int = 1, timeout: float = 30.0,
+                 session: str | None = None) -> dict:
+    """Hold KEY down for N game ticks by re-poking $97 before each one,
+    running to the frame anchor `at` (label or address executed once per
+    tick) between pokes; the machine ends STOPPED there. KEY is one
+    character or 'space'. BASIC 4 models only ($97 holds a matrix index
+    on BASIC 2)."""
+    s = _attach(session)
+    labels = session_labels(s)
+    addr = parse_ref(labels, at)
+    out = key_hold(s, key, addr, frames=frames, timeout=timeout)
+    if out["registers"] is None:
+        raise RuntimeError(
+            f"timeout: only {out['frames']}/{frames} frame(s) reached "
+            f"{format_addr(labels, addr)} — machine left RUNNING, checkpoint "
+            "removed. Is the anchor really executed every tick?")
+    return {**_stopped_regs(s, out["registers"]), "frames": out["frames"]}
 
 
 @srv.tool()

@@ -140,6 +140,54 @@ def test_run_until_falls_back_on_old_daemon():
     assert out["reached"] == 1 and out["registers"]["PC"] == 0x1000
 
 
+def test_key_type_feeds_buffer_and_releases():
+    from petlib.ops import key_type
+    s, mon = _fake_session()
+    out = key_type(s, "hi\n")
+    mon.keyboard_feed.assert_called_once_with(b"HI\r")
+    mon.release.assert_called_once()
+    assert out == {"typed_chars": 3}
+
+
+def test_key_hold_pokes_97_before_each_frame():
+    from petlib.ops import key_hold
+    s, mon = _fake_session()
+    calls = []
+    mon.memory_write.side_effect = lambda a, d: calls.append(("poke", a, d))
+
+    def fake_until(*a, **k):
+        calls.append(("until",))
+        return {"registers": {"PC": 0x0419}, "reached": 1, "count": 1}
+
+    with patch("petlib.ops.run_until", side_effect=fake_until) as ru:
+        out = key_hold(s, "d", 0x0419, frames=3, timeout=9.0)
+    assert out["frames"] == 3 and out["registers"] == {"PC": 0x0419}
+    assert calls == [("poke", 0x97, b"D"), ("until",)] * 3
+    ru.assert_called_with(s, 0x0419, timeout=9.0, count=1)
+
+
+def test_key_hold_space_alias_and_validation():
+    from petlib.ops import key_hold
+    s, mon = _fake_session()
+    with patch("petlib.ops.run_until",
+               return_value={"registers": {"PC": 1}, "reached": 1, "count": 1}):
+        key_hold(s, "space", 0x1000, frames=1)
+    mon.memory_write.assert_called_once_with(0x97, b" ")
+    with pytest.raises(ValueError):
+        key_hold(s, "dd", 0x1000)
+
+
+def test_key_hold_timeout_reports_progress():
+    from petlib.ops import key_hold
+    s, mon = _fake_session()
+    with patch("petlib.ops.run_until",
+               side_effect=[{"registers": {"PC": 1}, "reached": 1, "count": 1},
+                            {"registers": None, "reached": 0, "count": 1}]):
+        out = key_hold(s, "a", 0x1000, frames=5)
+    assert out["frames"] == 1 and out["requested"] == 5
+    assert out["registers"] is None
+
+
 def test_session_labels_unreadable_file_returns_empty(tmp_path):
     from petlib.ops import session_labels
     s = Mock()

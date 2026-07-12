@@ -12,6 +12,12 @@ from .daemon_client import DaemonMonitorClient
 from .protocol import CP_EXEC
 from .screen import read_screen_text
 from .symbols import load_labels, nearest, resolve
+from .text import ascii_to_petscii
+
+#: the key-down byte the IRQ keyboard scanner maintains ($FF = no key).
+#: BASIC 4 stores the decoded PETSCII here; BASIC 2 stores a raw matrix
+#: index — which is why key_hold below is a BASIC 4 (pet4032) affair.
+KEYDOWN_ADDR = 0x97
 
 
 def parse_number(s) -> int:
@@ -167,6 +173,46 @@ def _run_until_client(mon, addr: int, timeout: float, count: int) -> dict:
     regs = mon.registers()
     mon.checkpoint_delete(ck.number)
     return {"registers": regs, "reached": count, "count": count}
+
+
+def key_type(session, text: str) -> dict:
+    """Type TEXT into the keyboard buffer (\\n = RETURN). ValueError from
+    unmappable characters propagates to the caller."""
+    petscii = ascii_to_petscii(text)
+    with session.monitor() as mon:
+        try:
+            mon.keyboard_feed(petscii)
+        finally:
+            mon.release()
+    return {"typed_chars": len(petscii)}
+
+
+def key_hold(session, key: str, at_addr: int, frames: int = 1,
+             timeout: float = 30.0) -> dict:
+    """Hold KEY down for `frames` game ticks: write its PETSCII to $97,
+    run to at_addr, repeat — the machine ends STOPPED at at_addr.
+
+    This is the poke-$97 debugger protocol as one operation: the IRQ
+    scanner rewrites $97 every tick, so the byte must be re-poked before
+    each frame. BASIC 4 models only ($97 holds a matrix index on BASIC 2).
+    For a fully deterministic first frame, be stopped at at_addr already
+    (run_until once); mid-flight the first poke can race the next IRQ.
+
+    Returns {"frames": done, "requested": frames, "registers": regs};
+    registers is None if a frame timed out (machine left RUNNING, same
+    contract as run_until)."""
+    k = " " if key.lower() == "space" else key
+    if len(k) != 1:
+        raise ValueError(f"key must be one character or 'space', got {key!r}")
+    code = ascii_to_petscii(k)
+    out = {"registers": None}
+    for i in range(frames):
+        with session.monitor() as mon:
+            mon.memory_write(KEYDOWN_ADDR, code)
+        out = run_until(session, at_addr, timeout=timeout, count=1)
+        if out["registers"] is None:
+            return {"frames": i, "requested": frames, "registers": None}
+    return {"frames": frames, "requested": frames, "registers": out["registers"]}
 
 
 def find_bytes(mon, start: int, length: int, pattern: bytes,

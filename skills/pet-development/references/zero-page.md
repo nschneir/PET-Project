@@ -37,7 +37,7 @@ Ordering invariant: TXTTAB <= VARTAB <= ARYTAB <= STREND <= FRETOP.
 
 | Addr  | Meaning |
 |-------|---------|
-| 97    | Key down right now: #$FF = none (decode-table index otherwise) |
+| 97    | Key down right now: #$FF = none. **ROM-dependent value:** BASIC 4 (40-col) stores the key's *decoded PETSCII* (scanner `sta $97` at $E556, A loaded from the decode table at $E73E — 'A' reads as $41); BASIC 2 stores the *raw matrix index* (scanner at $E6C8; its table at $E6F7 feeds only the buffer). A program comparing $97 to PETSCII runs only on BASIC 4 — ship with `xpet -model 4032` *(live)* |
 | 98    | Shift key: 0 = no, 1 = yes |
 | 9B    | Copy of $E812 used for the STOP-key test |
 | 9E    | Number of characters in the keyboard buffer (write 0 to flush) |

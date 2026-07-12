@@ -83,6 +83,11 @@ are in the `pet-development` skill's ROM-routines reference. CHROUT expects
 - **Decimal-mode trap:** `sed` switches `adc`/`sbc` to BCD, and on the NMOS
   6502 an interrupt does *not* clear the D flag. `cld` once at program start
   (and in any interrupt handler that does arithmetic) keeps you in binary.
+- **BSS is not in the .prg.** `.res` storage is just reserved address space
+  — at load it holds whatever was in RAM (often `$AA`s), and a flag or
+  timer that "should be zero" silently isn't. Initialize every mutable
+  variable at startup; the tidy idiom is one contiguous block zeroed by a
+  loop bounded by start/end labels.
 
 For complete, tested game-loop and sound programs to copy from, see
 `skills/pet-development/references/cookbook.md` (its assembly recipes are the

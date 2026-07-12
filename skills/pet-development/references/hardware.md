@@ -30,8 +30,13 @@ columns — **a 0 bit means the key is pressed** (no key = `$FF`). The IRQ
 handler scans all rows each tick and decodes presses through an 80-entry
 table in ROM, leaving results where machine code can read them cheaply:
 
-- `$97` — which key is down right now (`#$FF` = none; values index the
-  decode table, so interpret per keyboard model).
+- `$97` — which key is down right now (`#$FF` = none). The stored value is
+  **ROM-dependent**: the BASIC 4 40-column editor stores the decoded
+  PETSCII ('A' held reads $41), the BASIC 2 editor stores the raw matrix
+  index. Games comparing $97 against PETSCII therefore only work on
+  BASIC 4 machines — pin the model when shipping (`xpet -model 4032
+  game.d64`; `pet package` emits exactly that hint). `pet key hold` drives
+  this byte deterministically for testing.
 - `$98` — shift flag (`0`/`1`).
 - `$9E` — count of characters in the keyboard buffer at `$026F` (write 0 to
   flush type-ahead).

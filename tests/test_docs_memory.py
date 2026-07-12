@@ -183,3 +183,37 @@ def test_user_zp_bytes_survive_basic_live(tmp_path, monkeypatch, model):
         assert not clobbered, f"doc-claimed ZP bytes clobbered: {clobbered}"
     finally:
         s.stop()
+
+
+@pytest.mark.vice
+@pytest.mark.skipif(
+    not (shutil.which("xpet") or os.environ.get("PET_TOOLS_XPET")),
+    reason="xpet not installed",
+)
+@pytest.mark.parametrize("model,sta97,table_load", [
+    # zero-page.md's $97 claim: BASIC 4's scanner stores decoded PETSCII
+    # (the byte before `sta $97` comes off the decode-table load path at
+    # $E73E); BASIC 2's stores the raw matrix index (table at $E6F7 feeds
+    # only the keyboard buffer). Pin the documented scanner addresses so
+    # ROM-set drift can't silently invalidate the doc.
+    ("pet4032", 0xE556, (0xBD, 0x3E, 0xE7)),   # lda $E73E,x in the scan loop
+    ("pet3032", 0xE6C8, (0xBD, 0xF7, 0xE6)),   # lda $E6F7,x AFTER the store
+])
+def test_keydown_97_scanner_addresses_live(tmp_path, monkeypatch, model,
+                                           sta97, table_load):
+    monkeypatch.setenv("PET_TOOLS_HOME", str(tmp_path))
+    s = Session.launch(model=model, name=f"kd-{model}", headless=True,
+                       warp=True)
+    try:
+        wait_for_text(s, "READY.")
+        with s.monitor() as mon:
+            try:
+                assert mon.memory_read(sta97, 2) == b"\x85\x97", \
+                    f"{model}: no `sta $97` at ${sta97:04X} — ROM changed?"
+                rom = mon.memory_read(0xE000, 0x1000)
+            finally:
+                mon.resume()
+        assert bytes(table_load) in rom, \
+            f"{model}: decode-table load {table_load} not in editor ROM"
+    finally:
+        s.stop()

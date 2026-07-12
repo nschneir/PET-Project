@@ -110,6 +110,18 @@ source of bugs:
 - Reading `$8000` and expecting ASCII — it holds screen codes.
 - Assuming the machine is running after `pet step`/`finish`/`until` — it is
   stopped; `pet continue` to resume.
+- **Warp discipline.** At `--warp`, wall-clock seconds between your commands
+  are emulated *minutes* — a game left running between two inspection
+  batches will have played on (lives lost, screens changed, state moved).
+  End every inspection batch STOPPED (`pet until <label>`) and do
+  multi-command verification in one atomic sequence, or expect drift.
+- **`pet wait --text/--mem` POLL.** Transient states (a 3-second game-over
+  screen, a byte that holds a value for a few frames) can slip between
+  polls at warp. For transitions, prefer a watchpoint:
+  `pet watch add ADDR --store` then `pet wait --break`.
+- Driving a game that reads held keys from `$97`? `pet key type` only fills
+  the type-ahead buffer — use `pet key hold KEY --at <loop-label>`
+  (BASIC 4 models; see the hardware reference for why).
 
 ## When something goes wrong — diagnosis table
 

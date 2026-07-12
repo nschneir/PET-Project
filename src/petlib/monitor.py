@@ -263,13 +263,20 @@ class MonitorClient:
 
     # --- events -------------------------------------------------------------
 
-    def poll_events(self, timeout: float) -> list[Response]:
-        """Return queued events plus any that arrive within timeout."""
+    def poll_events(self, timeout: float, *, first: bool = False) -> list[Response]:
+        """Return queued events plus any that arrive within timeout.
+
+        first=True returns as soon as at least one event is in hand instead
+        of listening out the whole window — the wait-for-stop fast path.
+        Without it every checkpoint arrival costs a full timeout slice even
+        though the event is often already queued (a hit fires while the
+        RESUME transaction is still reading, so _transact stashes it in
+        self.events before wait_for_stop ever runs)."""
         seen = list(self.events)
         self.events.clear()
         assert self._sock is not None, "not connected"
         deadline = time.monotonic() + timeout
-        while time.monotonic() < deadline:
+        while not (first and seen) and time.monotonic() < deadline:
             self._sock.settimeout(max(0.05, deadline - time.monotonic()))
             try:
                 data = self._sock.recv(65536)
@@ -293,7 +300,7 @@ class MonitorClient:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 return None
-            for ev in self.poll_events(min(remaining, 0.5)):
+            for ev in self.poll_events(min(remaining, 0.5), first=True):
                 if ev.response_type == Command.CHECKPOINT_GET and ev.body[4]:
                     checkpoint = int.from_bytes(ev.body[0:4], "little")
                 if ev.response_type == ResponseType.STOPPED:

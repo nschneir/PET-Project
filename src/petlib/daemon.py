@@ -21,7 +21,7 @@ import traceback
 
 from . import rpc
 from .monitor import MonitorClient
-from .protocol import Command, ResponseType
+from .protocol import CP_EXEC, Command, ResponseType
 
 RUNNING = "running"
 STOPPED = "stopped"
@@ -32,7 +32,7 @@ ALLOWED = frozenset({
     "set_register", "reset", "keyboard_feed", "display", "palette",
     "vice_info", "quit", "resource_get", "autostart", "checkpoint_set",
     "checkpoint_delete", "checkpoint_toggle", "checkpoint_list",
-    "condition_set", "step", "finish", "wait_for_stop", "status",
+    "condition_set", "step", "finish", "wait_for_stop", "status", "run_until",
 })
 
 #: methods that leave the machine halted by their own meaning.
@@ -166,6 +166,9 @@ class PetDaemon:
         if method == "wait_for_stop":
             timeout = float(args[0]) if args else float(kwargs["timeout"])
             return self._wait_for_stop(client, timeout)
+        if method == "run_until":
+            return self._run_until(client, int(args[0]), float(args[1]),
+                                   int(args[2]))
         result = getattr(self.mon, method)(*args, **kwargs)
         if method in STOPPING:
             self.state = STOPPED
@@ -186,6 +189,47 @@ class PetDaemon:
             r, _, _ = select.select([client], [], [], 0)
             if r and client.recv(1, socket.MSG_PEEK) == b"":
                 return None                     # client gone; caller restores
+
+    def _run_until(self, client: socket.socket, addr: int, timeout: float,
+                   count: int) -> dict:
+        """The `pet until --count` loop, run against the direct VICE
+        connection — N arrivals cost one IPC round-trip instead of 2-4 each
+        (frame-stepping was ~0.5 s per arrival through per-hit RPCs).
+
+        Same contract as the client-side loop it replaces: a persistent
+        checkpoint, the durable hit/hit_count fallback for lost STOPPED
+        events, machine STOPPED at the final arrival; on timeout (or the
+        client vanishing) the checkpoint is deleted and the machine is left
+        RUNNING with registers None."""
+        deadline = time.monotonic() + timeout
+        ck = self.mon.checkpoint_set(addr, op=CP_EXEC, temporary=False)
+        for i in range(count):
+            self.mon.resume()
+            self.state = RUNNING
+            while True:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    self.mon.checkpoint_delete(ck.number)
+                    self.mon.resume()
+                    self.state = RUNNING
+                    return {"registers": None, "reached": i, "count": count}
+                info = self.mon.wait_for_stop(min(0.5, remaining))
+                if info is not None and info.checkpoint == ck.number:
+                    break
+                cur = next((c for c in self.mon.checkpoint_list()
+                            if c.number == ck.number), None)
+                if cur is not None and (cur.hit or cur.hit_count > i):
+                    break                        # durable flag caught it
+                self.mon.resume()                # the list stopped the machine
+                r, _, _ = select.select([client], [], [], 0)
+                if r and client.recv(1, socket.MSG_PEEK) == b"":
+                    # Client gone (Ctrl-C mid-until): clean up, keep running.
+                    self.mon.checkpoint_delete(ck.number)
+                    return {"registers": None, "reached": i, "count": count}
+        regs = self.mon.registers()
+        self.mon.checkpoint_delete(ck.number)
+        self.state = STOPPED
+        return {"registers": regs, "reached": count, "count": count}
 
     def _restore(self) -> None:
         """release()/disconnect: put the machine back in its desired state.

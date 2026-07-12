@@ -149,6 +149,12 @@ class DaemonMonitorClient:
     def wait_for_stop(self, timeout: float):
         return self._call("wait_for_stop", timeout, _timeout=timeout + 5.0)
 
+    def run_until(self, addr: int, timeout: float, count: int = 1) -> dict:
+        """Daemon-side frame stepping: the whole count loop is one RPC.
+        Raises ValueError against a pre-run_until daemon (caller falls back)."""
+        return self._call("run_until", addr, timeout, count,
+                          _timeout=timeout + 5.0)
+
     def status(self) -> str:
         """The daemon's tracked machine state: 'running' or 'stopped'.
         Answered daemon-side; no VICE traffic."""

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import time
 
+from .daemon_client import DaemonMonitorClient
 from .protocol import CP_EXEC
 from .screen import read_screen_text
 from .symbols import load_labels, nearest, resolve
@@ -127,34 +128,45 @@ def run_until(session, addr: int, timeout: float = 30.0, count: int = 1) -> dict
     """Run until addr is executed `count` times; the machine stays stopped at
     the final arrival ("frame stepping" when addr is a main-loop label).
 
-    Uses a persistent checkpoint plus the same durable-flag polling as
-    wait_for_break (hit / hit_count survive a lost STOPPED event). Returns
-    {"registers": regs-or-None, "reached": k, "count": count}; registers is
-    None on timeout, in which case the checkpoint is removed and the machine
-    is left running."""
-    start = time.monotonic()
-    deadline = start + timeout
+    With a session daemon the whole count loop runs daemon-side in a single
+    RPC (per-hit round-trips made large counts ~0.5 s per arrival); a
+    pre-run_until daemon or a direct connection takes the client-side loop.
+    Returns {"registers": regs-or-None, "reached": k, "count": count};
+    registers is None on timeout, in which case the checkpoint is removed
+    and the machine is left running."""
     with session.monitor() as mon:
-        ck = mon.checkpoint_set(addr, op=CP_EXEC, temporary=False)
-        for i in range(count):
-            mon.resume()
-            while True:
-                remaining = deadline - time.monotonic()
-                if remaining <= 0:
-                    mon.checkpoint_delete(ck.number)
-                    mon.resume()
-                    return {"registers": None, "reached": i, "count": count}
-                info = mon.wait_for_stop(min(1.0, remaining))
-                if info is not None and info.checkpoint == ck.number:
-                    break
-                cur = next((c for c in mon.checkpoint_list()
-                            if c.number == ck.number), None)
-                if cur is not None and (cur.hit or cur.hit_count > i):
-                    break                        # durable flag caught it
-                mon.resume()                     # the list stopped the machine
-        regs = mon.registers()
-        mon.checkpoint_delete(ck.number)
-        return {"registers": regs, "reached": count, "count": count}
+        if isinstance(mon, DaemonMonitorClient):
+            try:
+                return mon.run_until(addr, timeout, count)
+            except ValueError:
+                pass          # old daemon: unknown method — do it client-side
+        return _run_until_client(mon, addr, timeout, count)
+
+
+def _run_until_client(mon, addr: int, timeout: float, count: int) -> dict:
+    """The pre-daemon-verb loop: one resume + wait round-trip per arrival,
+    with the same durable hit/hit_count fallback as wait_for_break."""
+    deadline = time.monotonic() + timeout
+    ck = mon.checkpoint_set(addr, op=CP_EXEC, temporary=False)
+    for i in range(count):
+        mon.resume()
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                mon.checkpoint_delete(ck.number)
+                mon.resume()
+                return {"registers": None, "reached": i, "count": count}
+            info = mon.wait_for_stop(min(1.0, remaining))
+            if info is not None and info.checkpoint == ck.number:
+                break
+            cur = next((c for c in mon.checkpoint_list()
+                        if c.number == ck.number), None)
+            if cur is not None and (cur.hit or cur.hit_count > i):
+                break                        # durable flag caught it
+            mon.resume()                     # the list stopped the machine
+    regs = mon.registers()
+    mon.checkpoint_delete(ck.number)
+    return {"registers": regs, "reached": count, "count": count}
 
 
 def find_bytes(mon, start: int, length: int, pattern: bytes,

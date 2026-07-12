@@ -212,3 +212,51 @@ def test_wait_for_stop_stretches_socket_timeout(served):
 def test_status_roundtrip(served):
     c, _, _ = served
     assert c.status() == "running"
+
+
+# --- run_until: the count loop lives daemon-side (one RPC per call) -----------
+
+def _ck(number=4, hit=False, hit_count=0):
+    return Checkpoint(number=number, hit=hit, start=0x0419, end=0x0419,
+                      stop=True, enabled=True, op=CP_EXEC, temporary=False,
+                      hit_count=hit_count, ignore_count=0, has_condition=False,
+                      memspace=0)
+
+
+def test_run_until_counts_hits_daemon_side(served):
+    c, mon, d = served
+    mon.checkpoint_set.return_value = _ck()
+    mon.wait_for_stop.return_value = StopInfo(pc=0x0419, checkpoint=4)
+    mon.registers.return_value = {"PC": 0x0419, "A": 0}
+    out = c.run_until(0x0419, 5.0, 3)
+    assert out == {"registers": {"PC": 0x0419, "A": 0}, "reached": 3, "count": 3}
+    # the loop ran inside the daemon: one resume per requested arrival
+    assert mon.resume.call_count == 3
+    mon.checkpoint_delete.assert_called_once_with(4)
+    assert d.state == STOPPED
+
+
+def test_run_until_timeout_leaves_running_and_deletes_checkpoint(served):
+    c, mon, d = served
+    mon.checkpoint_set.return_value = _ck()
+    mon.wait_for_stop.return_value = None           # never arrives
+    mon.checkpoint_list.return_value = [_ck()]      # durable flag never set
+    out = c.run_until(0x0419, 0.3, 2)
+    assert out["registers"] is None
+    assert out["reached"] == 0 and out["count"] == 2
+    mon.checkpoint_delete.assert_called_once_with(4)
+    assert d.state == "running"
+
+
+def test_run_until_durable_flag_fallback(served):
+    """A lost STOPPED event must not lose the arrival: the checkpoint's
+    hit/hit_count flags are the durable source of truth (same contract as
+    the old client-side loop)."""
+    c, mon, d = served
+    mon.checkpoint_set.return_value = _ck()
+    mon.wait_for_stop.return_value = None           # event lost
+    mon.checkpoint_list.return_value = [_ck(hit=True, hit_count=1)]
+    mon.registers.return_value = {"PC": 0x0419}
+    out = c.run_until(0x0419, 5.0, 1)
+    assert out["reached"] == 1 and out["registers"] == {"PC": 0x0419}
+    assert d.state == STOPPED

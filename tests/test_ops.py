@@ -107,6 +107,39 @@ def test_run_until_timeout_cleans_up_checkpoint():
     mon.checkpoint_delete.assert_called_once_with(7)  # no leaked checkpoint
 
 
+def test_run_until_delegates_to_daemon_client():
+    """With a session daemon the whole count loop is ONE RPC."""
+    from petlib.daemon_client import DaemonMonitorClient
+    s = Mock()
+    mon = DaemonMonitorClient.__new__(DaemonMonitorClient)  # no socket needed
+    mon.run_until = Mock(return_value={"registers": {"PC": 1}, "reached": 4,
+                                       "count": 4})
+    s.monitor.return_value.__enter__ = Mock(return_value=mon)
+    s.monitor.return_value.__exit__ = Mock(return_value=False)
+    out = run_until(s, 0x1000, timeout=9.0, count=4)
+    assert out["reached"] == 4
+    mon.run_until.assert_called_once_with(0x1000, 9.0, 4)
+
+
+def test_run_until_falls_back_on_old_daemon():
+    """A pre-run_until daemon answers 'unknown daemon method' (ValueError);
+    the client-side loop must take over transparently."""
+    from petlib.daemon_client import DaemonMonitorClient
+    s = Mock()
+    mon = DaemonMonitorClient.__new__(DaemonMonitorClient)
+    mon.run_until = Mock(side_effect=ValueError("unknown daemon method 'run_until'"))
+    for name in ("checkpoint_set", "wait_for_stop", "registers",
+                 "checkpoint_delete", "resume", "checkpoint_list"):
+        setattr(mon, name, Mock())
+    mon.checkpoint_set.return_value = _ck7()
+    mon.wait_for_stop.return_value = StopInfo(pc=0x1000, checkpoint=7)
+    mon.registers.return_value = {"PC": 0x1000}
+    s.monitor.return_value.__enter__ = Mock(return_value=mon)
+    s.monitor.return_value.__exit__ = Mock(return_value=False)
+    out = run_until(s, 0x1000, timeout=5, count=1)
+    assert out["reached"] == 1 and out["registers"]["PC"] == 0x1000
+
+
 def test_session_labels_unreadable_file_returns_empty(tmp_path):
     from petlib.ops import session_labels
     s = Mock()

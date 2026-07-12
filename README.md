@@ -163,8 +163,10 @@ tools describe themselves.
 ## Demos — try it with your AI agent
 
 [`demos/`](demos/) is a set of ready-to-paste prompts, graded from a first
-BASIC program up to a full arcade Snake in 6502 assembly (title screen,
-levels, high score) and a machine-level debug hunt. To use one:
+BASIC program through a machine-level debug hunt and a full arcade Snake in
+6502 assembly (title screen, levels, high score) up to the flagship: an
+arcade-faithful Space Invaders with sound, waves, and a packaged disk image
+at the end. To use one:
 
 1. Set up your agent (one section up — or use any shell agent with no setup).
 2. Open a demo file and copy its prompt.
@@ -206,7 +208,11 @@ references, and the [`docs/cli.md`](docs/cli.md) man pages).
 Since v1: a per-session **monitor daemon** — the machine's run/stop state now
 persists across commands, so a breakpoint halt survives any number of
 inspection steps (the debugger works the way you'd hope); `pet package` for
-shareable `.d64`/`.prg` artifacts; and the `pet2001-4k` launch profile.
+shareable `.d64`/`.prg` artifacts; the `pet2001-4k` launch profile;
+`pet status` (and run/stop state on `pet reg`); `pet mem find` byte-pattern
+search and decimal reads (`pet mem get`, `--decimal`, `bytes[]` in JSON);
+`pet break clear`/`pet watch clear`; and loud `pet until`/`pet wait` timeouts
+that say the machine was left running.
 
 ## AI Disclosure
 

@@ -45,7 +45,7 @@ def test_package_prg_only(tmp_path):
     out = package_program(HELLO_ASM, out=tmp_path / "hello.prg", title="hello")
     assert out["image"] is None and out["title"] == "HELLO"
     assert Path(out["prg"]).read_bytes()[:2] == b"\x01\x04"
-    assert out["run"] == f"xpet {tmp_path / 'hello.prg'}"
+    assert out["run"] == f"xpet -model 4032 {tmp_path / 'hello.prg'}"
 
 
 @needs_cc65
@@ -54,7 +54,9 @@ def test_package_d64_autostart_first(tmp_path):
     from petlib.disk import list_files
     out = package_program(HELLO_ASM, out=tmp_path / "hello.d64", title="hello")
     assert out["image"] == str(tmp_path / "hello.d64")
-    assert out["run"] == f"xpet {tmp_path / 'hello.d64'}"
+    # The run hint must pin the model: stock xpet's default model need not
+    # match, and ROM-dependent behavior ($97 input semantics) breaks silently.
+    assert out["run"] == f"xpet -model 4032 {tmp_path / 'hello.d64'}"
     d = list_files(out["image"])
     assert d["files"], "image has no files"
     assert d["files"][0]["name"] == "hello"      # first file = autostart target

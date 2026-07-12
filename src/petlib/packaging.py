@@ -79,5 +79,10 @@ def package_program(source, out=None, title: str | None = None,
         create_image(image, label=t.lower())     # -format overwrites = fresh image
         put_file(image, prg, t.lower())          # first file on a fresh image
     artifact = image if image is not None else prg
+    # Pin the model in the run hint: stock xpet boots ITS default model, and
+    # ROM-dependent behavior differs silently (e.g. $97 holds decoded PETSCII
+    # on BASIC 4 but a raw matrix index on BASIC 2 — dead keyboard, identical
+    # screen). vice_args is exactly what Session.launch passes.
+    run = " ".join([profile.vice_emulator, *profile.vice_args, str(artifact)])
     return {"prg": str(prg), "image": str(image) if image else None,
-            "title": t, "run": f"xpet {artifact}"}
+            "title": t, "run": run}

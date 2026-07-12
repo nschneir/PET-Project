@@ -423,10 +423,17 @@ def build_cmd(ctx, source, output, model):
               help="CBM file/disk name (uppercased, max 16 chars; defaults "
                    "to the source stem).")
 @click.option("--model", default="pet4032", show_default=True,
-              help="Target model — selects the BASIC load address.")
+              help="Target model — selects the BASIC load address and is "
+                   "pinned in the reported run command.")
 @click.pass_context
 def package_cmd(ctx, source, output, title, model):
-    """Package SOURCE into an artifact any VICE user can run."""
+    """Package SOURCE into an artifact any VICE user can run.
+
+    The reported run command pins the model (xpet -model ...): stock xpet
+    boots its own default model, and ROM behavior differs silently — the
+    $97 key-down byte holds PETSCII on BASIC 4 but a matrix index on
+    BASIC 2, so a defaulted model can mean a dead keyboard.
+    """
     try:
         res = package_program(source, out=output, title=title, model=model)
     except (BuildError, BasicError, DiskError, PackageError, KeyError) as e:

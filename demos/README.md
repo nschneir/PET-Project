@@ -17,9 +17,12 @@ They're graded — start at 01 if you're new:
 | 06 | Invaders | 6502 assembly | Arcade-fidelity spec, CB2 sound, review loop, packaging | ✅ passed |
 
 Dogfooding status: each prompt is validated by handing it to a real AI agent
-(given only this toolset) and confirming the result independently. All six
-demos have passed on the first agent attempt; each file carries its dogfood
-date.
+(given only this toolset) and confirming the result independently. Demos
+01-05 passed on the first agent attempt; demo 06 needed one follow-up
+prompt — the first build's audit passed, but on a real keyboard the
+controls were dead under stock xpet's default model (the BASIC 2 vs 4
+`$97` split; see `invaders/AUDIT.md`, iteration 3). Each file carries its
+dogfood date and outcome.
 
 Reference example programs with expected output (runnable as regression tests
 via `pet test programs`) live in `tests/programs/` — solutions that come out

@@ -7,7 +7,7 @@ day the release was tagged.
 
 The dogfooding release: everything here came out of building real software
 with the toolset — the six demo prompts, capped by an arcade-faithful
-Invaders in 6502 assembly (demo 06, first-try pass; the playable
+Invaders in 6502 assembly (demo 06; the playable
 `invaders.d64` ships in `demos/invaders/`).
 
 ### Added
@@ -32,8 +32,10 @@ Invaders in 6502 assembly (demo 06, first-try pass; the playable
 - Cookbook recipes, all live-tested: held-key input ($97), charset
   switching, BASIC score HUD, decimal digits, IRQ wedge, note-table melody,
   Galois-LFSR random bytes, plotaddr, poked HUD text.
-- Demos 05 (debug hunt) and 06 (Invaders) dogfooded — every demo has now
-  passed on a real agent's first attempt.
+- Demos 05 (debug hunt) and 06 (Invaders) dogfooded. 05 passed on the
+  agent's first attempt; 06 needed one follow-up prompt — the first
+  build's keyboard was dead under stock xpet's default model (the
+  BASIC 2 vs 4 `$97` split fixed above).
 
 ### Performance
 - **Fast frame stepping**: the `pet until --count` loop runs inside the

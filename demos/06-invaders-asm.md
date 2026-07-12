@@ -1,4 +1,4 @@
-# Invaders in 6502 assembly *(dogfooded 2026-07-11 — first-try pass)*
+# Invaders in 6502 assembly *(dogfooded 2026-07-11; the first attempt passed its audit but shipped a model-dependent keyboard bug — fixed after one follow-up prompt, see demos/invaders/AUDIT.md iteration 3)*
 
 Paste this prompt into your agent:
 

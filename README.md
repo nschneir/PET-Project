@@ -165,7 +165,7 @@ tools describe themselves.
 [`demos/`](demos/) is a set of ready-to-paste prompts, graded from a first
 BASIC program through a machine-level debug hunt and a full arcade Snake in
 6502 assembly (title screen, levels, high score) up to the flagship: an
-arcade-faithful Space Invaders with sound, waves, and a packaged disk image
+arcade-faithful Invaders with sound, waves, and a packaged disk image
 at the end. To use one:
 
 1. Set up your agent (one section up — or use any shell agent with no setup).

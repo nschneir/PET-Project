@@ -1,4 +1,4 @@
-# Space Invaders in 6502 assembly *(dogfooded 2026-07-11 — first-try pass)*
+# Invaders in 6502 assembly *(dogfooded 2026-07-11 — first-try pass)*
 
 Paste this prompt into your agent:
 
@@ -102,8 +102,8 @@ Paste this prompt into your agent:
 >
 > **Ship it.** When everything passes, package the game so anyone with
 > stock VICE can play it: `pet package` your source into
-> `space-invaders.d64` with `--title "SPACE INVADERS"` (the `.prg` lands
-> beside it), and tell the user to run `xpet space-invaders.d64` — on a
+> `invaders.d64` with `--title "INVADERS"` (the `.prg` lands
+> beside it), and tell the user to run `xpet invaders.d64` — on a
 > real keyboard, the $97 scan gives them exactly the held-key controls
 > you tested.
 
@@ -113,7 +113,7 @@ plus the one-invader-per-tick march engine (so the speed-up is emergent),
 eroding shields, three bomb types, the UFO shot-count secret, and a CB2
 heartbeat that audibly quickens; then a written fidelity audit with every
 spec bullet marked pass (or argued impossible on PET hardware), the
-deterministic evidence trail above, and finally a `space-invaders.d64` the
+deterministic evidence trail above, and finally an `invaders.d64` the
 user can autostart in stock VICE and play with A/D and space. This is the
 toughest demo in the set — expect the agent to live in the debugger and to
 spend several review cycles closing the gap between "it runs" and "it's

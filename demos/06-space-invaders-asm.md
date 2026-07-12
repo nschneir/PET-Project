@@ -1,4 +1,4 @@
-# Space Invaders in 6502 assembly *(not yet dogfooded)*
+# Space Invaders in 6502 assembly *(dogfooded 2026-07-11 — first-try pass)*
 
 Paste this prompt into your agent:
 

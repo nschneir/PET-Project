@@ -199,29 +199,11 @@ Neither artifact contains ROMs or anything from this toolset.
 
 ## Status
 
-**v1 complete** — all planned phases shipped: sessions, screen, memory,
-registers, `pet build` (ca65/ld65), `pet basic` (petcat), `pet load`/`pet run`,
-symbolic breakpoints and watchpoints with conditions, `pet step`/`finish`/
-`continue`/`until`, the `pet wait` synchronization primitive, `pet disk`
-(create/ls/put/get/boot via c1541), `pet rom info`/`disasm`, `pet test`
-(declarative YAML tests + example programs), the `pet-tools-mcp` MCP server, and the AI
-enablement docs (the `pet-development` and `6502-assembly` skills, the machine
-references, and the [`docs/cli.md`](docs/cli.md) man pages).
-
-Since v1: a per-session **monitor daemon** — the machine's run/stop state now
-persists across commands, so a breakpoint halt survives any number of
-inspection steps (the debugger works the way you'd hope); `pet package` for
-shareable `.d64`/`.prg` artifacts; the `pet2001-4k` launch profile;
-`pet status` (and run/stop state on `pet reg`); `pet mem find` byte-pattern
-search and decimal reads (`pet mem get`, `--decimal`, `bytes[]` in JSON);
-`pet break clear`/`pet watch clear`; loud `pet until`/`pet wait` timeouts
-that say the machine was left running; **fast frame stepping** (`pet until
-LABEL --count 200` runs in well under a second — the count loop lives in the
-daemon and stop events are consumed the moment they land); `pet key hold`
-for held-key game input via the `$97` key-down state; address forms
-`symbol+offset` and `@row,col` everywhere an address is accepted;
-`poke:`/`until:` steps in the `pet test run` YAML for deterministic game
-regression tests; and `pet package` run hints that pin the emulated model.
+Stable — current release **v1.1.0**. v1 shipped the complete toolset
+(sessions, build/run, symbolic debugging, disks, ROM tools, the YAML test
+runner, the MCP server, and the AI-enablement skills); v1.1 added the
+session daemon, fast frame stepping, `pet key hold`, richer addressing, and
+deterministic game regression tests. Full history: [CHANGELOG.md](CHANGELOG.md).
 
 ## AI Disclosure
 

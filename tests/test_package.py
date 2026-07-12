@@ -5,7 +5,7 @@ from petlib.packaging import PackageError, package_program
 
 
 def test_version():
-    assert petlib.__version__ == "1.0.0"
+    assert petlib.__version__ == "1.1.0"
 
 
 def test_package_prg_copies_source(tmp_path):

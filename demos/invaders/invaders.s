@@ -104,7 +104,7 @@ tick:                           ; ONE game tick per jiffy; frame-step anchor
 
 wavedone:
         inc     wave
-        jsr     setfield        ; fresh shields + rack one row lower (2-9)
+        jsr     setfield        ; fresh shields + rack one row lower (4-12)
         jmp     tick
 
 ; --- player death: ~1s freeze, then respawn at the left or game over ------
@@ -328,7 +328,8 @@ setfield:
         jsr     initform
         rts
 
-; initform: build and draw the wave's formation. Top row = 2 + (wave-1) mod 9.
+; initform: build and draw the wave's formation. Top row = 4 + (wave-1) mod 9
+; (started rows 2 originally; lowered so the descent threatens sooner).
 initform:
         lda     wave
         sec
@@ -338,7 +339,7 @@ mod9:   cmp     #9
         sbc     #9
         bcs     mod9
 :       clc
-        adc     #2
+        adc     #4
         sta     formtop
         lda     #55
         sta     aliveN
@@ -671,8 +672,8 @@ ufotick:
         dec     ufoP
         beq     :+
         rts
-:       lda     #2
-        sta     ufoP            ; one column per two ticks
+:       lda     #5
+        sta     ufoP            ; one column per five ticks — a slow cruise
         jsr     ufoerase
         inc     ufoX
         lda     ufoX
@@ -718,7 +719,7 @@ ufospawn:
         sta     ufoA
         lda     #0
         sta     ufoX
-        lda     #2
+        lda     #5
         sta     ufoP
         lda     #<UFOPERIOD     ; rearm for the next visit
         sta     ufoTmr
@@ -1197,28 +1198,12 @@ titlescreen:
         lda     #$93
         jsr     CHROUT
         jsr     drawhud0        ; last game's score + the high score
-        lda     #2
-        sta     bcrow
-        lda     #10
-        sta     bccol
-        ldx     #0
-ts1:    stx     tmp             ; SPACE, 3x5 block letters
-        lda     TSPACE,x
-        jsr     bigchar
-        lda     bccol
-        clc
-        adc     #4
-        sta     bccol
-        ldx     tmp
-        inx
-        cpx     #5
-        bcc     ts1
-        lda     #8
+        lda     #3
         sta     bcrow
         lda     #4
         sta     bccol
         ldx     #0
-ts2:    stx     tmp             ; INVADERS
+ts2:    stx     tmp             ; INVADERS, 3x5 block letters
         lda     TINV,x
         jsr     bigchar
         lda     bccol
@@ -1232,61 +1217,67 @@ ts2:    stx     tmp             ; INVADERS
         lda     #<advtxt        ; the score advance table
         ldx     #>advtxt
         jsr     settext
-        lda     #15
+        lda     #11
         ldy     #8
         jsr     drawtext
         lda     #<advufo
         ldx     #>advufo
         jsr     settext
-        lda     #16
+        lda     #12
         ldy     #12
         jsr     drawtext
         lda     #<adv30
         ldx     #>adv30
         jsr     settext
-        lda     #17
+        lda     #13
         ldy     #12
         jsr     drawtext
         lda     #<adv20
         ldx     #>adv20
         jsr     settext
-        lda     #18
+        lda     #14
         ldy     #12
         jsr     drawtext
         lda     #<adv10
         ldx     #>adv10
         jsr     settext
-        lda     #19
+        lda     #15
         ldy     #12
         jsr     drawtext
         ldx     #CH_UFO_L       ; live glyphs in front of their prices
-        lda     #16
+        lda     #12
         ldy     #12
         jsr     putchar
         ldx     #CH_UFO_M
-        lda     #16
+        lda     #12
         ldy     #13
         jsr     putchar
         ldx     #CH_UFO_R
-        lda     #16
+        lda     #12
         ldy     #14
         jsr     putchar
         ldx     GLYA
-        lda     #17
+        lda     #13
         ldy     #13
         jsr     putchar
         ldx     GLYA+1
-        lda     #18
+        lda     #14
         ldy     #13
         jsr     putchar
         ldx     GLYA+3
-        lda     #19
+        lda     #15
         ldy     #13
         jsr     putchar
+        lda     #<ctrltxt       ; show the controls on the marquee
+        ldx     #>ctrltxt
+        jsr     settext
+        lda     #18
+        ldy     #5
+        jsr     drawtext
         lda     #<presstxt
         ldx     #>presstxt
         jsr     settext
-        lda     #22
+        lda     #21
         ldy     #9
         jmp     drawtext
 
@@ -1509,19 +1500,17 @@ FXPER:  .byte                           0,  90, 20,  25,  40, 60
 hbtab:  .byte 200, 215, 230, 245        ; the four-note descending bass
 
 ; title screen: 3x5 block font (rows top-down, bits 2/1/0 = cells)
-;             S              P              A              C
-FONT:   .byte 7,4,7,1,7,     7,5,7,4,4,    7,5,7,5,5,     7,4,4,4,7
-;             E              I              N              V
-        .byte 7,4,7,4,7,     7,2,2,2,7,    5,7,7,7,5,     5,5,5,5,2
-;             D              R
-        .byte 6,5,5,5,6,     7,5,6,5,5
-TSPACE: .byte 0, 1, 2, 3, 4             ; S P A C E
-TINV:   .byte 5, 6, 7, 2, 8, 4, 9, 0    ; I N V A D E R S
+;             S              A              E              I
+FONT:   .byte 7,4,7,1,7,     7,5,7,5,5,    7,4,7,4,7,     7,2,2,2,7
+;             N              V              D              R
+        .byte 5,7,7,7,5,     5,5,5,5,2,    6,5,5,5,6,     7,5,6,5,5
+TINV:   .byte 3, 4, 5, 1, 6, 2, 7, 0    ; I N V A D E R S
 advtxt:   .byte "*SCORE ADVANCE TABLE*", 0
 advufo:   .byte "    = ? MYSTERY", 0
 adv30:    .byte "  = 30 POINTS", 0
 adv20:    .byte "  = 20 POINTS", 0
 adv10:    .byte "  = 10 POINTS", 0
+ctrltxt:  .byte "A=LEFT   D=RIGHT   SPACE=FIRE", 0
 presstxt: .byte "PRESS ANY KEY TO PLAY", 0
 
         .segment "BSS"

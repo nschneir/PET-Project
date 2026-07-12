@@ -103,9 +103,11 @@ Paste this prompt into your agent:
 > **Ship it.** When everything passes, package the game so anyone with
 > stock VICE can play it: `pet package` your source into
 > `invaders.d64` with `--title "INVADERS"` (the `.prg` lands
-> beside it), and tell the user to run `xpet invaders.d64` — on a
-> real keyboard, the $97 scan gives them exactly the held-key controls
-> you tested.
+> beside it), and tell the user to run `xpet -model 4032 invaders.d64` —
+> the model flag matters: $97 holds decoded PETSCII on the BASIC 4
+> machines, but a raw matrix index on BASIC 2, so a stock-default model
+> can leave the controls dead. On a real keyboard, the $97 scan then
+> gives them exactly the held-key controls you tested.
 
 **What success looks like:** an assembled program with a BASIC SYS stub
 and the full arcade loop — attract screen → waves → game over → attract —

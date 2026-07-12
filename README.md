@@ -199,11 +199,7 @@ Neither artifact contains ROMs or anything from this toolset.
 
 ## Status
 
-Stable — current release **v1.1.0**. v1 shipped the complete toolset
-(sessions, build/run, symbolic debugging, disks, ROM tools, the YAML test
-runner, the MCP server, and the AI-enablement skills); v1.1 added the
-session daemon, fast frame stepping, `pet key hold`, richer addressing, and
-deterministic game regression tests. Full history: [CHANGELOG.md](CHANGELOG.md).
+Stable — current release **v1.1.0**. Full history: [CHANGELOG.md](CHANGELOG.md).
 
 ## AI Disclosure
 

@@ -20,6 +20,10 @@ start:  cld
         jsr     clrscr
         jsr     banner
         lda     #0
+        sta     mstyle          ; maze 1: line-and-arc walls
+        jsr     unpack_maze
+        jsr     draw_maze
+        lda     #0
         sta     tickcnt
         sta     tickcnt+1
         sta     overruns
@@ -35,7 +39,7 @@ loop:   jsr     pace
 tick:   lda     KEYDOWN
         cmp     #$FF
         beq     :+              ; no key: keep last echo (sticky for tests)
-        sta     SCREEN+39       ; debug echo cell @0,39 — raw byte on purpose
+        sta     SCREEN+999      ; debug echo cell @24,39 — raw byte on purpose
 :       jmp     loop
 
 pace:   lda     JIFFLO
@@ -55,14 +59,16 @@ clrscr: lda     #32
         bne     :-
         rts
 
-; banner: write MS. MUNCHER at row 0 col 0 (screen codes: A-Z = 1-26)
+; banner: write MS. MUNCHER in the HUD panel, row 0 cols 29-39
 banner: ldx     #0
 :       lda     bantxt,x
         beq     :+
-        sta     SCREEN,x
+        sta     SCREEN+29,x
         inx
         bne     :-
 :       rts
+
+        .include "inc/mazes.s"
 
         .segment "RODATA"
 bantxt: .byte   13,19,46,32,13,21,14,3,8,5,18,0   ; "MS. MUNCHER"

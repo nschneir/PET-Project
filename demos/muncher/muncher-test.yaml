@@ -12,4 +12,11 @@ steps:
   - poke:  { addr: "$97", values: [68] }    # hold D (PETSCII $44)
   - until: { ref: tick, count: 2 }
   - assert: { mem: tickcnt, equals: 2 }     # exactly one increment per jiffy
-  - assert: { mem: "@0,39", equals: [68] }  # sticky debug echo saw the key
+  - assert: { mem: "@24,39", equals: [68] } # sticky debug echo saw the key
+  # --- T3: maze 1 drawn from packed data ---
+  - assert: { mem: dots_left, equals: [178, 0] }  # checker-verified count
+  - assert: { mem: "@0,0",  equals: [85] }  # border corner renders as arc
+  - assert: { mem: "@1,1",  equals: [46] }  # corridor dot
+  - assert: { mem: "@2,1",  equals: [81] }  # energizer ball
+  - assert: { mem: "@10,13", equals: [64] } # ghost-house door lintel
+  - assert: { mem: "@11,13", equals: [32] } # house interior open

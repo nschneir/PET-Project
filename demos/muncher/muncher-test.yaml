@@ -20,43 +20,70 @@ steps:
   - assert: { mem: "@2,1",  equals: [81] }  # energizer ball
   - assert: { mem: "@10,13", equals: [64] } # ghost-house door lintel
   - assert: { mem: "@11,13", equals: [32] } # house interior open
-  # --- T4: half-cell engine — accumulator precision, blobs, save-under ---
-  # (a) full speed $50: exactly 50 half-cells in 160 jiffies along row 3
+  # --- T4/T5: half-cell engine + player eating (stall-aware arithmetic) ---
+  # (a) arcade 100% ($50) with dots: 50 half-cells = 160 jiffies, plus one
+  # 1-jiffy chew stall per dot eaten before the last landing (24) = 184.
   - poke:  { addr: ax, values: [2] }        # col 1 centre
-  - poke:  { addr: ay, values: [6] }        # row 3 centre
+  - poke:  { addr: ay, values: [6] }        # row 3 centre (fully dotted)
   - poke:  { addr: adir, values: [3] }      # right
+  - poke:  { addr: pwant, values: [3] }
   - poke:  { addr: aglyph, values: [81] }   # ball
   - poke:  { addr: aacc, values: [0] }
+  - poke:  { addr: apause, values: [0] }
   - poke:  { addr: aspd, values: [80] }     # $50 = arcade 100%
-  - until: { ref: tick, count: 160 }
-  - assert: { mem: ax, equals: [52] }       # 2 + 50: landed col 26 centre
-  - assert: { mem: "@3,26", equals: [81] }  # drawn as centre glyph
-  - assert: { mem: "@3,25", equals: [46] }  # dot restored behind her
-  # (b) straddle rendering + accumulator at 50%: 25 half-cells in 160 jiffies
+  - until: { ref: tick, count: 184 }
+  - assert: { mem: ax, equals: [52] }       # landed col 26 centre
+  - assert: { mem: dots_left, equals: [153, 0] }  # 178 - 25 dots eaten
+  - assert: { mem: "@3,20", equals: [32] }  # eaten cells stay blank
+  # (b) 50% ($28) back across the (now dotless) row: 25 half-cells in 160
   - poke:  { addr: ax, values: [2] }
   - poke:  { addr: aacc, values: [0] }
+  - poke:  { addr: apause, values: [0] }
   - poke:  { addr: aspd, values: [40] }     # $28
   - until: { ref: tick, count: 160 }
   - assert: { mem: ax, equals: [27] }       # odd: straddling cols 13/14
   - assert: { mem: "@3,13", equals: [225] } # fused half-block pair
   - assert: { mem: "@3,14", equals: [97] }
-  # (c) wall stops movement at a centre: ride up col 1 from row 3, pin at row 1
+  # (c) wall pin + energizer stall: up col 1 from row 3; eats the corner
+  # energizer (3-jiffy stall) and the row-1 dot (1) on the way; pins at row 1
   - poke:  { addr: ax, values: [2] }
   - poke:  { addr: ay, values: [6] }        # cell (1,3)
   - poke:  { addr: adir, values: [0] }      # up
+  - poke:  { addr: pwant, values: [0] }
+  - poke:  { addr: aacc, values: [0] }
+  - poke:  { addr: apause, values: [0] }
   - poke:  { addr: aspd, values: [128] }    # a half-cell every 2 jiffies
-  - until: { ref: tick, count: 12 }         # 6 earned steps, only 4 legal
+  - until: { ref: tick, count: 14 }         # 8 move + 4 stall + blocked
   - assert: { mem: ax, equals: [2] }        # pinned under the border wall
   - assert: { mem: ay, equals: [2] }
-  - assert: { mem: "@1,1", equals: [81] }   # drawn at the centre she reached
+  - assert: { mem: dots_left, equals: [151, 0] }  # energizer + dot eaten
+  - assert: { mem: "@1,1", equals: [98] }   # chomp frame: mouth open upward
+                                            # (39th landing since start: odd
+                                            # parity = open; deterministic)
   # (d) tunnel wrap: left mouth -> hidden 4 steps -> emerges col 27
   - poke:  { addr: ax, values: [0] }        # col 0 centre on tunnel row 6
   - poke:  { addr: ay, values: [12] }
   - poke:  { addr: adir, values: [1] }      # left
+  - poke:  { addr: pwant, values: [1] }
   - poke:  { addr: aacc, values: [0] }
+  - poke:  { addr: apause, values: [0] }
   - poke:  { addr: aspd, values: [128] }    # step every 2 jiffies
-  - until: { ref: tick, count: 4 }          # 2 steps: enter void, 3 hidden left
+  - until: { ref: tick, count: 4 }          # enter the void, 3 hidden left
   - assert: { mem: ahid, equals: [3] }
   - until: { ref: tick, count: 6 }          # finish the void + emerge
   - assert: { mem: ax, equals: [54] }
   - assert: { mem: "@6,27", equals: [81] }  # visible again at the right mouth
+  # (f) buffered pre-turn + cornering advantage: heading right along row 3
+  # with W buffered; blocked at cols 4-5, turns up at col 6 WITH a free
+  # half-step, so she reaches cell (6,2) two jiffies sooner than a ghost would
+  - poke:  { addr: ax, values: [6] }        # col 3 centre
+  - poke:  { addr: ay, values: [6] }
+  - poke:  { addr: adir, values: [3] }      # right
+  - poke:  { addr: pwant, values: [0] }     # W pressed earlier: buffered up
+  - poke:  { addr: aacc, values: [0] }
+  - poke:  { addr: apause, values: [0] }
+  - poke:  { addr: aspd, values: [128] }
+  - until: { ref: tick, count: 14 }
+  - assert: { mem: adir, equals: [0] }      # turned up at the col-6 corner
+  - assert: { mem: ax, equals: [12] }
+  - assert: { mem: ay, equals: [4] }        # centre (6,2): corner cut banked

@@ -27,6 +27,7 @@ init_actors:
         ldx     #NACT-1
         lda     #0
 ia1:    sta     aacc,x
+        sta     apause,x
         sta     ahid,x
         sta     asvn,x
         sta     arev,x
@@ -40,7 +41,11 @@ ia1:    sta     aacc,x
 
 ; ---- step_actor: X = actor. One accumulator tick; move on overflow ----
 step_actor:
-        lda     aacc,x
+        lda     apause,x        ; stall (dot/energizer chew, freeze effects)
+        beq     sp0
+        dec     apause,x
+        rts
+sp0:    lda     aacc,x
         clc
         adc     aspd,x
         sta     aacc,x
@@ -85,7 +90,13 @@ sa4:    cmp     #54
         lda     #4
         sta     ahid,x
         rts
-sa_move:jsr     erase_blob
+sa_move:jmp     force_step
+sa_done:rts
+
+; ---- force_step: X = actor. Unconditionally advance one half-cell in
+; adir and redraw. Callers must have validated the move. ----
+force_step:
+        jsr     erase_blob
         ldy     adir,x
         lda     ax,x
         clc
@@ -96,19 +107,20 @@ sa_move:jsr     erase_blob
         adc     dytbl,y
         sta     ay,x
         jmp     draw_blob
-sa_done:rts
 
 ; ---- canmove: X = actor. C clear if the cell ahead of adir is enterable.
 ; From a centre only. Tunnel exits are always enterable. The player (actor
 ; 0) is additionally blocked by the ghost-house door (spec §5).
 canmove:
+        ldy     adir,x
+; canmove_dir: like canmove but tests the direction in Y (steering probes)
+canmove_dir:
         lda     ax,x
         lsr
         sta     etx             ; cell x
         lda     ay,x
         lsr
         sta     ety             ; cell y
-        ldy     adir,x
         lda     etx
         clc
         adc     dxtbl2,y        ; whole-cell delta
@@ -290,6 +302,7 @@ aacc:   .res NACT
 aglyph: .res NACT               ; centre glyph
 arev:   .res NACT               ; nonzero = reverse-video blob pair
 ahid:   .res NACT               ; hidden tunnel steps remaining
+apause: .res NACT               ; jiffies to stall before moving again
 asvx:   .res NACT               ; where the last draw happened
 asvy:   .res NACT
 asvn:   .res NACT               ; 0 = nothing to erase, else 1 or 2 cells

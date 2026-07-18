@@ -1,0 +1,15 @@
+# Deterministic test suite for Ms. Muncher, grown task by task.
+# Run with: pet test run demos/muncher/muncher-test.yaml
+name: muncher-smoke
+machine: pet4032
+program: muncher.s
+timeout: 45
+steps:
+  # --- T0: scaffold heartbeat + input path ---
+  - wait:  { text: "MS. MUNCHER" }
+  - until: { ref: tick }                    # anchor: stopped at loop top
+  - poke:  { addr: tickcnt, values: [0, 0] }
+  - poke:  { addr: "$97", values: [68] }    # hold D (PETSCII $44)
+  - until: { ref: tick, count: 2 }
+  - assert: { mem: tickcnt, equals: 2 }     # exactly one increment per jiffy
+  - assert: { mem: "@0,39", equals: [68] }  # sticky debug echo saw the key

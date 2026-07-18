@@ -23,6 +23,7 @@ start:  cld
         sta     mstyle          ; maze 1: line-and-arc walls
         jsr     unpack_maze
         jsr     draw_maze
+        jsr     init_actors
         lda     #0
         sta     tickcnt
         sta     tickcnt+1
@@ -40,7 +41,9 @@ tick:   lda     KEYDOWN
         cmp     #$FF
         beq     :+              ; no key: keep last echo (sticky for tests)
         sta     SCREEN+999      ; debug echo cell @24,39 — raw byte on purpose
-:       jmp     loop
+:       ldx     #0              ; T4: only Ms. Muncher steps so far
+        jsr     step_actor
+        jmp     loop
 
 pace:   lda     JIFFLO
 pw:     cmp     JIFFLO
@@ -69,6 +72,7 @@ banner: ldx     #0
 :       rts
 
         .include "inc/mazes.s"
+        .include "inc/engine.s"
 
         .segment "RODATA"
 bantxt: .byte   13,19,46,32,13,21,14,3,8,5,18,0   ; "MS. MUNCHER"

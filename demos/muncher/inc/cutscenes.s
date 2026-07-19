@@ -132,7 +132,7 @@ a3_set: ldx     #0
         sta     adir+5
 ae_go:  lda     #7
         sta     game_state
-        rts
+        jmp     jsync
 
 ; acast: X = actor: place at column A (half-cells) heading LEFT at $50
 acast:  sta     ax,x

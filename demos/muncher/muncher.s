@@ -113,6 +113,10 @@ gover:  jsr     gameover_tick
 inits:  jsr     initials_tick
         jmp     loop
 
+jsync:  lda     JIFFLO          ; forgive a legitimate full-screen redraw
+        sta     jstart          ; (board start, title) — not gameplay work
+        rts
+
 pace:   lda     JIFFLO          ; frame-budget watchdog: if the clock moved
         cmp     jstart          ; during the tick's work, that frame overran
         beq     pw

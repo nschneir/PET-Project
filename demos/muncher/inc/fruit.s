@@ -92,7 +92,9 @@ fc1:    lda     ax+5
         cmp     ay
         beq     ft_eat
 ftk_out: rts
-ft_eat: ldx     #5
+ft_eat: lda     aglyph+5
+        jsr     fruit_hist
+        ldx     #5
         lda     fkind
         clc
         adc     #SC_FRUIT

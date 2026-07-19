@@ -133,3 +133,17 @@ The automated audit cannot judge feel. Recommended checks when playing
 demos/muncher/muncher.s`): cornering advantage perceptible; board 1 tense
 but winnable; ghosts unpredictable between games; siren/waka/blue-warble
 audible and never stuttering movement; chomp/death animations read well.
+
+## T14 — iteration 2
+
+Closed both open FAILs from iteration 1: the HUD now shows the current
+board's fruit beside ROUND (boards 8+ show `?` since their fruit is random
+per spawn) and stacks eaten fruit down the panel (up to 7); the frame
+watchdog re-syncs after legitimate full-screen redraws (newgame, board
+start, title, act entry, respawn), and a fresh 600-tick live game measures
+**overruns = 0** with real scoring confirmed (she plays by keys now).
+Iteration 2 produced no new FAILs; the automated audit is clean. Remaining
+human item: the non-warp feel checklist above.
+
+Honest iteration count: 2 audit iterations, with three game-breaking
+integration bugs found and fixed in iteration 1.

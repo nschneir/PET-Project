@@ -44,7 +44,7 @@ te2:    jsr     hs_show
         jsr     big_title
         lda     #5
         sta     game_state
-        rts
+        jmp     jsync
 
 ; ---- big_title: MS.MUNCHER in large rounded PETSCII letters, rows 0-2 ----
 big_title:

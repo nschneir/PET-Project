@@ -183,6 +183,13 @@ dr1:    clc
         adc     #48
         stx     SCREEN+9*40+29
         sta     SCREEN+9*40+30
+        ldy     board           ; this board's fruit beside the number
+        cpy     #8              ; (8+: random each spawn -> '?')
+        bcc     dr2
+        lda     #63
+        bne     dr3
+dr2:    lda     fruitgly-1,y
+dr3:    sta     SCREEN+9*40+33
         rts
 drawlives:
         ldx     #0
@@ -195,6 +202,28 @@ dl2:    sta     SCREEN+11*40+29,x
         cpx     #5
         bne     dl1
         rts
+
+; fh_rows is a compile-time list of the 7 history cells (col 29, rows
+; 13-19) — ng1 above clears via this self-indexing store:
+; (implemented as absolute,X over a 7-entry address table is overkill;
+; the cells are 40 apart, so a tiny loop with a pointer would do — but
+; simplest of all: they live in one column, written by fruit_hist below.)
+fruit_hist:                     ; A = glyph just eaten
+        ldy     fhist_n
+        cpy     #7
+        bcs     fh_out
+        pha
+        tya
+        tax
+        lda     fhrow_lo,x
+        sta     PTR
+        lda     fhrow_hi,x
+        sta     PTR+1
+        pla
+        ldy     #0
+        sta     (PTR),y
+        inc     fhist_n
+fh_out: rts
 
 ; ---- popup: 4-char value at the event cell for ~3/4 s ----
 ; A = value-string index (same indexing as addscore), X = actor whose cell
@@ -320,7 +349,7 @@ bc_setup:
         sta     frite_t+1
         sta     elvl
         sta     gdmode
-        rts
+        jmp     jsync
 bc_flash:
         lda     death_t         ; wall flash: alternate maze style briefly
         and     #4
@@ -604,6 +633,19 @@ newgame:
         jsr     fruit_init
         jsr     hud_init
         jsr     snd_init
+        lda     #0
+        sta     fhist_n
+        ldx     #6              ; clear the eaten-fruit history column
+ng1:    lda     fhrow_lo,x
+        sta     PTR
+        lda     fhrow_hi,x
+        sta     PTR+1
+        lda     #G_SPACE
+        ldy     #0
+        sta     (PTR),y
+        dex
+        bpl     ng1
+        jsr     jsync
         lda     #FX_JINGLE
         jmp     snd_play
 
@@ -625,6 +667,12 @@ txt_round:.byte 18,15,21,14,4,0                     ; "ROUND"
 txt_gover:.byte 7,1,13,5,32,15,22,5,18,0            ; "GAME OVER"
 txt_inits:.byte 9,14,9,20,9,1,12,19,63,0            ; "INITIALS?"
 hsx3:   .byte 0,1,2,3,4        ; X*3 helper: (X<<1)+hsx3[X] = X*3
+fhrow_lo: .byte <(SCREEN+13*40+29),<(SCREEN+14*40+29),<(SCREEN+15*40+29)
+          .byte <(SCREEN+16*40+29),<(SCREEN+17*40+29),<(SCREEN+18*40+29)
+          .byte <(SCREEN+19*40+29)
+fhrow_hi: .byte >(SCREEN+13*40+29),>(SCREEN+14*40+29),>(SCREEN+15*40+29)
+          .byte >(SCREEN+16*40+29),>(SCREEN+17*40+29),>(SCREEN+18*40+29)
+          .byte >(SCREEN+19*40+29)
 ; initials character cycle: A..Z, 0..9, space
 nxtch:  .res 0
         .byte 0                 ; [0] unused
@@ -653,6 +701,7 @@ d6buf:  .res 3
 hs_sc:  .res 15                 ; 5 entries x 3 BCD bytes
 hs_nm:  .res 15                 ; 5 entries x 3 initials (screen codes)
 revflag:.res 1
+fhist_n:.res 1
 ini_pos:.res 1
 ini_ch: .res 3
 lastkey:.res 1

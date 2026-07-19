@@ -936,7 +936,7 @@ dtr1:   jsr     player_init
         sta     elvl            ; elroy suspended until Sable is out again
         sta     game_state
         sta     death_t
-        rts
+        jmp     jsync
 
 ; ---- lfsr: 16-bit xorshift step; returns A (never all-zero) ----
 lfsr:   lda     rng

@@ -41,9 +41,66 @@ te1:    lda     ttl_recs,x      ; (rowcol-offset lo/hi, string index) recs
         inx
         bne     te1
 te2:    jsr     hs_show
+        jsr     big_title
         lda     #5
         sta     game_state
         rts
+
+; ---- big_title: MS.MUNCHER in large rounded PETSCII letters, rows 0-2 ----
+big_title:
+        lda     #0
+        sta     uitmp2          ; letter index 0-9
+bt1:    lda     uitmp2
+        cmp     #10
+        bcs     bt_done
+        tay
+        lda     bigstr,y        ; glyph id -> *9 = font offset
+        asl
+        asl
+        asl
+        sta     uitmp
+        lda     bigstr,y
+        clc
+        adc     uitmp
+        sta     uitmp
+        lda     uitmp2          ; column = letter*4
+        asl
+        asl
+        sta     uitmp3
+        ldx     #0              ; row 0-2
+bt2:    lda     rowscr_lo,x
+        clc
+        adc     uitmp3
+        sta     PTR
+        lda     rowscr_hi,x
+        adc     #0
+        sta     PTR+1
+        txa
+        pha
+        asl                     ; row*3 + glyph offset
+        sta     uidig
+        pla
+        pha
+        clc
+        adc     uidig
+        clc
+        adc     uitmp
+        tax
+        ldy     #0
+bt3:    lda     bigfont,x
+        sta     (PTR),y
+        inx
+        iny
+        cpy     #3
+        bne     bt3
+        pla
+        tax
+        inx
+        cpx     #3
+        bne     bt2
+        inc     uitmp2
+        jmp     bt1
+bt_done:rts
 
 ; puts: copy 0-terminated screen codes from (PTR2) to (PTR)
 puts:   ldy     #0
@@ -311,7 +368,9 @@ dm1:    lda     keybuf          ; a human takes over any time
         cmp     #K_SP
         bne     dm2
         jmp     newgame
-dm2:    ldy     demo_i          ; scripted steering
+dm2:    ldy     demo_i          ; scripted steering (bounded: reading past
+        cpy     #7              ; the table once fed garbage into pwant and
+        bcs     dm3             ; teleported her into code — see AUDIT.md)
         lda     demo_when,y
         cmp     demo_t
         bne     dm3
@@ -365,7 +424,6 @@ strs_hi: .byte >s_title,>s_with,>s_bruiser,>s_pixie,>s_ivy,>s_sable
          .byte >s_act1,>s_act2,>s_act3
 ; static layout records: screen addr lo/hi + string id, $FF end
 ttl_recs:
-        .byte <(SCREEN+1*40+14), >(SCREEN+1*40+14), S_TITLE
         .byte <(SCREEN+6*40+18), >(SCREEN+6*40+18), S_WITH
         .byte <(SCREEN+17*40+7), >(SCREEN+17*40+7), S_CTRL
         .byte <(SCREEN+19*40+14), >(SCREEN+19*40+14), S_HSTITLE
@@ -381,6 +439,20 @@ hsrow_lo: .byte <(SCREEN+20*40+12), <(SCREEN+21*40+12), <(SCREEN+22*40+12)
 hsrow_hi: .byte >(SCREEN+20*40+12), >(SCREEN+21*40+12), >(SCREEN+22*40+12)
           .byte >(SCREEN+23*40+12), >(SCREEN+24*40+12)
 hscol:    .byte 0, 1, 2
+; big title: glyph ids for "MS.MUNCHER" into the 3x3 font below
+bigstr: .byte 0,1,2,0,3,4,5,6,7,8
+; 3x3 rounded letterforms (quarter-arcs + lines), 9 bytes each:
+; M S . U N C H E R
+bigfont:
+        .byte 85,114,73, 93,93,93, 93,32,93      ; M
+        .byte 85,64,64, 74,64,73, 64,64,75       ; S
+        .byte 32,32,32, 32,32,32, 32,81,32       ; .
+        .byte 93,32,93, 93,32,93, 74,64,75       ; U
+        .byte 93,77,93, 93,77,93, 93,77,93       ; N
+        .byte 85,64,64, 93,32,32, 74,64,64       ; C
+        .byte 93,32,93, 107,64,115, 93,32,93     ; H
+        .byte 85,64,64, 107,64,32, 74,64,64      ; E
+        .byte 85,64,73, 107,64,75, 93,32,77      ; R
 ; demo steering script (demo_t low byte, direction)
 demo_when: .byte 1,  40,  90, 140, 190, 240, 255
 demo_dir:  .byte 1,   0,   3,   0,   1,   2,   1

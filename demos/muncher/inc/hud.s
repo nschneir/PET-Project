@@ -151,12 +151,14 @@ d61:    lda     d6buf,x
         lsr
         clc
         adc     #48
+        ora     revflag
         ldy     dcol,x
         sta     (PTR),y
         pla
         and     #$0F
         clc
         adc     #48
+        ora     revflag
         iny
         sta     (PTR),y
         dex
@@ -336,12 +338,7 @@ gameover_tick:
         lda     death_t
         cmp     #1
         bne     go1
-        ldx     #0
-go0:    lda     txt_gover,x     ; "GAME OVER" centre
-        beq     go1
-        sta     SCREEN+12*40+9,x
-        inx
-        bne     go0
+        jsr     go_box          ; rounded reverse-video panel
 go1:    lda     death_t
         cmp     #150
         bcc     go_out
@@ -420,6 +417,71 @@ id1:    lda     ini_ch,x
 id2:    sta     SCREEN+16*40+12,x
         dex
         bpl     id1
+        rts
+
+; ---- go_box: GAME OVER + final score in a rounded reverse-video box ----
+go_box: ldx     #10             ; rows 10-14, cols 10-29
+gbr:    lda     rowscr_lo,x
+        sta     PTR
+        lda     rowscr_hi,x
+        sta     PTR+1
+        ldy     #10
+gbc:    lda     #160            ; reverse space fill
+        cpx     #10
+        beq     gb_t
+        cpx     #14
+        beq     gb_b
+        cpy     #10
+        beq     gb_v
+        cpy     #29
+        beq     gb_v
+        bne     gb_put
+gb_t:   lda     #64+128         ; top edge / rounded reverse corners
+        cpy     #10
+        bne     gb_t2
+        lda     #85+128
+gb_t2:  cpy     #29
+        bne     gb_put
+        lda     #73+128
+        bne     gb_put
+gb_b:   lda     #64+128
+        cpy     #10
+        bne     gb_b2
+        lda     #74+128
+gb_b2:  cpy     #29
+        bne     gb_put
+        lda     #75+128
+        bne     gb_put
+gb_v:   lda     #93+128
+gb_put: sta     (PTR),y
+        iny
+        cpy     #30
+        bne     gbc
+        inx
+        cpx     #15
+        bne     gbr
+        ldx     #0              ; "GAME OVER", reverse video, row 11
+gbt1:   lda     txt_gover,x
+        beq     gbt2
+        ora     #$80
+        sta     SCREEN+11*40+15,x
+        inx
+        bne     gbt1
+gbt2:   lda     score           ; final score, reverse video, row 13
+        sta     d6buf
+        lda     score+1
+        sta     d6buf+1
+        lda     score+2
+        sta     d6buf+2
+        lda     #<(SCREEN+13*40+17)
+        sta     PTR
+        lda     #>(SCREEN+13*40+17)
+        sta     PTR+1
+        lda     #$80
+        sta     revflag
+        jsr     draw6
+        lda     #0
+        sta     revflag
         rts
 
 ; ---- hs_rank: C clear if score beats entry 4 (the lowest) ----
@@ -590,6 +652,7 @@ pop_save:.res 4
 d6buf:  .res 3
 hs_sc:  .res 15                 ; 5 entries x 3 BCD bytes
 hs_nm:  .res 15                 ; 5 entries x 3 initials (screen codes)
+revflag:.res 1
 ini_pos:.res 1
 ini_ch: .res 3
 lastkey:.res 1

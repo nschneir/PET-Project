@@ -52,6 +52,7 @@ start:  cld
         sta     hiscore+2
         sta     extra_given
         sta     pop_t
+        sta     revflag
         jsr     hud_init
         jsr     snd_init
         jsr     title_enter     ; boot lands on the attract title
@@ -59,6 +60,8 @@ start:  cld
         sta     tickcnt
         sta     tickcnt+1
         sta     overruns
+        lda     JIFFLO
+        sta     jstart
 
 ; ---------------------------- main loop -----------------------------------
 ; ONE game tick per jiffy. `tick` is the frame-step anchor: the runner's
@@ -110,9 +113,14 @@ gover:  jsr     gameover_tick
 inits:  jsr     initials_tick
         jmp     loop
 
-pace:   lda     JIFFLO
+pace:   lda     JIFFLO          ; frame-budget watchdog: if the clock moved
+        cmp     jstart          ; during the tick's work, that frame overran
+        beq     pw
+        inc     overruns
 pw:     cmp     JIFFLO
         beq     pw              ; wait for the jiffy clock to advance
+        lda     JIFFLO
+        sta     jstart
         rts
 
 ; clrscr: fill all 1000 screen cells with spaces
@@ -153,3 +161,4 @@ bantxt: .byte   13,19,46,32,13,21,14,3,8,5,18,0   ; "MS. MUNCHER"
 tickcnt: .res 2                 ; jiffies since start (test/measure anchor)
 overruns:.res 1                 ; frames whose work exceeded one jiffy
 keybuf:  .res 1                 ; key-down byte latched at the tick top
+jstart:  .res 1                 ; jiffy value when the tick's work began

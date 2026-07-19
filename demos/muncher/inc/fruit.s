@@ -317,8 +317,8 @@ fruitgly: .byte 37, 90, 87, 38, 65, 88, 40
 factive:.res 1
 f1done: .res 1
 f2done: .res 1
-fq_dir: .res 16
-fq_cnt: .res 16
+fq_dir: .res 20                 ; worst route: 6 entry + 4 lap + 3 + 6 exit
+fq_cnt: .res 20
 fq_n:   .res 1
 fq_i:   .res 1
 fsteps: .res 1

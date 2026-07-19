@@ -3,7 +3,7 @@
 name: muncher-smoke
 machine: pet4032
 program: muncher.s
-timeout: 45
+timeout: 150
 steps:
   # --- T0: scaffold heartbeat + input path ---
   - wait:  { text: "MS. MUNCHER" }          # the title screen (T12)
@@ -365,12 +365,12 @@ steps:
   - poke:  { addr: eat_ev, values: [1] }
   - until: { ref: tick, count: 2 }
   - assert: { mem: elvl, equals: [1] }
-  - assert: { mem: aspd, equals: [0, 64] }           # $3C + $04
+  - assert: { mem: aspd, equals: [72, 64] }          # her class-1 $48; $3C+$04
   - poke:  { addr: dots_left, values: [3, 0] }
   - poke:  { addr: eat_ev, values: [1] }
   - until: { ref: tick, count: 2 }
   - assert: { mem: elvl, equals: [2] }
-  - assert: { mem: aspd, equals: [0, 68] }           # $3C + $08
+  - assert: { mem: aspd, equals: [72, 68] }          # her class-1 $48; $3C+$08
   # (F8) swap-past: adjacent opposite-facing, both step, no pass-through
   - poke:  { addr: board, values: [1] }
   - poke:  { addr: elvl, values: [0] }
@@ -383,10 +383,9 @@ steps:
   - poke:  { addr: pwant, values: [3] }
   - poke:  { addr: ax, values: [13, 14] }            # half-cell apart, row 3
   - poke:  { addr: ay, values: [6, 6] }
-  - poke:  { addr: aspd, values: [255, 0] }          # she moves every tick
   - poke:  { addr: aacc, values: [0, 0] }
   - poke:  { addr: apause, values: [0, 0] }
-  - until: { ref: tick, count: 2 }
+  - until: { ref: tick, count: 8 }                   # both step at class speeds
   - assert: { mem: game_state, equals: [1] }         # caught mid-crossing
   # --- T8: wandering fruit (seeded route pinned from a live trace) ---
   # rng [66,153] -> entry mouth 3 (27,14), exit mouth 3; queue = 2 entry
@@ -507,10 +506,16 @@ steps:
   - poke:  { addr: pwant, values: [3] }
   - poke:  { addr: aacc, values: [0] }
   - poke:  { addr: apause, values: [0] }
-  - poke:  { addr: aspd, values: [128] }
-  - until: { ref: tick, count: 5 }
+  - poke:  { addr: aspd, values: [128] }             # (overridden to class
+  - until: { ref: tick, count: 9 }                   # speed $40: lands t8)
   - assert: { mem: snd_cur, equals: [3] }            # the waka blip won
-  - until: { ref: tick, count: 8 }
+  - poke:  { addr: gon, values: [0] }                # freeze: no re-eats,
+  - poke:  { addr: adir, values: [4] }               # and park her mid-row
+  - poke:  { addr: pwant, values: [4] }
+  - until: { ref: tick, count: 8 }                   # and no idle layer
+  - assert: { mem: snd_cur, equals: [255] }          # blip expired to silence
+  - poke:  { addr: gon, values: [1] }
+  - until: { ref: tick, count: 2 }
   - assert: { mem: snd_cur, equals: [0] }            # siren idle resumed
   # death outranks everything and locks until done
   - poke:  { addr: snd_cur, values: [6] }            # ghost zap playing
@@ -597,3 +602,25 @@ steps:
   - until: { ref: tick, count: 2 }
   - assert: { mem: game_state, equals: [0] }
   - assert: { mem: gon, equals: [1] }
+  # --- T14: frame-budget stress — full cast live for 20 s, zero overruns ---
+  - poke:  { addr: gstate, values: [0, 1, 1, 1, 1] }  # all four ghosts out
+  - poke:  { addr: gdecx, values: [255, 255, 255, 255, 255] }
+  - poke:  { addr: gdecy, values: [255, 255, 255, 255, 255] }
+  - poke:  { addr: ahid, values: [0, 0, 0, 0, 0] }
+  - poke:  { addr: ax, values: [2, 18, 36, 18, 36] }
+  - poke:  { addr: ay, values: [6, 16, 16, 26, 26] }
+  - poke:  { addr: adir, values: [3, 1, 1, 3, 3] }
+  - poke:  { addr: pwant, values: [3] }
+  - poke:  { addr: aspd, values: [80] }               # she eats at full tilt
+  - poke:  { addr: glimit, values: [99, 99, 99, 99, 99] }
+  - poke:  { addr: gtimeout, values: [255, 200] }
+  - poke:  { addr: sched_state, values: [3] }
+  - poke:  { addr: sched_t, values: [16, 239] }
+  - poke:  { addr: f1done, values: [0] }              # and a fruit wanders
+  - poke:  { addr: f2done, values: [1] }
+  - poke:  { addr: factive, values: [0] }
+  - poke:  { addr: dots_left, values: [126, 0] }
+  - poke:  { addr: overruns, values: [0] }
+  - poke:  { addr: lives, values: [5] }               # survive collisions
+  - until: { ref: tick, count: 1200 }
+  - assert: { mem: overruns, equals: [0] }            # every frame fit

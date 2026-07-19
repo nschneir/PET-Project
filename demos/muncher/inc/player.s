@@ -54,11 +54,45 @@ pi3:    cmp     #K_D
         sta     pwant
 pi4:    rts
 
+; ---- player_speed: board-class speed, +boost while the ghosts are blue
+; (spec §8: 80/90/100/90%, frightened 90/95/100). Applied every tick so
+; tests that poke aspd directly must also park gon or poke each tick. ----
+player_speed:
+        ldx     #0
+        lda     gon             ; frozen worlds keep poked speeds (tests)
+        beq     pv_out
+        ldy     #0              ; class 0: board 1
+        lda     board
+        cmp     #2
+        bcc     pv1
+        iny                     ; class 1: boards 2-4
+        cmp     #5
+        bcc     pv1
+        iny                     ; class 2: boards 5-20
+        cmp     #21
+        bcc     pv1
+        iny                     ; class 3: boards 21+
+pv1:    lda     frite_t
+        ora     frite_t+1
+        beq     pv2
+        lda     pspd_fright,y
+        sta     aspd
+        rts
+pv2:    lda     pspd_norm,y
+        sta     aspd
+pv_out: rts
+
 ; ---- player_tick: steer, step, eat. Call once per jiffy with X=0 ----
 player_tick:
+        jsr     player_speed
         ldx     #0
         lda     pwant
-        cmp     adir
+        cmp     #DIR_NONE       ; any non-direction (incl. corrupt values)
+        bcc     pt_ok           ; steers nothing — belt for script bugs
+        lda     #DIR_NONE
+        sta     pwant
+        jmp     pt_step
+pt_ok:  cmp     adir
         beq     pt_step         ; already going that way
         tay
         lda     opptbl,y
@@ -186,6 +220,8 @@ dd2:    rts
 
         .segment "RODATA"
 opptbl:  .byte  DIR_DOWN, DIR_RIGHT, DIR_UP, DIR_LEFT, DIR_NONE
+pspd_norm:  .byte $40, $48, $50, $48   ; 80/90/100/90% by board class
+pspd_fright:.byte $48, $4C, $50, $48   ; her blue-time boost 90/95/100/90
 mouthtbl:.byte  G_HALF_B, G_HALF_R, G_HALF_T, G_HALF_L, G_BALL
          ; mouth opens toward travel: the missing half faces the direction
 

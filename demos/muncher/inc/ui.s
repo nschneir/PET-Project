@@ -364,10 +364,10 @@ demo_tick:
         inc     demo_t
         bne     dm1
         inc     demo_t+1
-dm1:    lda     keybuf          ; a human takes over any time
-        cmp     #K_SP
-        bne     dm2
-        jmp     newgame
+dm1:    lda     keybuf          ; any key: back to the title
+        cmp     #$FF
+        beq     dm2
+        jmp     title_enter
 dm2:    ldy     demo_i          ; scripted steering (bounded: reading past
         cpy     #7              ; the table once fed garbage into pwant and
         bcs     dm3             ; teleported her into code — see AUDIT.md)
@@ -448,7 +448,7 @@ bigfont:
         .byte 85,64,64, 74,64,73, 64,64,75       ; S
         .byte 32,32,32, 32,32,32, 32,81,32       ; .
         .byte 93,32,93, 93,32,93, 74,64,75       ; U
-        .byte 93,77,93, 93,77,93, 93,77,93       ; N
+        .byte 93,32,93, 93,77,93, 93,32,93       ; N
         .byte 85,64,64, 93,32,32, 74,64,64       ; C
         .byte 93,32,93, 107,64,115, 93,32,93     ; H
         .byte 85,64,64, 107,64,32, 74,64,64      ; E

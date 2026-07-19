@@ -170,3 +170,24 @@ integration bugs found and fixed in iteration 1.
   the maze; fruit bounce is a reverse-video pulse rather than a hop.
 - Review verdict: no open correctness findings. Cosmetic items (maze-4
   corner gaps, chomp feel) remain on the human-playtest list.
+
+## T14 — iteration 3 (user playtest feedback)
+
+Real-play findings from the user, all fixed and re-verified:
+
+1. **Orphaned "rectangles" in the maze** — overlapping actors captured each
+   other's glyphs in the save-under buffers; the later erase restored an
+   orphaned half-block. Root fix: erases (and score-popup restores) now
+   redraw vacated cells from the game state (`dots[]` + fixed door lintel),
+   never from saved screen bytes. Overlap can no longer corrupt the maze.
+2. **Any key returns to the title** after the game-over panel and from the
+   attract demo; committing initials also lands on the title with the new
+   entry displayed.
+3. **Cutscenes upgraded to multi-character sprites** — 2x2 rounded
+   munchers (3/4-quadrant blocks) with directional wedge mouths that chomp,
+   2x2 hooded ghosts (reverse arcs over a checkerboard skirt), a 2x2
+   stork; Act-1 risers now stop independently so nobody plows through the
+   marquee border.
+4. **Title lettering polish** — the big N keeps a single centre diagonal.
+
+Full yaml suite green after each change; muncher.d64 repackaged.

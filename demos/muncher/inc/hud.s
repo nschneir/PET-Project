@@ -245,7 +245,8 @@ popup_at:
         cmp     #24             ; clip so 4 chars stay inside the maze
         bcc     pu1
         lda     #24
-pu1:    clc
+pu1:    sta     pop_col
+        clc
         adc     pop_addr
         sta     pop_addr
         bcc     pu2
@@ -254,14 +255,15 @@ pu2:    lda     pop_addr
         sta     PTR
         lda     pop_addr+1
         sta     PTR+1
-        lda     sctmp           ; save under + draw the 4 chars, forward
+        lda     ay,x            ; remember WHERE, restore comes from state
+        lsr
+        sta     pop_row
+        lda     sctmp           ; draw the 4 chars, forward
         asl
         asl
         tax
         ldy     #0
-pu3:    lda     (PTR),y
-        sta     pop_save,y
-        lda     valstr,x
+pu3:    lda     valstr,x
         sta     (PTR),y
         inx
         iny
@@ -279,15 +281,21 @@ popup_tick:
         rts
 pt1x:   dec     pop_t
         bne     pt2x
-        lda     pop_addr        ; expired: restore what was underneath
-        sta     PTR
+        lda     pop_addr        ; expired: redraw the 4 cells from state
+        sta     PTR2
         lda     pop_addr+1
-        sta     PTR+1
-        ldy     #3
-pt3x:   lda     pop_save,y
-        sta     (PTR),y
-        dey
-        bpl     pt3x
+        sta     PTR2+1
+        lda     pop_row
+        sta     ebrow
+        lda     pop_col
+        sta     ebcol
+        ldy     #0
+pt3x:   jsr     cell_glyph
+        sta     (PTR2),y
+        inc     ebcol
+        iny
+        cpy     #4
+        bne     pt3x
 pt2x:   rts
 
 ; ---- board clear: celebrate + next board (progression tables in T11) ----
@@ -368,12 +376,18 @@ gameover_tick:
         cmp     #1
         bne     go1
         jsr     go_box          ; rounded reverse-video panel
-go1:    lda     death_t
+go1:    lda     death_t         ; any key (after a short guard so a held
+        cmp     #30             ; steering key doesn't blink past the box)
+        bcc     go_out
+        lda     keybuf
+        cmp     #$FF
+        bne     go_fin
+        lda     death_t
         cmp     #150
         bcc     go_out
-        jsr     hs_rank         ; C clear = made the table
+go_fin: jsr     hs_rank         ; C clear = made the table
         bcc     go_entry
-        jmp     newgame
+        jmp     title_enter
 go_entry:
         lda     #0
         sta     death_t
@@ -431,7 +445,7 @@ it4:    cmp     #K_A
 it5:    cmp     #K_SP
         bne     it_out
         jsr     hs_insert
-        jmp     newgame
+        jmp     title_enter     ; back to the title, new entry on display
 it_out: rts
 
 ini_draw:
@@ -697,6 +711,8 @@ sctmp:  .res 2
 pop_t:  .res 1
 pop_addr:.res 2
 pop_save:.res 4
+pop_row:.res 1
+pop_col:.res 1
 d6buf:  .res 3
 hs_sc:  .res 15                 ; 5 entries x 3 BCD bytes
 hs_nm:  .res 15                 ; 5 entries x 3 initials (screen codes)

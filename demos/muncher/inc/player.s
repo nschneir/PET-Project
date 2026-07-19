@@ -180,8 +180,6 @@ pt_dot: lda     #0              ; eat: clear the cell, fix the save-under
         sta     (PTR),y
         sta     eat_ev
         inc     eat_ev          ; eat_ev=1: a dot was eaten this jiffy
-        lda     #G_SPACE
-        sta     asave0
         lda     #1
         sta     apause          ; the arcade per-dot chew stall
         lda     #SC_DOT
@@ -193,8 +191,6 @@ pt_ener:lda     #0
         sta     (PTR),y
         lda     #2
         sta     eat_ev          ; eat_ev=2: energizer (frightened flow)
-        lda     #G_SPACE
-        sta     asave0
         lda     #3
         sta     apause
         lda     #SC_ENER

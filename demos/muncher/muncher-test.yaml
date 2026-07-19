@@ -491,10 +491,13 @@ steps:
   - until: { ref: tick, count: 3 }
   - assert: { mem: hs_sc, equals: [0, 0, 1] }        # rank 0 = our 010000
   - assert: { mem: hs_nm, equals: [2, 1, 1] }        # "BAA"
-  - assert: { mem: game_state, equals: [0] }         # fresh game running
-  - assert: { mem: board, equals: [1] }
-  - assert: { mem: score, equals: [0, 0, 0] }
+  - assert: { mem: game_state, equals: [5] }         # back on the title,
+                                                     # new entry displayed
   # --- T10: sound driver priorities (register-free, state asserts) ---
+  - poke:  { addr: "$97", values: [32] }             # SPACE: fresh game
+  - until: { ref: tick, count: 2 }
+  - poke:  { addr: "$97", values: [255] }
+  - assert: { mem: game_state, equals: [0] }
   - assert: { mem: snd_cur, equals: [8] }            # newgame -> start jingle
   # munch outranks the siren; siren resumes after the blip
   - poke:  { addr: snd_cur, values: [0] }            # pretend siren playing

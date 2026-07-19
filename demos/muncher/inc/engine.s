@@ -229,12 +229,15 @@ dbv5:   sta     (PTR2),y
         sta     asvn,x
         rts
 
-; ---- erase_blob: X = actor. Restore what draw_blob saved ----
+; ---- erase_blob: X = actor. Vacated cells are redrawn from the GAME
+; STATE (dots[]), never from saved screen bytes: overlapping actors used
+; to capture each other's glyphs in the save-under buffers and leave
+; orphaned half-blocks behind ("rectangles in the maze"). ----
 erase_blob:
         lda     asvn,x
         bne     eb1
         rts                     ; nothing drawn yet
-eb1:    lda     ax,x            ; swap in the saved draw coords for addressing
+eb1:    lda     ax,x            ; address the SAVED position
         pha
         lda     ay,x
         pha
@@ -242,12 +245,18 @@ eb1:    lda     ax,x            ; swap in the saved draw coords for addressing
         sta     ax,x
         lda     asvy,x
         sta     ay,x
-        jsr     blob_addr       ; PTR2/Y = anchor cell of the saved position
+        jsr     blob_addr       ; PTR2/Y = anchor cell
         pla
         sta     ay,x
         pla
         sta     ax,x
-        lda     asave0,x
+        lda     asvx,x
+        lsr
+        sta     ebcol
+        lda     asvy,x
+        lsr
+        sta     ebrow
+        jsr     cell_glyph
         sta     (PTR2),y
         lda     asvn,x
         cmp     #2
@@ -256,7 +265,8 @@ eb1:    lda     ax,x            ; swap in the saved draw coords for addressing
         and     #1
         bne     eb_v
         iny                     ; horizontal partner: next column
-        lda     asave1,x
+        inc     ebcol
+        jsr     cell_glyph
         sta     (PTR2),y
         jmp     eb_done
 eb_v:   lda     PTR2            ; vertical partner: next row
@@ -265,10 +275,53 @@ eb_v:   lda     PTR2            ; vertical partner: next row
         sta     PTR2
         bcc     eb2
         inc     PTR2+1
-eb2:    lda     asave1,x
+eb2:    inc     ebrow
+        jsr     cell_glyph
         sta     (PTR2),y
 eb_done:lda     #0
         sta     asvn,x
+        rts
+
+; ---- cell_glyph: (ebcol, ebrow) -> A = the cell's true glyph. Preserves
+; X and Y. Corridor cells only (that is all an actor can vacate). ----
+cell_glyph:
+        tya
+        pha
+        lda     ebrow
+        tay
+        lda     m28_lo,y
+        clc
+        adc     #<dots
+        sta     PTR
+        lda     m28_hi,y
+        adc     #>dots
+        sta     PTR+1
+        ldy     ebcol
+        lda     (PTR),y
+        beq     cg_open
+        cmp     #1
+        bne     cg_e
+        lda     #G_DOT
+        bne     cg_out
+cg_e:   cmp     #2
+        bne     cg_open         ; (3=wall never underlies an actor; treat
+        lda     #G_BALL         ;  defensively as open)
+        bne     cg_out
+cg_open:lda     ebrow           ; the door lintel is state OPEN but drawn
+        cmp     #10
+        bne     cg_sp
+        lda     ebcol
+        cmp     #13
+        beq     cg_door
+        cmp     #14
+        beq     cg_door
+cg_sp:  lda     #G_SPACE
+        bne     cg_out
+cg_door:lda     #G_HLINE
+cg_out: sta     ebtmp
+        pla
+        tay
+        lda     ebtmp
         rts
 
 ; ---- blob_addr: X = actor. PTR2 = screen addr of the anchor cell of the
@@ -306,7 +359,10 @@ apause: .res NACT               ; jiffies to stall before moving again
 asvx:   .res NACT               ; where the last draw happened
 asvy:   .res NACT
 asvn:   .res NACT               ; 0 = nothing to erase, else 1 or 2 cells
-asave0: .res NACT
+asave0: .res NACT               ; (legacy; kept for test pokes)
 asave1: .res NACT
 etx:    .res 1
 ety:    .res 1
+ebcol:  .res 1
+ebrow:  .res 1
+ebtmp:  .res 1

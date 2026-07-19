@@ -51,6 +51,76 @@ class MazeError(ValueError):
     pass
 
 
+# Fruit paths (spec §11): per maze, one path per tunnel mouth linking the
+# mouth to a corner of the house ring, plus the shared clockwise ring cycle.
+# Runs are (dir, cells) with dirs U/L/D/R. The cycle's segment i starts at
+# ring corner i: 0=(9,9) 1=(18,9) 2=(18,13) 3=(9,13). Entry plays the mouth
+# path forward, then a full lap, then onward to the exit mouth's corner,
+# then the exit path reversed.
+RING = [(9, 9), (18, 9), (18, 13), (9, 13)]
+FRUIT_CYCLE = [("R", 9), ("D", 4), ("L", 9), ("U", 4)]
+FRUIT_PATHS = {
+    1: [
+        dict(start=(0, 6),  corner=0, runs=[("R", 3), ("D", 2), ("R", 6), ("D", 1)]),
+        dict(start=(27, 6), corner=1, runs=[("L", 3), ("D", 2), ("L", 6), ("D", 1)]),
+        dict(start=(0, 14), corner=3, runs=[("R", 9), ("U", 1)]),
+        dict(start=(27, 14), corner=2, runs=[("L", 9), ("U", 1)]),
+    ],
+}
+DIRVEC = {"U": (0, -1), "L": (-1, 0), "D": (0, 1), "R": (1, 0)}
+DIRNUM = {"U": 0, "L": 1, "D": 2, "R": 3}
+
+
+def walk(pos, runs, grid):
+    """Walk runs from pos, asserting every visited cell is corridor."""
+    x, y = pos
+    for d, n in runs:
+        dx, dy = DIRVEC[d]
+        for _ in range(n):
+            x += dx
+            y += dy
+            if not (0 <= x < W and 0 <= y < H) or grid[y][x] == WALL \
+                    or (x, y) in set(DOOR) | set(INTERIOR):
+                raise MazeError(f"fruit path leaves the corridors at ({x},{y})")
+    return (x, y)
+
+
+def validate_fruit_paths(n, maze):
+    paths = FRUIT_PATHS.get(n)
+    if not paths:
+        return
+    tunnels = set(maze.tunnel_rows)
+    for p in paths:
+        sx, sy = p["start"]
+        if sy not in tunnels or sx not in (0, W - 1):
+            raise MazeError(f"fruit path start {p['start']} is not a mouth")
+        end = walk(p["start"], p["runs"], maze.cells)
+        if end != RING[p["corner"]]:
+            raise MazeError(f"fruit path from {p['start']} ends {end}, "
+                            f"not ring corner {RING[p['corner']]}")
+    for i, corner in enumerate(RING):  # the cycle itself, segment by segment
+        end = walk(corner, [FRUIT_CYCLE[i]], maze.cells)
+        if end != RING[(i + 1) % 4]:
+            raise MazeError(f"ring cycle segment {i} ends at {end}")
+
+
+def emit_fruit(n, lines):
+    paths = FRUIT_PATHS.get(n)
+    if not paths:
+        return
+    lines.append(f"; fruit paths maze {n}: 12-byte records "
+                 "(startx,starty,corner,nruns, then 4 dir,count pairs)")
+    lines.append(f"fruit{n}_cycle: .byte " + ", ".join(
+        f"{DIRNUM[d]}, {c}" for d, c in FRUIT_CYCLE))
+    lines.append(f"fruit{n}_paths:")
+    for p in paths:
+        runs = list(p["runs"]) + [("U", 0)] * (4 - len(p["runs"]))
+        row = [p["start"][0], p["start"][1], p["corner"], len(p["runs"])]
+        for d, c in runs:
+            row += [DIRNUM[d], c]
+        lines.append("        .byte " + ", ".join(map(str, row)))
+
+
 @dataclass
 class Maze:
     cells: list                       # 25 rows x 28 ints
@@ -214,6 +284,8 @@ def emit(mazes, inc_path):
     e2 = [max(v // 2, 1) if v else 0 for v in e1]
     lines.append("elroy2_tbl: .byte " + ", ".join(map(str, e2))
                  + " ; stage 2 = half")
+    for n in sorted(mazes):
+        emit_fruit(n, lines)
     for n, maze in sorted(mazes.items()):
         packed = pack(maze)
         lines.append(f"maze{n}_map:")
@@ -232,6 +304,7 @@ def main(maps_dir, inc_dir):
             continue
         maze = validate(p.read_text(), tunnel_rows=spec["tunnels"],
                         dot_target=spec["target"])
+        validate_fruit_paths(n, maze)
         mazes[n] = maze
         print(f"maze {n}: OK — {maze.dots} dots "
               f"(target {spec['target']}±8), tunnels {spec['tunnels']}")

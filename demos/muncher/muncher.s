@@ -42,6 +42,10 @@ start:  cld
         sta     elvl
         sta     gameover_ev
         jsr     ghost_init
+        jsr     fruit_init
+        lda     #0              ; the ghost world sleeps until a game
+        sta     gon             ; actually starts (T12 title flow); tests
+                                ; and players enable it explicitly
         lda     #0
         sta     tickcnt
         sta     tickcnt+1
@@ -64,6 +68,7 @@ tick:   lda     KEYDOWN
         jsr     player_input    ; A still holds the key-down byte
         jsr     player_tick
         jsr     ghosts_tick
+        jsr     fruit_tick
         jmp     loop
 dying:  jsr     death_tick
         jmp     loop
@@ -98,6 +103,7 @@ banner: ldx     #0
         .include "inc/engine.s"
         .include "inc/player.s"
         .include "inc/ghosts.s"
+        .include "inc/fruit.s"
 
         .segment "RODATA"
 bantxt: .byte   13,19,46,32,13,21,14,3,8,5,18,0   ; "MS. MUNCHER"

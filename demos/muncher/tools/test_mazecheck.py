@@ -146,3 +146,20 @@ def test_real_maze1_if_present():
     maze = mc.validate(p.read_text(), tunnel_rows=spec["tunnels"],
                        dot_target=spec["target"])
     assert abs(maze.dots - spec["target"]) <= 8
+
+
+def test_fruit_paths_validate_on_real_maze1():
+    import pathlib
+    p = pathlib.Path(__file__).resolve().parent.parent / "maps" / "maze1.txt"
+    if not p.exists():
+        pytest.skip("maze1.txt not authored yet")
+    spec = mc.MAZES[1]
+    maze = mc.validate(p.read_text(), tunnel_rows=spec["tunnels"],
+                       dot_target=spec["target"])
+    mc.validate_fruit_paths(1, maze)  # raises on any off-corridor step
+
+
+def test_fruit_path_walk_rejects_walls():
+    maze = check(synthetic())
+    with pytest.raises(mc.MazeError, match="corridor"):
+        mc.walk((1, 1), [("U", 1)], maze.cells)  # into the border

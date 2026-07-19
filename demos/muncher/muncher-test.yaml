@@ -20,7 +20,8 @@ steps:
   - assert: { mem: "@1,1",  equals: [46] }  # corridor dot
   - assert: { mem: "@2,1",  equals: [81] }  # energizer ball
   - assert: { mem: "@10,13", equals: [64] } # ghost-house door lintel
-  - assert: { mem: "@11,13", equals: [32] } # house interior open
+  - assert: { mem: "@11,13", equals: [97] } # Pixie waiting in the house
+                                            # (boot is deterministic: gon=0)
   # --- T4/T5: half-cell engine + player eating (stall-aware arithmetic) ---
   # (a) arcade 100% ($50) with dots: 50 half-cells = 160 jiffies, plus one
   # 1-jiffy chew stall per dot eaten before the last landing (24) = 184.
@@ -100,6 +101,7 @@ steps:
   - poke:  { addr: gstate, values: [0, 1, 0, 0, 0] }
   - poke:  { addr: gdecx, values: [255, 255, 255, 255, 255] }
   - poke:  { addr: gdecy, values: [255, 255, 255, 255, 255] }
+  - poke:  { addr: ahid, values: [0, 0, 0, 0, 0] }
   - poke:  { addr: aspd,  values: [0, 60, 0, 0, 0] }
   - poke:  { addr: adir,  values: [4, 1, 4, 4, 4] }
   - poke:  { addr: pwant, values: [4] }
@@ -112,6 +114,7 @@ steps:
   - poke:  { addr: gstate, values: [0, 0, 1, 0, 0] }
   - poke:  { addr: gdecx, values: [255, 255, 255, 255, 255] }
   - poke:  { addr: gdecy, values: [255, 255, 255, 255, 255] }
+  - poke:  { addr: ahid, values: [0, 0, 0, 0, 0] }
   - poke:  { addr: adir,  values: [0, 4, 1, 4, 4] }  # player faces up, parked
   - poke:  { addr: pwant, values: [0] }
   - poke:  { addr: ax, values: [18, 0, 18] }
@@ -124,6 +127,7 @@ steps:
   - poke:  { addr: gstate, values: [0, 0, 0, 1, 0] }
   - poke:  { addr: gdecx, values: [255, 255, 255, 255, 255] }
   - poke:  { addr: gdecy, values: [255, 255, 255, 255, 255] }
+  - poke:  { addr: ahid, values: [0, 0, 0, 0, 0] }
   - poke:  { addr: adir,  values: [2, 4, 4, 1, 4] }
   - poke:  { addr: pwant, values: [2] }
   - poke:  { addr: ax, values: [18, 40, 0, 18] }     # Bruiser parked at (20,13)
@@ -135,6 +139,7 @@ steps:
   - poke:  { addr: gstate, values: [0, 0, 0, 0, 1] }
   - poke:  { addr: gdecx, values: [255, 255, 255, 255, 255] }
   - poke:  { addr: gdecy, values: [255, 255, 255, 255, 255] }
+  - poke:  { addr: ahid, values: [0, 0, 0, 0, 0] }
   - poke:  { addr: adir,  values: [4, 4, 4, 4, 1] }
   - poke:  { addr: pwant, values: [4] }
   - poke:  { addr: ax, values: [26, 40, 0, 0, 18] }  # player (13,8), Sable (9,8)
@@ -147,6 +152,7 @@ steps:
   - poke:  { addr: gstate, values: [0, 0, 0, 1, 0] }
   - poke:  { addr: gdecx, values: [255, 255, 255, 255, 255] }
   - poke:  { addr: gdecy, values: [255, 255, 255, 255, 255] }
+  - poke:  { addr: ahid, values: [0, 0, 0, 0, 0] }
   - poke:  { addr: adir,  values: [4, 4, 4, 1, 4] }
   - poke:  { addr: ax, values: [18, 40, 0, 18] }
   - poke:  { addr: ay, values: [26, 26, 4, 16] }
@@ -159,6 +165,7 @@ steps:
   - poke:  { addr: gstate, values: [0, 1, 0, 0, 0] }
   - poke:  { addr: gdecx, values: [255, 255, 255, 255, 255] }
   - poke:  { addr: gdecy, values: [255, 255, 255, 255, 255] }
+  - poke:  { addr: ahid, values: [0, 0, 0, 0, 0] }
   - poke:  { addr: adir,  values: [4, 1, 4, 4, 4] }
   - poke:  { addr: ax, values: [18, 10] }            # Bruiser mid-corridor (5,8)
   - poke:  { addr: ay, values: [26, 16] }
@@ -175,6 +182,7 @@ steps:
   - poke:  { addr: gstate, values: [0, 0, 0, 0, 0] } # everyone housed
   - poke:  { addr: gdecx, values: [255, 255, 255, 255, 255] }
   - poke:  { addr: gdecy, values: [255, 255, 255, 255, 255] }
+  - poke:  { addr: ahid, values: [0, 0, 0, 0, 0] }
   - poke:  { addr: adir,  values: [4, 4, 4, 4, 4] }
   - poke:  { addr: ax, values: [18, 27, 27, 24, 30] }
   - poke:  { addr: ay, values: [26, 18, 22, 22, 22] }
@@ -194,6 +202,7 @@ steps:
   - poke:  { addr: gstate, values: [0, 0, 0, 0, 0] } # re-house the others
   - poke:  { addr: gdecx, values: [255, 255, 255, 255, 255] }
   - poke:  { addr: gdecy, values: [255, 255, 255, 255, 255] }
+  - poke:  { addr: ahid, values: [0, 0, 0, 0, 0] }
   - poke:  { addr: adir,  values: [4, 4, 4, 4, 4] }
   - poke:  { addr: ax, values: [18, 27, 27, 24, 30] }
   - poke:  { addr: ay, values: [26, 18, 22, 22, 22] }
@@ -208,6 +217,7 @@ steps:
   - poke:  { addr: gstate, values: [0, 1, 0, 0, 0] }
   - poke:  { addr: gdecx, values: [255, 255, 255, 255, 255] }
   - poke:  { addr: gdecy, values: [255, 255, 255, 255, 255] }
+  - poke:  { addr: ahid, values: [0, 0, 0, 0, 0] }
   - poke:  { addr: adir,  values: [4, 3, 4, 4, 4] }
   - poke:  { addr: ax, values: [52, 2] }             # player parked (26,16)
   - poke:  { addr: ay, values: [32, 32] }            # Bruiser starts (1,16)
@@ -228,6 +238,7 @@ steps:
   - poke:  { addr: gstate, values: [0, 1, 0, 0, 0] }
   - poke:  { addr: gdecx, values: [255, 255, 255, 255, 255] }
   - poke:  { addr: gdecy, values: [255, 255, 255, 255, 255] }
+  - poke:  { addr: ahid, values: [0, 0, 0, 0, 0] }
   - poke:  { addr: adir,  values: [4, 1, 4, 4, 4] }
   - poke:  { addr: ax, values: [52, 4] }             # player (26,16); Bruiser (2,6)
   - poke:  { addr: ay, values: [32, 12] }
@@ -249,6 +260,7 @@ steps:
   - poke:  { addr: gstate, values: [0, 1, 0, 0, 0] }
   - poke:  { addr: gdecx, values: [255, 255, 255, 255, 255] }
   - poke:  { addr: gdecy, values: [255, 255, 255, 255, 255] }
+  - poke:  { addr: ahid, values: [0, 0, 0, 0, 0] }
   - poke:  { addr: adir,  values: [4, 1, 4, 4, 4] }
   - poke:  { addr: ax, values: [18, 19] }            # Bruiser mid-step near (9,8)
   - poke:  { addr: ay, values: [26, 16] }
@@ -283,6 +295,7 @@ steps:
   - poke:  { addr: gstate, values: [0, 2, 0, 0, 0] }
   - poke:  { addr: gdecx, values: [255, 255, 255, 255, 255] }
   - poke:  { addr: gdecy, values: [255, 255, 255, 255, 255] }
+  - poke:  { addr: ahid, values: [0, 0, 0, 0, 0] }
   - poke:  { addr: aglyph, values: [81, 87] }
   - poke:  { addr: frite_t, values: [255, 3] }
   - poke:  { addr: adir,  values: [4, 1, 4, 4, 4] }  # he heads left toward her
@@ -301,11 +314,22 @@ steps:
   - assert: { mem: gstate, equals: [0, 1] }          # back on duty
   - assert: { mem: aglyph, equals: [81, 130] }
   # (F6) death: a live ghost touches her; swoon then respawn with the
-  # global house counters armed
+  # global house counters armed (fully self-staged)
   - poke:  { addr: lives, values: [3] }
+  - poke:  { addr: gon, values: [1] }
+  - poke:  { addr: board, values: [1] }
+  - poke:  { addr: sched_state, values: [3] }
+  - poke:  { addr: frite_t, values: [0, 0] }
+  - poke:  { addr: glimit, values: [99, 99, 99, 99, 99] }
+  - poke:  { addr: gtimeout, values: [255, 200] }
+  - poke:  { addr: aspd, values: [0, 60] }
+  - poke:  { addr: pwant, values: [4] }
+  - poke:  { addr: game_state, values: [0] }
+  - poke:  { addr: death_t, values: [0] }
   - poke:  { addr: gstate, values: [0, 1, 0, 0, 0] }
   - poke:  { addr: gdecx, values: [255, 255, 255, 255, 255] }
   - poke:  { addr: gdecy, values: [255, 255, 255, 255, 255] }
+  - poke:  { addr: ahid, values: [0, 0, 0, 0, 0] }
   - poke:  { addr: adir,  values: [4, 1, 4, 4, 4] }
   - poke:  { addr: ax, values: [18, 22] }
   - poke:  { addr: ay, values: [26, 26] }
@@ -330,6 +354,7 @@ steps:
   - poke:  { addr: gstate, values: [0, 1, 0, 0, 0] }
   - poke:  { addr: gdecx, values: [255, 255, 255, 255, 255] }
   - poke:  { addr: gdecy, values: [255, 255, 255, 255, 255] }
+  - poke:  { addr: ahid, values: [0, 0, 0, 0, 0] }
   - poke:  { addr: adir,  values: [4, 1, 4, 4, 4] }
   - poke:  { addr: ax, values: [18, 18] }
   - poke:  { addr: ay, values: [26, 16] }
@@ -350,6 +375,7 @@ steps:
   - poke:  { addr: gstate, values: [0, 1, 0, 0, 0] }
   - poke:  { addr: gdecx, values: [255, 255, 255, 255, 255] }
   - poke:  { addr: gdecy, values: [255, 255, 255, 255, 255] }
+  - poke:  { addr: ahid, values: [0, 0, 0, 0, 0] }
   - poke:  { addr: adir,  values: [3, 1, 4, 4, 4] }  # she right, he left
   - poke:  { addr: pwant, values: [3] }
   - poke:  { addr: ax, values: [13, 14] }            # half-cell apart, row 3
@@ -359,3 +385,43 @@ steps:
   - poke:  { addr: apause, values: [0, 0] }
   - until: { ref: tick, count: 2 }
   - assert: { mem: game_state, equals: [1] }         # caught mid-crossing
+  # --- T8: wandering fruit (seeded route pinned from a live trace) ---
+  # rng [66,153] -> entry mouth 3 (27,14), exit mouth 3; queue = 2 entry
+  # runs + 4 lap segments + 2 reversed exit runs = 8
+  - poke:  { addr: game_state, values: [0] }
+  - poke:  { addr: death_t, values: [0] }
+  - poke:  { addr: gon, values: [0] }                # quiet world: fruit only
+  - poke:  { addr: board, values: [1] }
+  - poke:  { addr: adir, values: [4] }
+  - poke:  { addr: pwant, values: [4] }
+  - poke:  { addr: aspd, values: [0] }
+  - poke:  { addr: ax, values: [2] }                 # player parked off-route
+  - poke:  { addr: ay, values: [6] }
+  - poke:  { addr: rng, values: [66, 153] }
+  - poke:  { addr: f1done, values: [0] }
+  - poke:  { addr: f2done, values: [1] }
+  - poke:  { addr: factive, values: [0] }
+  - poke:  { addr: fruit_ev, values: [0] }
+  - poke:  { addr: dots_left, values: [126, 0] }     # = first spawn threshold
+  - until: { ref: tick, count: 1 }
+  - assert: { mem: factive, equals: [1] }
+  - assert: { mem: fmin, equals: [3] }
+  - assert: { mem: fq_n, equals: [8] }
+  - until: { ref: tick, count: 100 }
+  - assert: { mem: fq_i, equals: [1] }               # ambling in along row 14
+  - until: { ref: tick, count: 200 }
+  - assert: { mem: fq_i, equals: [5] }               # on the house ring lap
+  - until: { ref: tick, count: 300 }                 # t=601: route finished
+  - assert: { mem: factive, equals: [0] }            # escaped via the mouth
+  - assert: { mem: fq_i, equals: [8] }
+  - assert: { mem: fruit_ev, equals: [0] }           # not eaten
+  # eat test: identical seeded route, player parked ON the ring corner (9,9)
+  - poke:  { addr: rng, values: [66, 153] }
+  - poke:  { addr: ax, values: [18] }
+  - poke:  { addr: ay, values: [18] }
+  - poke:  { addr: f1done, values: [0] }
+  - poke:  { addr: dots_left, values: [126, 0] }
+  - until: { ref: tick, count: 320 }
+  - assert: { mem: fruit_ev, equals: [1] }           # she got the cherry
+  - assert: { mem: factive, equals: [0] }
+  - assert: { mem: fkind, equals: [0] }              # board 1 = cherry

@@ -5,6 +5,13 @@ MAZE1_FRUIT1_EATEN = 52
 MAZE1_FRUIT2_LEFT = 53
 elroy1_tbl: .byte 0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ; boards 1-21, dots-left stage 1
 elroy2_tbl: .byte 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ; stage 2 = half
+; fruit paths maze 1: 12-byte records (startx,starty,corner,nruns, then 4 dir,count pairs)
+fruit1_cycle: .byte 3, 9, 2, 4, 1, 9, 0, 4
+fruit1_paths:
+        .byte 0, 6, 0, 4, 3, 3, 2, 2, 3, 6, 2, 1
+        .byte 27, 6, 1, 4, 1, 3, 2, 2, 1, 6, 2, 1
+        .byte 0, 14, 3, 2, 3, 9, 0, 1, 0, 0, 0, 0
+        .byte 27, 14, 2, 2, 1, 9, 0, 1, 0, 0, 0, 0
 maze1_map:
         .byte $FF, $FF, $FF, $FF, $FF, $FF, $FF, $57, $55, $55, $7D, $55, $55, $D5, $FB, $DF
         .byte $FF, $7D, $FF, $F7, $EF, $57, $55, $55, $55, $55, $55, $D5, $7F, $FF, $F7, $FF

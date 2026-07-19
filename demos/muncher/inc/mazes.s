@@ -79,7 +79,78 @@ up4:    lda     PTR2
         inc     PTR2+1
 up5:    dex
         bne     up1
+        ; record the (up to 4) energizer cells for the blink task
+        lda     #0
+        sta     ecnt
+        sta     mrow
+esr:    ldx     mrow            ; PTR = dots row
+        lda     m28_lo,x
+        clc
+        adc     #<dots
+        sta     PTR
+        lda     m28_hi,x
+        adc     #>dots
+        sta     PTR+1
+        ldy     #0
+esc:    lda     (PTR),y
+        cmp     #2
+        bne     es1
+        ldx     ecnt
+        cpx     #4
+        bcs     es1
+        tya
+        sta     ecx,x
+        lda     mrow
+        sta     ecy,x
+        inc     ecnt
+es1:    iny
+        cpy     #MAZE_W
+        bne     esc
+        inc     mrow
+        lda     mrow
+        cmp     #MAZE_H
+        bne     esr
         rts
+
+; ---- eflash: blink uneaten energizers (~2 Hz). Runs first in the play
+; tick so actor draws land on top. ----
+eflash: lda     tickcnt
+        and     #15
+        beq     ef0
+        rts
+ef0:    lda     ephase
+        eor     #1
+        sta     ephase
+        ldx     #0
+ef1:    cpx     ecnt
+        bcs     ef_done
+        ldy     ecy,x           ; still uneaten?
+        lda     m28_lo,y
+        clc
+        adc     #<dots
+        sta     PTR
+        lda     m28_hi,y
+        adc     #>dots
+        sta     PTR+1
+        ldy     ecx,x
+        lda     (PTR),y
+        cmp     #2
+        bne     ef2
+        ldy     ecy,x
+        lda     rowscr_lo,y
+        sta     PTR
+        lda     rowscr_hi,y
+        sta     PTR+1
+        lda     ephase
+        beq     efb
+        lda     #G_BALL
+        bne     efp
+efb:    lda     #G_SPACE
+efp:    ldy     ecx,x
+        sta     (PTR),y
+ef2:    inx
+        bne     ef1
+ef_done:rts
 
 ; ---- draw_maze: render dots[] to the screen in the style in mstyle ----
 ; mstyle: 0 = line-and-arc walls, 1 = checkerboard fill, 2 = solid fill.
@@ -334,6 +405,10 @@ mrow:      .res 1
 cur_maze:  .res 1
 mtmp:      .res 1
 mstyle:    .res 1
+ecx:       .res 4
+ecy:       .res 4
+ecnt:      .res 1
+ephase:    .res 1
 rowbuf_p:  .res 28
 rowbuf_c:  .res 28
 rowbuf_n:  .res 28

@@ -99,7 +99,8 @@ bclr:   jsr     boardclr_tick   ; game_state 4
         jmp     loop
 title:  jsr     title_tick      ; game_state 5
         jmp     loop
-playing:lda     keybuf          ; the key latched at the top of the tick
+playing:jsr     eflash          ; energizers blink under everything
+        lda     keybuf          ; the key latched at the top of the tick
         jsr     player_input
         jsr     player_tick
         jsr     ghosts_tick

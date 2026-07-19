@@ -128,10 +128,8 @@ fo1:    lda     gstate,x
         bne     fo2
         lda     #GST_FRIGHT
         sta     gstate,x
-        lda     #G_RING
-        sta     aglyph,x
-        lda     #0
-        sta     arev,x
+        lda     #G_RING+128     ; reversed: SHE is the only non-reverse
+        sta     aglyph,x        ; actor, even mid-step
 fo2:    inx
         cpx     #5
         bne     fo1
@@ -168,7 +166,11 @@ ft3:    lda     gstate,x
         lsr
         lsr                     ; /16 ~ 14-jiffy-ish phase, cheap and steady
         and     #1
-        sta     arev,x
+        beq     ftw
+        lda     #G_RING         ; white flash frame
+        bne     ftw2
+ftw:    lda     #G_RING+128
+ftw2:   sta     aglyph,x
 ft4:    inx
         cpx     #5
         bne     ft3
@@ -889,12 +891,12 @@ dth1:   cmp     #45
 dth2:   lda     death_t
         cmp     #109
         bcs     dth3
-        lsr                     ; spin: mouth glyph rotates every 8 jiffies
+        lsr                     ; spin: jaw glyph rotates every 8 jiffies
         lsr
         lsr
         and     #3
         tay
-        lda     mouthtbl,y
+        lda     mouthtblA,y
         jmp     dth_paint
 dth3:   cmp     #141
         bcs     dth_respawn

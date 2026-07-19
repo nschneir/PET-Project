@@ -22,7 +22,6 @@ steps:
   - assert: { mem: dots_left, equals: [178, 0] }  # checker-verified count
   - assert: { mem: "@0,0",  equals: [85] }  # border corner renders as arc
   - assert: { mem: "@1,1",  equals: [46] }  # corridor dot
-  - assert: { mem: "@2,1",  equals: [81] }  # energizer ball
   - assert: { mem: "@10,13", equals: [64] } # ghost-house door lintel
   - assert: { mem: "@11,13", equals: [97] } # Pixie waiting in the house
                                             # (boot is deterministic: gon=0)
@@ -271,8 +270,8 @@ steps:
   - poke:  { addr: eat_ev, values: [2] }
   - until: { ref: tick, count: 1 }
   - assert: { mem: gstate, equals: [0, 2] }          # frightened
-  - assert: { mem: aglyph, equals: [81, 87] }        # hollow ring
-  - assert: { mem: arev, equals: [0, 0] }
+  - assert: { mem: aglyph, equals: [81, 215] }       # reversed hollow ring
+  - assert: { mem: arev, equals: [0, 1] }            # ghosts stay reversed
   - assert: { mem: frite_t, equals: [103, 1] }       # 360, one tick gone
   - assert: { mem: adir, equals: [4, 3] }            # reversed by the pellet
   - until: { ref: tick, count: 10 }

@@ -69,9 +69,9 @@ ft_moved:
         ora     ay,x
         and     #1
         bne     ft_coll
-        lda     arev,x
-        eor     #1
-        sta     arev,x
+        lda     aglyph,x
+        eor     #$80
+        sta     aglyph,x
 ft_coll:; eaten? same half-cell as the player, or swapped past her
         lda     ax+5
         cmp     ax
@@ -221,8 +221,9 @@ fl5:    ; pick the board's fruit and go
         jsr     fruit_pick
         ldx     #5
         sta     aglyph,x
+        lda     #1
+        sta     arev,x          ; blob style: everything non-player reverses
         lda     #0
-        sta     arev,x
         sta     aacc,x
         sta     apause,x
         sta     fsteps

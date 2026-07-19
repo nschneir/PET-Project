@@ -160,17 +160,25 @@ pt_landchk:
         beq     pt_dot
         cmp     #2
         beq     pt_ener
-pt_anim:lda     pchomp          ; chomp: alternate ball / open-mouth glyph
-        eor     #1
+pt_anim:lda     pchomp          ; chomp cycle: ball, upper jaw, ball,
+        clc                     ; lower jaw — triangle wedges toward the
+        adc     #1              ; direction of travel
+        and     #3
         sta     pchomp
+        and     #1
         bne     pt_mouth
         lda     #G_BALL
         sta     aglyph
         jmp     pt_paint
 pt_mouth:
         ldy     adir
-        lda     mouthtbl,y
-        sta     aglyph
+        lda     pchomp
+        cmp     #1
+        beq     ptmA
+        lda     mouthtblB,y
+        jmp     ptm2
+ptmA:   lda     mouthtblA,y
+ptm2:   sta     aglyph
 pt_paint:                       ; repaint in place so the chomp shows the
         jsr     blob_addr       ; frame she LANDED, not one step late
         lda     aglyph
@@ -218,8 +226,9 @@ dd2:    rts
 opptbl:  .byte  DIR_DOWN, DIR_RIGHT, DIR_UP, DIR_LEFT, DIR_NONE
 pspd_norm:  .byte $40, $48, $50, $48   ; 80/90/100/90% by board class
 pspd_fright:.byte $48, $4C, $50, $48   ; her blue-time boost 90/95/100/90
-mouthtbl:.byte  G_HALF_B, G_HALF_R, G_HALF_T, G_HALF_L, G_BALL
-         ; mouth opens toward travel: the missing half faces the direction
+; jaw frames (filled diagonal triangles): the wedge opens toward travel
+mouthtblA:.byte  95, 223, 105, 105, G_BALL   ; up,left,down,right,none
+mouthtblB:.byte 233, 233, 223,  95, G_BALL
 
         .segment "BSS"
 pwant:  .res 1                  ; buffered wanted direction

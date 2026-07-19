@@ -156,8 +156,10 @@ tt3:    cmp     #K_1
         cmp     #K_3+1
         bcs     tt4
         sec
-        sbc     #K_1-1          ; act number 1-3
-        sta     act_req
+        sbc     #K_1-1          ; act number 1-3: play it right now
+        ldx     #0
+        stx     act_from
+        jmp     act_enter
 tt4:    ; after ~15 s of title, roll the attract demo
         lda     title_t+1
         cmp     #>900
@@ -357,8 +359,10 @@ S_CTRL    = 8
 S_HSTITLE = 9
 strs_lo: .byte <s_title,<s_with,<s_bruiser,<s_pixie,<s_ivy,<s_sable
          .byte <s_starring,<s_msmunch,<s_ctrl,<s_hstitle
+         .byte <s_act1,<s_act2,<s_act3
 strs_hi: .byte >s_title,>s_with,>s_bruiser,>s_pixie,>s_ivy,>s_sable
          .byte >s_starring,>s_msmunch,>s_ctrl,>s_hstitle
+         .byte >s_act1,>s_act2,>s_act3
 ; static layout records: screen addr lo/hi + string id, $FF end
 ttl_recs:
         .byte <(SCREEN+1*40+14), >(SCREEN+1*40+14), S_TITLE

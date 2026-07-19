@@ -264,9 +264,12 @@ boardclr_tick:
         inc     death_t         ; reuse the sequence timer
         lda     death_t
         cmp     #16
-        bcc     bc_flash
-        cmp     #60
-        bcc     bc_wait
+        bcs     :+
+        jmp     bc_flash
+:       cmp     #60
+        bcs     :+
+        jmp     bc_wait
+:
         lda     #0              ; next board
         sta     death_t
         sta     game_state
@@ -276,7 +279,33 @@ boardclr_tick:
         bcc     bc1
         lda     #21             ; tables saturate; the game runs forever
         sta     board
-bc1:    jsr     maze_select
+bc1:    lda     board           ; an intermission due? (after the board
+        sec                     ; just cleared: 2, 5, 9, then every 4th
+        sbc     #1              ; from 13 — spec §10/§15)
+        cmp     #2
+        bne     bca1
+        lda     #1
+        jmp     bc_act
+bca1:   cmp     #5
+        bne     bca2
+        lda     #2
+        jmp     bc_act
+bca2:   cmp     #9
+        beq     bca3
+        cmp     #13
+        bcc     bc_setup
+        sec
+        sbc     #13
+        and     #3
+        bne     bc_setup
+bca3:   lda     #3
+bc_act: ldx     #1
+        stx     act_from
+        jmp     act_enter
+
+; bc_setup: stage the (already incremented) board — also the act epilogue
+bc_setup:
+        jsr     maze_select
         jsr     unpack_maze
         jsr     draw_maze
         jsr     init_actors

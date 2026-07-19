@@ -86,7 +86,11 @@ tick:   lda     KEYDOWN         ; read FIRST, before the IRQ rewrites it
         beq     bclr
         dey
         beq     title
-        jsr     demo_tick       ; game_state 6
+        dey
+        beq     demo
+        jsr     act_tick        ; game_state 7
+        jmp     loop
+demo:   jsr     demo_tick       ; game_state 6
         jmp     loop
 bclr:   jsr     boardclr_tick   ; game_state 4
         jmp     loop
@@ -140,6 +144,7 @@ banner: ldx     #0
         .include "inc/hud.s"
         .include "inc/sound.s"
         .include "inc/ui.s"
+        .include "inc/cutscenes.s"
 
         .segment "RODATA"
 bantxt: .byte   13,19,46,32,13,21,14,3,8,5,18,0   ; "MS. MUNCHER"

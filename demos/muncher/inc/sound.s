@@ -16,6 +16,9 @@ FX_GHOST  = 6
 FX_EXTRA  = 7
 FX_JINGLE = 8
 FX_DEATH  = 9
+FX_ACT1   = 10
+FX_ACT2   = 11
+FX_ACT3   = 12
 FX_NONE   = $FF
 
         .segment "CODE"
@@ -175,11 +178,11 @@ sm2:    sty     snd_cur
 sm3:    rts
 
         .segment "RODATA"
-prio:   .byte 1, 2, 3, 5, 9, 10, 12, 11, 14, 15
+prio:   .byte 1, 2, 3, 5, 9, 10, 12, 11, 14, 15, 14, 14, 14
 fxoff:  .byte t_siren1-fxdata, t_warble-fxdata, t_hum-fxdata
         .byte t_munch1-fxdata, t_ener-fxdata, t_fruit-fxdata
         .byte t_ghost-fxdata, t_extra-fxdata, t_jingle-fxdata
-        .byte t_death-fxdata
+        .byte t_death-fxdata, t_act1-fxdata, t_act2-fxdata, t_act3-fxdata
 ; (period, jiffies) pairs, 0-terminated. Original phrases. All tables
 ; live inside one <256-byte blob so the sequencer indexes with a byte.
 fxdata:
@@ -196,6 +199,9 @@ t_ghost:  .byte 112,4,  86,4,  64,6, 0
 t_extra:  .byte  92,4,  72,4,  56,4,  44,10, 0
 t_jingle: .byte 150,8, 112,8, 94,8, 74,12, 94,6, 74,6, 62,20, 0
 t_death:  .byte  78,6,  92,6, 108,6, 128,8, 156,10, 200,16, 0
+t_act1:   .byte 120,10, 100,10, 90,14, 100,10, 84,10, 76,18, 90,10, 76,10, 68,24, 0
+t_act2:   .byte  84,5,  70,5,  62,5,  70,5,  84,5,  70,5,  56,10, 84,5, 62,10, 0
+t_act3:   .byte 140,12, 120,12, 132,12, 112,16, 124,12, 100,24, 0
 
         .segment "BSS"
 snd_cur:.res 1

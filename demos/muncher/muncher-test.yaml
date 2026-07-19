@@ -527,7 +527,13 @@ steps:
   - poke:  { addr: game_state, values: [4] }
   - poke:  { addr: death_t, values: [60] }
   - poke:  { addr: board, values: [2] }
+  - poke:  { addr: "$97", values: [255] }
   - until: { ref: tick, count: 1 }
+  - assert: { mem: game_state, equals: [7] }         # Act 1 plays first!
+  - assert: { mem: act_no, equals: [1] }
+  - poke:  { addr: "$97", values: [32] }             # skip the act
+  - until: { ref: tick, count: 2 }
+  - assert: { mem: game_state, equals: [0] }
   - assert: { mem: board, equals: [3] }
   - assert: { mem: cur_maze, equals: [2] }           # rounds 3-5: maze 2
   - assert: { mem: mstyle, equals: [2] }             # solid walls
@@ -535,26 +541,42 @@ steps:
   - poke:  { addr: game_state, values: [4] }
   - poke:  { addr: death_t, values: [60] }
   - poke:  { addr: board, values: [5] }
+  - poke:  { addr: "$97", values: [255] }
   - until: { ref: tick, count: 1 }
+  - assert: { mem: act_no, equals: [2] }
+  - poke:  { addr: "$97", values: [32] }
+  - until: { ref: tick, count: 2 }
   - assert: { mem: cur_maze, equals: [3] }           # rounds 6-9: maze 3
   - assert: { mem: mstyle, equals: [1] }             # checkerboard
   - assert: { mem: dots_left, equals: [186, 0] }
   - poke:  { addr: game_state, values: [4] }
   - poke:  { addr: death_t, values: [60] }
   - poke:  { addr: board, values: [9] }
+  - poke:  { addr: "$97", values: [255] }
   - until: { ref: tick, count: 1 }
+  - assert: { mem: act_no, equals: [3] }
+  - poke:  { addr: "$97", values: [32] }
+  - until: { ref: tick, count: 2 }
   - assert: { mem: cur_maze, equals: [4] }           # rounds 10-13: maze 4
   - assert: { mem: mstyle, equals: [3] }             # sharp-line walls
   - poke:  { addr: game_state, values: [4] }
   - poke:  { addr: death_t, values: [60] }
   - poke:  { addr: board, values: [13] }
+  - poke:  { addr: "$97", values: [255] }
   - until: { ref: tick, count: 1 }
+  - assert: { mem: act_no, equals: [3] }
+  - poke:  { addr: "$97", values: [32] }
+  - until: { ref: tick, count: 2 }
   - assert: { mem: cur_maze, equals: [3] }           # 14-17: maze 3 shape...
   - assert: { mem: mstyle, equals: [3] }             # ...in maze 4's clothes
   - poke:  { addr: game_state, values: [4] }
   - poke:  { addr: death_t, values: [60] }
   - poke:  { addr: board, values: [17] }
+  - poke:  { addr: "$97", values: [255] }
   - until: { ref: tick, count: 1 }
+  - assert: { mem: act_no, equals: [3] }
+  - poke:  { addr: "$97", values: [32] }
+  - until: { ref: tick, count: 2 }
   - assert: { mem: cur_maze, equals: [4] }           # 18-21: maze 4 shape...
   - assert: { mem: mstyle, equals: [1] }             # ...recoloured too
   # --- T12: attract cycle: title -> demo -> (demo death) -> title ---

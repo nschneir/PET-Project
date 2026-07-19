@@ -43,6 +43,17 @@ start:  cld
         sta     gameover_ev
         jsr     ghost_init
         jsr     fruit_init
+        jsr     hs_seed
+        lda     #0
+        sta     score
+        sta     score+1
+        sta     score+2
+        sta     hiscore
+        sta     hiscore+1
+        sta     hiscore+2
+        sta     extra_given
+        sta     pop_t
+        jsr     hud_init
         lda     #0              ; the ghost world sleeps until a game
         sta     gon             ; actually starts (T12 title flow); tests
                                 ; and players enable it explicitly
@@ -64,13 +75,32 @@ tick:   lda     KEYDOWN
         beq     :+              ; no key: keep last echo (sticky for tests)
         sta     SCREEN+999      ; debug echo cell @24,39 — raw byte on purpose
 :       ldy     game_state
-        bne     dying
-        jsr     player_input    ; A still holds the key-down byte
+        beq     playing
+        dey
+        beq     dying
+        dey
+        beq     gover
+        dey
+        beq     inits
+        jsr     boardclr_tick   ; game_state 4
+        jmp     loop
+playing:jsr     player_input    ; A still holds the key-down byte
         jsr     player_tick
         jsr     ghosts_tick
         jsr     fruit_tick
-        jmp     loop
+        jsr     popup_tick
+        lda     gon             ; parked pre-game limbo: SPACE starts
+        bne     :+
+        lda     KEYDOWN
+        cmp     #K_SP
+        bne     :+
+        jsr     newgame
+:       jmp     loop
 dying:  jsr     death_tick
+        jmp     loop
+gover:  jsr     gameover_tick
+        jmp     loop
+inits:  jsr     initials_tick
         jmp     loop
 
 pace:   lda     JIFFLO
@@ -104,6 +134,7 @@ banner: ldx     #0
         .include "inc/player.s"
         .include "inc/ghosts.s"
         .include "inc/fruit.s"
+        .include "inc/hud.s"
 
         .segment "RODATA"
 bantxt: .byte   13,19,46,32,13,21,14,3,8,5,18,0   ; "MS. MUNCHER"

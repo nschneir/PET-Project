@@ -352,7 +352,17 @@ ck_eat: lda     #GST_EYES       ; frightened ghost eaten
         sta     aglyph,x
         lda     #0
         sta     arev,x
-        inc     fchain          ; 200/400/800/1600 chain (scored in T9)
+        inc     fchain          ; 200/400/800/1600 chain
+        lda     fchain
+        cmp     #5
+        bcc     ce1
+        lda     #4              ; (5th+ can't happen; clamp anyway)
+ce1:    clc
+        adc     #SC_GH1-1
+        pha
+        jsr     addscore
+        pla
+        jsr     popup_at        ; show the value where the ghost was
         lda     #30             ; the arcade's little gulp freeze
         sta     apause
         sta     apause+1
@@ -893,10 +903,15 @@ dth_respawn:
         lda     dsave           ; put back whatever she died on
         sta     (PTR2),y
         dec     lives
+        jsr     drawlives
+        lda     lives
         bne     dtr1
-        inc     gameover_ev     ; T12 turns this into the GAME OVER flow
-        lda     #3
-        sta     lives
+        inc     gameover_ev
+        lda     #2              ; out of lives: the GAME OVER flow
+        sta     game_state
+        lda     #0
+        sta     death_t
+        rts
 dtr1:   jsr     player_init
         jsr     ghost_init
         lda     #1

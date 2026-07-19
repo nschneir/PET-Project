@@ -150,16 +150,20 @@ pt_dot: lda     #0              ; eat: clear the cell, fix the save-under
         sta     asave0
         lda     #1
         sta     apause          ; the arcade per-dot chew stall
+        lda     #SC_DOT
+        jsr     addscore
         jsr     dec_dots
         jmp     pt_anim
 pt_ener:lda     #0
         sta     (PTR),y
         lda     #2
-        sta     eat_ev          ; eat_ev=2: energizer (T7 wires frightened)
+        sta     eat_ev          ; eat_ev=2: energizer (frightened flow)
         lda     #G_SPACE
         sta     asave0
         lda     #3
         sta     apause
+        lda     #SC_ENER
+        jsr     addscore
         jsr     dec_dots
         jmp     pt_anim
 
@@ -168,7 +172,14 @@ dec_dots:
         bne     dd1
         dec     dots_left+1
 dd1:    dec     dots_left
-        rts
+        lda     dots_left
+        ora     dots_left+1
+        bne     dd2
+        lda     #4              ; board cleared: celebrate + next board
+        sta     game_state
+        lda     #0
+        sta     death_t
+dd2:    rts
 
         .segment "RODATA"
 opptbl:  .byte  DIR_DOWN, DIR_RIGHT, DIR_UP, DIR_LEFT, DIR_NONE

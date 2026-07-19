@@ -425,3 +425,70 @@ steps:
   - assert: { mem: fruit_ev, equals: [1] }           # she got the cherry
   - assert: { mem: factive, equals: [0] }
   - assert: { mem: fkind, equals: [0] }              # board 1 = cherry
+  # --- T9: scoring, extra life, game over -> initials -> table ---
+  # BCD dot score: reset, stand next to a dot on row 23, eat it
+  - poke:  { addr: score, values: [0, 0, 0] }
+  - poke:  { addr: hiscore, values: [0, 0, 0] }
+  - poke:  { addr: extra_given, values: [0] }
+  - poke:  { addr: lives, values: [3] }
+  - poke:  { addr: ax, values: [4] }                 # (2,23) centre
+  - poke:  { addr: ay, values: [46] }
+  - poke:  { addr: adir, values: [3] }
+  - poke:  { addr: pwant, values: [3] }
+  - poke:  { addr: aacc, values: [0] }
+  - poke:  { addr: apause, values: [0] }
+  - poke:  { addr: aspd, values: [128] }
+  - until: { ref: tick, count: 5 }                   # lands (3,23): a dot
+  - assert: { mem: score, equals: [16, 0, 0] }       # BCD $10 = 10 points
+  - assert: { mem: hiscore, equals: [16, 0, 0] }     # hiscore chased it
+  # extra life exactly once at 10,000
+  - poke:  { addr: score, values: [144, 153, 0] }    # BCD 9990
+  - poke:  { addr: aspd, values: [128] }
+  - until: { ref: tick, count: 8 }                   # eats the next dot
+  - assert: { mem: score, equals: [0, 0, 1] }        # BCD 010000
+  - assert: { mem: lives, equals: [4] }
+  - assert: { mem: extra_given, equals: [1] }
+  - assert: { mem: "@11,29", equals: [81] }          # 4th life ball in HUD
+  # game over -> initials entry (score 010000 beats the seeded 5000)
+  - poke:  { addr: lives, values: [1] }
+  - poke:  { addr: gon, values: [1] }
+  - poke:  { addr: glimit, values: [99, 99, 99, 99, 99] }
+  - poke:  { addr: gtimeout, values: [255, 200] }
+  - poke:  { addr: sched_state, values: [3] }
+  - poke:  { addr: sched_t, values: [16, 239] }
+  - poke:  { addr: frite_t, values: [0, 0] }
+  - poke:  { addr: game_state, values: [0] }
+  - poke:  { addr: death_t, values: [0] }
+  - poke:  { addr: gstate, values: [0, 1, 0, 0, 0] }
+  - poke:  { addr: gdecx, values: [255, 255, 255, 255, 255] }
+  - poke:  { addr: gdecy, values: [255, 255, 255, 255, 255] }
+  - poke:  { addr: ahid, values: [0, 0, 0, 0, 0] }
+  - poke:  { addr: adir,  values: [4, 1, 4, 4, 4] }
+  - poke:  { addr: ax, values: [18, 22] }            # her (9,13); him (11,13)
+  - poke:  { addr: ay, values: [26, 26] }
+  - poke:  { addr: aacc, values: [0, 0] }
+  - poke:  { addr: apause, values: [0, 0] }
+  - poke:  { addr: aspd, values: [0, 60] }
+  - poke:  { addr: pwant, values: [4] }
+  - until: { ref: tick, count: 30 }
+  - assert: { mem: game_state, equals: [1] }         # dying on her last life
+  - until: { ref: tick, count: 145 }
+  - assert: { mem: game_state, equals: [2] }         # GAME OVER screen
+  - until: { ref: tick, count: 155 }
+  - assert: { mem: game_state, equals: [3] }         # qualified: initials
+  # entry: W (A->B), D (next slot), SPACE (confirm) -> table rank 0
+  - poke:  { addr: "$97", values: [87] }             # W
+  - until: { ref: tick, count: 2 }
+  - poke:  { addr: "$97", values: [255] }            # release
+  - until: { ref: tick, count: 2 }
+  - poke:  { addr: "$97", values: [68] }             # D
+  - until: { ref: tick, count: 2 }
+  - poke:  { addr: "$97", values: [255] }
+  - until: { ref: tick, count: 2 }
+  - poke:  { addr: "$97", values: [32] }             # SPACE: commit
+  - until: { ref: tick, count: 3 }
+  - assert: { mem: hs_sc, equals: [0, 0, 1] }        # rank 0 = our 010000
+  - assert: { mem: hs_nm, equals: [2, 1, 1] }        # "BAA"
+  - assert: { mem: game_state, equals: [0] }         # fresh game running
+  - assert: { mem: board, equals: [1] }
+  - assert: { mem: score, equals: [0, 0, 0] }

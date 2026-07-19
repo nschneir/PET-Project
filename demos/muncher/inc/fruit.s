@@ -93,11 +93,19 @@ fc1:    lda     ax+5
         beq     ft_eat
 ftk_out: rts
 ft_eat: ldx     #5
+        lda     fkind
+        clc
+        adc     #SC_FRUIT
+        pha
+        jsr     popup_at        ; value at the fruit's cell (before erase)
+        pla
+        jsr     addscore
+        ldx     #5
         jsr     erase_blob
         lda     #0
         sta     factive
         lda     #1
-        sta     fruit_ev        ; T9 scores it and pops the value
+        sta     fruit_ev
         rts
 
 fspawn_chk:                     ; no fruit afield: is one due?

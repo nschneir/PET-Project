@@ -54,9 +54,7 @@ start:  cld
         sta     pop_t
         jsr     hud_init
         jsr     snd_init
-        lda     #0              ; the ghost world sleeps until a game
-        sta     gon             ; actually starts (T12 title flow); tests
-                                ; and players enable it explicitly
+        jsr     title_enter     ; boot lands on the attract title
         lda     #0
         sta     tickcnt
         sta     tickcnt+1
@@ -84,7 +82,15 @@ tick:   lda     KEYDOWN         ; read FIRST, before the IRQ rewrites it
         beq     gover
         dey
         beq     inits
-        jsr     boardclr_tick   ; game_state 4
+        dey
+        beq     bclr
+        dey
+        beq     title
+        jsr     demo_tick       ; game_state 6
+        jmp     loop
+bclr:   jsr     boardclr_tick   ; game_state 4
+        jmp     loop
+title:  jsr     title_tick      ; game_state 5
         jmp     loop
 playing:lda     keybuf          ; the key latched at the top of the tick
         jsr     player_input
@@ -92,13 +98,7 @@ playing:lda     keybuf          ; the key latched at the top of the tick
         jsr     ghosts_tick
         jsr     fruit_tick
         jsr     popup_tick
-        lda     gon             ; parked pre-game limbo: SPACE starts
-        bne     :+
-        lda     KEYDOWN
-        cmp     #K_SP
-        bne     :+
-        jsr     newgame
-:       jmp     loop
+        jmp     loop
 dying:  jsr     death_tick
         jmp     loop
 gover:  jsr     gameover_tick
@@ -139,6 +139,7 @@ banner: ldx     #0
         .include "inc/fruit.s"
         .include "inc/hud.s"
         .include "inc/sound.s"
+        .include "inc/ui.s"
 
         .segment "RODATA"
 bantxt: .byte   13,19,46,32,13,21,14,3,8,5,18,0   ; "MS. MUNCHER"

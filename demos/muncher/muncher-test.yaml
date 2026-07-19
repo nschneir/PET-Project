@@ -6,8 +6,12 @@ program: muncher.s
 timeout: 45
 steps:
   # --- T0: scaffold heartbeat + input path ---
-  - wait:  { text: "MS. MUNCHER" }
+  - wait:  { text: "MS. MUNCHER" }          # the title screen (T12)
   - until: { ref: tick }                    # anchor: stopped at loop top
+  - assert: { mem: game_state, equals: [5] }  # attract title showing
+  - poke:  { addr: "$97", values: [32] }    # SPACE starts a game
+  - until: { ref: tick, count: 2 }
+  - assert: { mem: game_state, equals: [0] }
   - poke:  { addr: gon, values: [0] }       # freeze the ghost world for the
   - poke:  { addr: tickcnt, values: [0, 0] }  # engine/player blocks below
   - poke:  { addr: "$97", values: [68] }    # hold D (PETSCII $44)
@@ -553,3 +557,21 @@ steps:
   - until: { ref: tick, count: 1 }
   - assert: { mem: cur_maze, equals: [4] }           # 18-21: maze 4 shape...
   - assert: { mem: mstyle, equals: [1] }             # ...recoloured too
+  # --- T12: attract cycle: title -> demo -> (demo death) -> title ---
+  - poke:  { addr: game_state, values: [5] }
+  - poke:  { addr: title_t, values: [126, 3] }       # 2 ticks shy of 900
+  - poke:  { addr: demo_mode, values: [0] }
+  - poke:  { addr: "$97", values: [255] }
+  - until: { ref: tick, count: 6 }
+  - assert: { mem: game_state, equals: [6] }         # rolled into the demo
+  - assert: { mem: demo_mode, equals: [1] }
+  - assert: { mem: rng, equals: [119, 49] }          # fixed demo seed
+  - until: { ref: tick, count: 1100 }                # demo plays itself out
+  - assert: { mem: game_state, equals: [5] }         # back on the title
+  - assert: { mem: "@17,7", equals: [23] }           # controls line: 'W'
+  - assert: { mem: "@19,14", equals: [8] }           # HIGH SCORES header 'H'
+  # SPACE on the title starts a real game again
+  - poke:  { addr: "$97", values: [32] }
+  - until: { ref: tick, count: 2 }
+  - assert: { mem: game_state, equals: [0] }
+  - assert: { mem: gon, equals: [1] }

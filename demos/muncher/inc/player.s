@@ -70,6 +70,16 @@ player_tick:
 pt_turn:lda     pwant
         cmp     #DIR_NONE
         beq     pt_step         ; nothing wanted yet
+        lda     adir
+        cmp     #DIR_NONE
+        bne     pt_turn2
+        ldy     pwant           ; parked (game/respawn start): any legal
+        jsr     canmove_dir     ; wanted direction gets her moving
+        bcs     pt_step
+        lda     pwant
+        sta     adir
+        jmp     pt_step
+pt_turn2:
         lda     ax              ; perpendicular turn: only at a centre
         ora     ay
         and     #1

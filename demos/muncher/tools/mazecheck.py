@@ -204,13 +204,16 @@ def emit(mazes, inc_path):
             f"MAZE{n}_FRUIT1_EATEN = {scale(64, maze.dots, spec['arcade_dots'])}",
             f"MAZE{n}_FRUIT2_LEFT = {scale(66, maze.dots, spec['arcade_dots'])}",
         ]
-    if set(mazes) == set(MAZES):  # Elroy tables need every maze's dot ratio
-        e1 = [scale(ELROY1_BY_BOARD[b], mazes[BOARD_MAZE[b]].dots,
-                    MAZES[BOARD_MAZE[b]]["arcade_dots"]) for b in range(1, 22)]
-        lines.append("elroy1_tbl: .byte " + ", ".join(map(str, e1))
-                     + " ; boards 1-21, dots-left stage 1")
-        lines.append("elroy2_tbl: .byte " + ", ".join(str(v // 2) for v in e1)
-                     + " ; stage 2 = half")
+    # Elroy thresholds scale by each board's maze ratio; boards whose maze
+    # is not authored yet emit 0 (= elroy off) and fill in on re-run.
+    e1 = [scale(ELROY1_BY_BOARD[b], mazes[BOARD_MAZE[b]].dots,
+                MAZES[BOARD_MAZE[b]]["arcade_dots"])
+          if BOARD_MAZE[b] in mazes else 0 for b in range(1, 22)]
+    lines.append("elroy1_tbl: .byte " + ", ".join(map(str, e1))
+                 + " ; boards 1-21, dots-left stage 1")
+    e2 = [max(v // 2, 1) if v else 0 for v in e1]
+    lines.append("elroy2_tbl: .byte " + ", ".join(map(str, e2))
+                 + " ; stage 2 = half")
     for n, maze in sorted(mazes.items()):
         packed = pack(maze)
         lines.append(f"maze{n}_map:")

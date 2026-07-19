@@ -98,6 +98,8 @@ steps:
   - poke:  { addr: sched_state, values: [3] }
   - poke:  { addr: sched_t, values: [16, 239] }
   - poke:  { addr: gstate, values: [0, 1, 0, 0, 0] }
+  - poke:  { addr: gdecx, values: [255, 255, 255, 255, 255] }
+  - poke:  { addr: gdecy, values: [255, 255, 255, 255, 255] }
   - poke:  { addr: aspd,  values: [0, 60, 0, 0, 0] }
   - poke:  { addr: adir,  values: [4, 1, 4, 4, 4] }
   - poke:  { addr: pwant, values: [4] }
@@ -108,6 +110,8 @@ steps:
   # (A2) Pixie's 4-ahead with the up-quirk: player facing UP at (9,13)
   # quirk target (5,9) -> LEFT beats down (10 vs 16); no-quirk would pick down
   - poke:  { addr: gstate, values: [0, 0, 1, 0, 0] }
+  - poke:  { addr: gdecx, values: [255, 255, 255, 255, 255] }
+  - poke:  { addr: gdecy, values: [255, 255, 255, 255, 255] }
   - poke:  { addr: adir,  values: [0, 4, 1, 4, 4] }  # player faces up, parked
   - poke:  { addr: pwant, values: [0] }
   - poke:  { addr: ax, values: [18, 0, 18] }
@@ -118,6 +122,8 @@ steps:
   # (20,13) -> intermediate (9,15), target clamps to (0,17): LEFT on the
   # up/left/down tie-break (direct chase would have picked down)
   - poke:  { addr: gstate, values: [0, 0, 0, 1, 0] }
+  - poke:  { addr: gdecx, values: [255, 255, 255, 255, 255] }
+  - poke:  { addr: gdecy, values: [255, 255, 255, 255, 255] }
   - poke:  { addr: adir,  values: [2, 4, 4, 1, 4] }
   - poke:  { addr: pwant, values: [2] }
   - poke:  { addr: ax, values: [18, 40, 0, 18] }     # Bruiser parked at (20,13)
@@ -127,6 +133,8 @@ steps:
   # (A4) Sable within 8 cells retreats to her corner (1,23): DOWN wins
   # (direct chase from (13,8) would have picked up)
   - poke:  { addr: gstate, values: [0, 0, 0, 0, 1] }
+  - poke:  { addr: gdecx, values: [255, 255, 255, 255, 255] }
+  - poke:  { addr: gdecy, values: [255, 255, 255, 255, 255] }
   - poke:  { addr: adir,  values: [4, 4, 4, 4, 1] }
   - poke:  { addr: pwant, values: [4] }
   - poke:  { addr: ax, values: [26, 40, 0, 0, 18] }  # player (13,8), Sable (9,8)
@@ -137,6 +145,8 @@ steps:
   - poke:  { addr: sched_state, values: [0] }
   - poke:  { addr: sched_t, values: [16, 239] }
   - poke:  { addr: gstate, values: [0, 0, 0, 1, 0] }
+  - poke:  { addr: gdecx, values: [255, 255, 255, 255, 255] }
+  - poke:  { addr: gdecy, values: [255, 255, 255, 255, 255] }
   - poke:  { addr: adir,  values: [4, 4, 4, 1, 4] }
   - poke:  { addr: ax, values: [18, 40, 0, 18] }
   - poke:  { addr: ay, values: [26, 26, 4, 16] }
@@ -147,6 +157,8 @@ steps:
   - poke:  { addr: sched_state, values: [0] }
   - poke:  { addr: sched_t, values: [3, 0] }
   - poke:  { addr: gstate, values: [0, 1, 0, 0, 0] }
+  - poke:  { addr: gdecx, values: [255, 255, 255, 255, 255] }
+  - poke:  { addr: gdecy, values: [255, 255, 255, 255, 255] }
   - poke:  { addr: adir,  values: [4, 1, 4, 4, 4] }
   - poke:  { addr: ax, values: [18, 10] }            # Bruiser mid-corridor (5,8)
   - poke:  { addr: ay, values: [26, 16] }
@@ -161,6 +173,8 @@ steps:
   - poke:  { addr: sched_state, values: [3] }
   - poke:  { addr: sched_t, values: [16, 239] }
   - poke:  { addr: gstate, values: [0, 0, 0, 0, 0] } # everyone housed
+  - poke:  { addr: gdecx, values: [255, 255, 255, 255, 255] }
+  - poke:  { addr: gdecy, values: [255, 255, 255, 255, 255] }
   - poke:  { addr: adir,  values: [4, 4, 4, 4, 4] }
   - poke:  { addr: ax, values: [18, 27, 27, 24, 30] }
   - poke:  { addr: ay, values: [26, 18, 22, 22, 22] }
@@ -178,6 +192,8 @@ steps:
   - assert: { mem: gstate, equals: [0, 0, 1, 4] }    # Ivy exiting
   # (C3) Sable releases on the 4 s no-dot timeout
   - poke:  { addr: gstate, values: [0, 0, 0, 0, 0] } # re-house the others
+  - poke:  { addr: gdecx, values: [255, 255, 255, 255, 255] }
+  - poke:  { addr: gdecy, values: [255, 255, 255, 255, 255] }
   - poke:  { addr: adir,  values: [4, 4, 4, 4, 4] }
   - poke:  { addr: ax, values: [18, 27, 27, 24, 30] }
   - poke:  { addr: ay, values: [26, 18, 22, 22, 22] }
@@ -190,6 +206,8 @@ steps:
   # row 16 (ghosts don't eat) = exactly 214 jiffies
   - poke:  { addr: glimit, values: [0, 0, 0, 30, 60] }     # restore table
   - poke:  { addr: gstate, values: [0, 1, 0, 0, 0] }
+  - poke:  { addr: gdecx, values: [255, 255, 255, 255, 255] }
+  - poke:  { addr: gdecy, values: [255, 255, 255, 255, 255] }
   - poke:  { addr: adir,  values: [4, 3, 4, 4, 4] }
   - poke:  { addr: ax, values: [52, 2] }             # player parked (26,16)
   - poke:  { addr: ay, values: [32, 32] }            # Bruiser starts (1,16)
@@ -199,17 +217,145 @@ steps:
   - assert: { mem: ax, equals: [52, 51] }            # 49 steps after 213
   - until: { ref: tick, count: 1 }
   - assert: { mem: ax, equals: [52, 52] }            # the 50th lands on t=214
-  # (E) tunnel slowdown 40% ($20): col 3 -> mouth -> void, emerges t=88.
-  # The player parks IN the left mouth so the chase target keeps him heading
-  # left along the tunnel row (a parked player elsewhere pulls him off it).
+  # (E) tunnel slowdown 40% ($20): start INSIDE the junction-free run at
+  # (2,6) — every decision is forced-left, so the parked player (far away
+  # at (26,16)) neither steers him nor gets stepped on.
+  # (D ended with the ghost ON her cell: a legitimate kill under T7 rules —
+  # clear the death state it started.)
+  - poke:  { addr: game_state, values: [0] }
+  - poke:  { addr: death_t, values: [0] }
+  - poke:  { addr: lives, values: [3] }
   - poke:  { addr: gstate, values: [0, 1, 0, 0, 0] }
+  - poke:  { addr: gdecx, values: [255, 255, 255, 255, 255] }
+  - poke:  { addr: gdecy, values: [255, 255, 255, 255, 255] }
   - poke:  { addr: adir,  values: [4, 1, 4, 4, 4] }
-  - poke:  { addr: ax, values: [2, 6] }              # player (1,6); Bruiser (3,6)
-  - poke:  { addr: ay, values: [12, 12] }
+  - poke:  { addr: ax, values: [52, 4] }             # player (26,16); Bruiser (2,6)
+  - poke:  { addr: ay, values: [32, 12] }
   - poke:  { addr: aacc, values: [0, 0] }
-  - until: { ref: tick, count: 56 }
+  - until: { ref: tick, count: 40 }
   - assert: { mem: ahid, equals: [0, 4] }            # just entered the void
-  - assert: { mem: ax, equals: [2, 54] }
+  - assert: { mem: ax, equals: [52, 54] }
   - until: { ref: tick, count: 32 }
   - assert: { mem: ahid, equals: [0, 0] }            # emerged on schedule
   - assert: { mem: "@6,27", equals: [130] }          # reverse-video B visible
+  # --- T7: frightened / eyes / collision / death / elroy ---
+  # (F1) energizer event: reversal + blue glyphs + schedule pause; board 1
+  # blue time = 360 jiffies
+  - poke:  { addr: glimit, values: [99, 99, 99, 99, 99] }
+  - poke:  { addr: gtimeout, values: [255, 200] }
+  - poke:  { addr: board, values: [1] }
+  - poke:  { addr: sched_state, values: [3] }
+  - poke:  { addr: sched_t, values: [100, 0] }
+  - poke:  { addr: gstate, values: [0, 1, 0, 0, 0] }
+  - poke:  { addr: gdecx, values: [255, 255, 255, 255, 255] }
+  - poke:  { addr: gdecy, values: [255, 255, 255, 255, 255] }
+  - poke:  { addr: adir,  values: [4, 1, 4, 4, 4] }
+  - poke:  { addr: ax, values: [18, 19] }            # Bruiser mid-step near (9,8)
+  - poke:  { addr: ay, values: [26, 16] }
+  - poke:  { addr: frite_t, values: [0, 0] }
+  - poke:  { addr: eat_ev, values: [2] }
+  - until: { ref: tick, count: 1 }
+  - assert: { mem: gstate, equals: [0, 2] }          # frightened
+  - assert: { mem: aglyph, equals: [81, 87] }        # hollow ring
+  - assert: { mem: arev, equals: [0, 0] }
+  - assert: { mem: frite_t, equals: [103, 1] }       # 360, one tick gone
+  - assert: { mem: adir, equals: [4, 3] }            # reversed by the pellet
+  - until: { ref: tick, count: 10 }
+  - assert: { mem: sched_t, equals: [100, 0] }       # schedule froze
+  # (F2) fright end restores the hunt
+  - poke:  { addr: frite_t, values: [2, 0] }
+  - until: { ref: tick, count: 3 }
+  - assert: { mem: gstate, equals: [0, 1] }
+  - assert: { mem: aglyph, equals: [81, 130] }
+  - assert: { mem: arev, equals: [0, 1] }
+  # (F3) zero-blue board: reversal only, no frightened state
+  - poke:  { addr: board, values: [17] }
+  - poke:  { addr: adir,  values: [4, 1, 4, 4, 4] }
+  - poke:  { addr: ax, values: [18, 19] }
+  - poke:  { addr: ay, values: [26, 16] }
+  - poke:  { addr: eat_ev, values: [2] }
+  - until: { ref: tick, count: 1 }
+  - assert: { mem: gstate, equals: [0, 1] }          # still deadly
+  - assert: { mem: adir, equals: [4, 3] }            # but reversed
+  # (F4) eaten: frightened Bruiser, mid-step half a cell away, lands ON her
+  # before any junction decision can randomise his path -> eyes + gulp freeze
+  - poke:  { addr: board, values: [1] }
+  - poke:  { addr: gstate, values: [0, 2, 0, 0, 0] }
+  - poke:  { addr: gdecx, values: [255, 255, 255, 255, 255] }
+  - poke:  { addr: gdecy, values: [255, 255, 255, 255, 255] }
+  - poke:  { addr: aglyph, values: [81, 87] }
+  - poke:  { addr: frite_t, values: [255, 3] }
+  - poke:  { addr: adir,  values: [4, 1, 4, 4, 4] }  # he heads left toward her
+  - poke:  { addr: ax, values: [20, 21] }            # her (10,13); him half right
+  - poke:  { addr: ay, values: [26, 26] }
+  - poke:  { addr: aacc, values: [0, 0] }
+  - poke:  { addr: apause, values: [0, 0] }
+  - until: { ref: tick, count: 10 }                  # one fright-speed half-step
+  - assert: { mem: gstate, equals: [0, 3] }          # eyes
+  - assert: { mem: aglyph, equals: [81, 34] }        # the two-dot glyph
+  - assert: { mem: fchain, equals: [1] }
+  - assert: { mem: apause, equals: [27] }            # her gulp freeze counting
+  # (F5) eyes race home and re-emerge as a ghost
+  - poke:  { addr: frite_t, values: [0, 0] }         # end blue for the others
+  - until: { ref: tick, count: 500 }
+  - assert: { mem: gstate, equals: [0, 1] }          # back on duty
+  - assert: { mem: aglyph, equals: [81, 130] }
+  # (F6) death: a live ghost touches her; swoon then respawn with the
+  # global house counters armed
+  - poke:  { addr: lives, values: [3] }
+  - poke:  { addr: gstate, values: [0, 1, 0, 0, 0] }
+  - poke:  { addr: gdecx, values: [255, 255, 255, 255, 255] }
+  - poke:  { addr: gdecy, values: [255, 255, 255, 255, 255] }
+  - poke:  { addr: adir,  values: [4, 1, 4, 4, 4] }
+  - poke:  { addr: ax, values: [18, 22] }
+  - poke:  { addr: ay, values: [26, 26] }
+  - poke:  { addr: aacc, values: [0, 0] }
+  - poke:  { addr: apause, values: [0, 0] }
+  - poke:  { addr: sched_t, values: [16, 239] }
+  - until: { ref: tick, count: 30 }                  # ghost at 75% covers 4 half-cells
+  - assert: { mem: game_state, equals: [1] }         # dying
+  - until: { ref: tick, count: 145 }                 # freeze+spin+swoon+respawn
+  - assert: { mem: game_state, equals: [0] }
+  - assert: { mem: lives, equals: [2] }
+  - assert: { mem: ax, equals: [27] }                # back at the start cells
+  - assert: { mem: ay, equals: [38] }
+  - assert: { mem: gdmode, equals: [1] }             # global counters armed
+  - assert: { mem: gstate, equals: [0, 1, 0, 0, 0] } # house re-seeded
+  # (F7) elroy stages from the scaled board-2 table (6 / 3 dots left)
+  - poke:  { addr: gon, values: [1] }
+  - poke:  { addr: glimit, values: [99, 99, 99, 99, 99] }
+  - poke:  { addr: gtimeout, values: [255, 200] }
+  - poke:  { addr: gdmode, values: [0] }
+  - poke:  { addr: board, values: [2] }
+  - poke:  { addr: gstate, values: [0, 1, 0, 0, 0] }
+  - poke:  { addr: gdecx, values: [255, 255, 255, 255, 255] }
+  - poke:  { addr: gdecy, values: [255, 255, 255, 255, 255] }
+  - poke:  { addr: adir,  values: [4, 1, 4, 4, 4] }
+  - poke:  { addr: ax, values: [18, 18] }
+  - poke:  { addr: ay, values: [26, 16] }
+  - poke:  { addr: dots_left, values: [6, 0] }
+  - poke:  { addr: eat_ev, values: [1] }
+  - until: { ref: tick, count: 2 }
+  - assert: { mem: elvl, equals: [1] }
+  - assert: { mem: aspd, equals: [0, 64] }           # $3C + $04
+  - poke:  { addr: dots_left, values: [3, 0] }
+  - poke:  { addr: eat_ev, values: [1] }
+  - until: { ref: tick, count: 2 }
+  - assert: { mem: elvl, equals: [2] }
+  - assert: { mem: aspd, equals: [0, 68] }           # $3C + $08
+  # (F8) swap-past: adjacent opposite-facing, both step, no pass-through
+  - poke:  { addr: board, values: [1] }
+  - poke:  { addr: elvl, values: [0] }
+  - poke:  { addr: dots_left, values: [151, 0] }
+  - poke:  { addr: gstate, values: [0, 1, 0, 0, 0] }
+  - poke:  { addr: gdecx, values: [255, 255, 255, 255, 255] }
+  - poke:  { addr: gdecy, values: [255, 255, 255, 255, 255] }
+  - poke:  { addr: adir,  values: [3, 1, 4, 4, 4] }  # she right, he left
+  - poke:  { addr: pwant, values: [3] }
+  - poke:  { addr: ax, values: [13, 14] }            # half-cell apart, row 3
+  - poke:  { addr: ay, values: [6, 6] }
+  - poke:  { addr: aspd, values: [255, 0] }          # she moves every tick
+  - poke:  { addr: aacc, values: [0, 0] }
+  - poke:  { addr: apause, values: [0, 0] }
+  - until: { ref: tick, count: 2 }
+  - assert: { mem: game_state, equals: [1] }         # caught mid-crossing

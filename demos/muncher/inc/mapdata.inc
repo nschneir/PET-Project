@@ -3,6 +3,8 @@
 MAZE1_DOTS = 178
 MAZE1_FRUIT1_EATEN = 52
 MAZE1_FRUIT2_LEFT = 53
+elroy1_tbl: .byte 0, 6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ; boards 1-21, dots-left stage 1
+elroy2_tbl: .byte 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 ; stage 2 = half
 maze1_map:
         .byte $FF, $FF, $FF, $FF, $FF, $FF, $FF, $57, $55, $55, $7D, $55, $55, $D5, $FB, $DF
         .byte $FF, $7D, $FF, $F7, $EF, $57, $55, $55, $55, $55, $55, $D5, $7F, $FF, $F7, $FF

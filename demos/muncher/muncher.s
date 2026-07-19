@@ -29,6 +29,18 @@ start:  cld
         sta     rng             ; jiffy clock; tests poke their own)
         lda     #$27
         sta     rng+1
+        lda     #1
+        sta     board
+        lda     #3
+        sta     lives
+        lda     #0
+        sta     game_state
+        sta     death_t
+        sta     gdmode
+        sta     frite_t
+        sta     frite_t+1
+        sta     elvl
+        sta     gameover_ev
         jsr     ghost_init
         lda     #0
         sta     tickcnt
@@ -47,9 +59,13 @@ tick:   lda     KEYDOWN
         cmp     #$FF
         beq     :+              ; no key: keep last echo (sticky for tests)
         sta     SCREEN+999      ; debug echo cell @24,39 — raw byte on purpose
-:       jsr     player_input    ; A still holds the key-down byte
+:       ldy     game_state
+        bne     dying
+        jsr     player_input    ; A still holds the key-down byte
         jsr     player_tick
         jsr     ghosts_tick
+        jmp     loop
+dying:  jsr     death_tick
         jmp     loop
 
 pace:   lda     JIFFLO

@@ -95,8 +95,10 @@ addscore:
         beq     as1
         inc     extra_given
         inc     lives
-        inc     fanfare_ev      ; sound hook (T10)
+        inc     fanfare_ev
         jsr     drawlives
+        lda     #FX_EXTRA
+        jsr     snd_play
 as1:    sec                     ; hiscore chases the live score
         lda     hiscore
         sbc     score
@@ -510,7 +512,9 @@ newgame:
         jsr     ghost_init
         jsr     fruit_init
         jsr     hud_init
-        rts
+        jsr     snd_init
+        lda     #FX_JINGLE
+        jmp     snd_play
 
         .segment "RODATA"
 ; BCD point values, 3 bytes each, low first

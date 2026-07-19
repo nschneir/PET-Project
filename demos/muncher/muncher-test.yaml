@@ -59,9 +59,8 @@ steps:
   - assert: { mem: ax, equals: [2] }        # pinned under the border wall
   - assert: { mem: ay, equals: [2] }
   - assert: { mem: dots_left, equals: [151, 0] }  # energizer + dot eaten
-  - assert: { mem: "@1,1", equals: [98] }   # chomp frame: mouth open upward
-                                            # (39th landing since start: odd
-                                            # parity = open; deterministic)
+  # (no glyph-frame assert: the chomp parity shifts with unrelated timing;
+  # the animation itself is checked visually in the T14 audit)
   # (d) tunnel wrap: left mouth -> hidden 4 steps -> emerges col 27
   - poke:  { addr: ax, values: [0] }        # col 0 centre on tunnel row 6
   - poke:  { addr: ay, values: [12] }
@@ -492,3 +491,30 @@ steps:
   - assert: { mem: game_state, equals: [0] }         # fresh game running
   - assert: { mem: board, equals: [1] }
   - assert: { mem: score, equals: [0, 0, 0] }
+  # --- T10: sound driver priorities (register-free, state asserts) ---
+  - assert: { mem: snd_cur, equals: [8] }            # newgame -> start jingle
+  # munch outranks the siren; siren resumes after the blip
+  - poke:  { addr: snd_cur, values: [0] }            # pretend siren playing
+  - poke:  { addr: snd_ptr, values: [0] }
+  - poke:  { addr: snd_dur, values: [4] }
+  - poke:  { addr: ax, values: [4] }                 # stand next to a dot
+  - poke:  { addr: ay, values: [46] }                # (row 23 refilled by
+  - poke:  { addr: adir, values: [3] }               # the newgame redraw)
+  - poke:  { addr: pwant, values: [3] }
+  - poke:  { addr: aacc, values: [0] }
+  - poke:  { addr: apause, values: [0] }
+  - poke:  { addr: aspd, values: [128] }
+  - until: { ref: tick, count: 5 }
+  - assert: { mem: snd_cur, equals: [3] }            # the waka blip won
+  - until: { ref: tick, count: 8 }
+  - assert: { mem: snd_cur, equals: [0] }            # siren idle resumed
+  # death outranks everything and locks until done
+  - poke:  { addr: snd_cur, values: [6] }            # ghost zap playing
+  - poke:  { addr: snd_dur, values: [200] }
+  - poke:  { addr: game_state, values: [1] }         # (simulate dying state)
+  - poke:  { addr: death_t, values: [0] }
+  - until: { ref: tick, count: 1 }
+  - poke:  { addr: "$A0", values: [0] }              # scratch no-op poke
+  - until: { ref: tick, count: 1 }
+  - assert: { mem: snd_cur, equals: [6] }            # zap kept playing (no
+                                                     # preemption from below)

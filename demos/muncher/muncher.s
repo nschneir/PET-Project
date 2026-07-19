@@ -54,6 +54,7 @@ start:  cld
         sta     extra_given
         sta     pop_t
         jsr     hud_init
+        jsr     snd_init
         lda     #0              ; the ghost world sleeps until a game
         sta     gon             ; actually starts (T12 title flow); tests
                                 ; and players enable it explicitly
@@ -70,11 +71,13 @@ loop:   jsr     pace
         inc     tickcnt
         bne     tick
         inc     tickcnt+1
-tick:   lda     KEYDOWN
+tick:   lda     KEYDOWN         ; read FIRST, before the IRQ rewrites it
+        sta     keybuf
         cmp     #$FF
         beq     :+              ; no key: keep last echo (sticky for tests)
         sta     SCREEN+999      ; debug echo cell @24,39 — raw byte on purpose
-:       ldy     game_state
+:       jsr     snd_tick        ; the one voice plays in every state
+        ldy     game_state
         beq     playing
         dey
         beq     dying
@@ -84,7 +87,8 @@ tick:   lda     KEYDOWN
         beq     inits
         jsr     boardclr_tick   ; game_state 4
         jmp     loop
-playing:jsr     player_input    ; A still holds the key-down byte
+playing:lda     keybuf          ; the key latched at the top of the tick
+        jsr     player_input
         jsr     player_tick
         jsr     ghosts_tick
         jsr     fruit_tick
@@ -135,6 +139,7 @@ banner: ldx     #0
         .include "inc/ghosts.s"
         .include "inc/fruit.s"
         .include "inc/hud.s"
+        .include "inc/sound.s"
 
         .segment "RODATA"
 bantxt: .byte   13,19,46,32,13,21,14,3,8,5,18,0   ; "MS. MUNCHER"
@@ -142,3 +147,4 @@ bantxt: .byte   13,19,46,32,13,21,14,3,8,5,18,0   ; "MS. MUNCHER"
         .segment "BSS"
 tickcnt: .res 2                 ; jiffies since start (test/measure anchor)
 overruns:.res 1                 ; frames whose work exceeded one jiffy
+keybuf:  .res 1                 ; key-down byte latched at the tick top

@@ -100,6 +100,8 @@ ft_eat: ldx     #5
         jsr     popup_at        ; value at the fruit's cell (before erase)
         pla
         jsr     addscore
+        lda     #FX_FRUIT
+        jsr     snd_play
         ldx     #5
         jsr     erase_blob
         lda     #0

@@ -345,6 +345,8 @@ ck_hit: lda     gstate,x
         sta     game_state
         lda     #0
         sta     death_t
+        lda     #FX_DEATH
+        jsr     snd_play
         rts
 ck_eat: lda     #GST_EYES       ; frightened ghost eaten
         sta     gstate,x
@@ -361,6 +363,8 @@ ce1:    clc
         adc     #SC_GH1-1
         pha
         jsr     addscore
+        lda     #FX_GHOST
+        jsr     snd_play
         pla
         jsr     popup_at        ; show the value where the ghost was
         lda     #30             ; the arcade's little gulp freeze

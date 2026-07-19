@@ -152,6 +152,7 @@ pt_dot: lda     #0              ; eat: clear the cell, fix the save-under
         sta     apause          ; the arcade per-dot chew stall
         lda     #SC_DOT
         jsr     addscore
+        jsr     snd_munch
         jsr     dec_dots
         jmp     pt_anim
 pt_ener:lda     #0
@@ -164,6 +165,8 @@ pt_ener:lda     #0
         sta     apause
         lda     #SC_ENER
         jsr     addscore
+        lda     #FX_ENER
+        jsr     snd_play
         jsr     dec_dots
         jmp     pt_anim
 

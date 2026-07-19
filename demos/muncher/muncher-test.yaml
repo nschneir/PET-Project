@@ -8,7 +8,8 @@ steps:
   # --- T0: scaffold heartbeat + input path ---
   - wait:  { text: "MS. MUNCHER" }
   - until: { ref: tick }                    # anchor: stopped at loop top
-  - poke:  { addr: tickcnt, values: [0, 0] }
+  - poke:  { addr: gon, values: [0] }       # freeze the ghost world for the
+  - poke:  { addr: tickcnt, values: [0, 0] }  # engine/player blocks below
   - poke:  { addr: "$97", values: [68] }    # hold D (PETSCII $44)
   - until: { ref: tick, count: 2 }
   - assert: { mem: tickcnt, equals: 2 }     # exactly one increment per jiffy
@@ -87,3 +88,128 @@ steps:
   - assert: { mem: adir, equals: [0] }      # turned up at the col-6 corner
   - assert: { mem: ax, equals: [12] }
   - assert: { mem: ay, equals: [4] }        # centre (6,2): corner cut banked
+  # --- T6: ghost AI. Junction for all targeting tests: cell (9,8), open
+  # exits up/left/down, ghost arrives heading left (reverse=right excluded).
+  # Player parked (aspd 0, adir 4). Chase mode: sched_state=3, huge timer.
+  # (A1) Bruiser targets her cell (9,13): down wins (16 < 26 < 36)
+  - poke:  { addr: gon, values: [1] }
+  - poke:  { addr: glimit, values: [99, 99, 99, 99, 99] }  # no releases here
+  - poke:  { addr: gtimeout, values: [255, 200] }
+  - poke:  { addr: sched_state, values: [3] }
+  - poke:  { addr: sched_t, values: [16, 239] }
+  - poke:  { addr: gstate, values: [0, 1, 0, 0, 0] }
+  - poke:  { addr: aspd,  values: [0, 60, 0, 0, 0] }
+  - poke:  { addr: adir,  values: [4, 1, 4, 4, 4] }
+  - poke:  { addr: pwant, values: [4] }
+  - poke:  { addr: ax, values: [18, 18] }   # player (9,13)... poked below
+  - poke:  { addr: ay, values: [26, 16] }   # player ay=26 (row 13); Bruiser (9,8)
+  - until: { ref: tick, count: 2 }
+  - assert: { mem: adir, equals: [4, 2] }   # Bruiser chose DOWN
+  # (A2) Pixie's 4-ahead with the up-quirk: player facing UP at (9,13)
+  # quirk target (5,9) -> LEFT beats down (10 vs 16); no-quirk would pick down
+  - poke:  { addr: gstate, values: [0, 0, 1, 0, 0] }
+  - poke:  { addr: adir,  values: [0, 4, 1, 4, 4] }  # player faces up, parked
+  - poke:  { addr: pwant, values: [0] }
+  - poke:  { addr: ax, values: [18, 0, 18] }
+  - poke:  { addr: ay, values: [26, 4, 16] }         # park Bruiser off-path
+  - until: { ref: tick, count: 2 }
+  - assert: { mem: adir, equals: [0, 4, 1] }         # Pixie chose LEFT
+  # (A3) Ivy's doubled vector: player at (9,13) facing down, Bruiser cell
+  # (20,13) -> intermediate (9,15), target clamps to (0,17): LEFT on the
+  # up/left/down tie-break (direct chase would have picked down)
+  - poke:  { addr: gstate, values: [0, 0, 0, 1, 0] }
+  - poke:  { addr: adir,  values: [2, 4, 4, 1, 4] }
+  - poke:  { addr: pwant, values: [2] }
+  - poke:  { addr: ax, values: [18, 40, 0, 18] }     # Bruiser parked at (20,13)
+  - poke:  { addr: ay, values: [26, 26, 4, 16] }
+  - until: { ref: tick, count: 2 }
+  - assert: { mem: adir, equals: [2, 4, 4, 1] }      # Ivy flanked LEFT
+  # (A4) Sable within 8 cells retreats to her corner (1,23): DOWN wins
+  # (direct chase from (13,8) would have picked up)
+  - poke:  { addr: gstate, values: [0, 0, 0, 0, 1] }
+  - poke:  { addr: adir,  values: [4, 4, 4, 4, 1] }
+  - poke:  { addr: pwant, values: [4] }
+  - poke:  { addr: ax, values: [26, 40, 0, 0, 18] }  # player (13,8), Sable (9,8)
+  - poke:  { addr: ay, values: [16, 26, 4, 4, 16] }
+  - until: { ref: tick, count: 2 }
+  - assert: { mem: adir, equals: [4, 4, 4, 4, 2] }   # Sable retreated DOWN
+  # (A5) scatter window: Ivy ignores the player and heads for (26,23): DOWN
+  - poke:  { addr: sched_state, values: [0] }
+  - poke:  { addr: sched_t, values: [16, 239] }
+  - poke:  { addr: gstate, values: [0, 0, 0, 1, 0] }
+  - poke:  { addr: adir,  values: [4, 4, 4, 1, 4] }
+  - poke:  { addr: ax, values: [18, 40, 0, 18] }
+  - poke:  { addr: ay, values: [26, 26, 4, 16] }
+  - until: { ref: tick, count: 2 }
+  - assert: { mem: adir, equals: [4, 4, 4, 2] }      # corner-bound DOWN
+  # (B) schedule edge: expiry advances the state, reloads the chase timer,
+  # and reverses every active ghost
+  - poke:  { addr: sched_state, values: [0] }
+  - poke:  { addr: sched_t, values: [3, 0] }
+  - poke:  { addr: gstate, values: [0, 1, 0, 0, 0] }
+  - poke:  { addr: adir,  values: [4, 1, 4, 4, 4] }
+  - poke:  { addr: ax, values: [18, 10] }            # Bruiser mid-corridor (5,8)
+  - poke:  { addr: ay, values: [26, 16] }
+  - poke:  { addr: aspd, values: [0, 0] }            # hold position: pure edge
+  - until: { ref: tick, count: 5 }
+  - assert: { mem: sched_state, equals: [1] }
+  - assert: { mem: sched_t, equals: [175, 4] }       # 1200 reloaded on tick 4,
+                                                     # one decrement after
+  - assert: { mem: adir, equals: [4, 3] }            # reversed LEFT->RIGHT
+  # (C) house release: Pixie (limit 0) leaves at once and walks out to row 9
+  - poke:  { addr: glimit, values: [0, 0, 0, 30, 60] }     # real board-1 limits
+  - poke:  { addr: sched_state, values: [3] }
+  - poke:  { addr: sched_t, values: [16, 239] }
+  - poke:  { addr: gstate, values: [0, 0, 0, 0, 0] } # everyone housed
+  - poke:  { addr: adir,  values: [4, 4, 4, 4, 4] }
+  - poke:  { addr: ax, values: [18, 27, 27, 24, 30] }
+  - poke:  { addr: ay, values: [26, 18, 22, 22, 22] }
+  - poke:  { addr: gdcnt, values: [0] }
+  - poke:  { addr: gtimeout, values: [240, 0] }
+  - until: { ref: tick, count: 2 }
+  - assert: { mem: gstate, equals: [0, 0, 4] }       # Pixie is exiting
+  - until: { ref: tick, count: 40 }
+  - assert: { mem: gstate, equals: [0, 0, 1] }       # out: normal
+  - assert: { mem: ay, equals: [26, 18, 18] }        # standing on row 9
+  # (C2) Ivy releases when the 30-dot counter fills (poke 29 + one dot event)
+  - poke:  { addr: gdcnt, values: [29] }
+  - poke:  { addr: eat_ev, values: [1] }
+  - until: { ref: tick, count: 1 }
+  - assert: { mem: gstate, equals: [0, 0, 1, 4] }    # Ivy exiting
+  # (C3) Sable releases on the 4 s no-dot timeout
+  - poke:  { addr: gstate, values: [0, 0, 0, 0, 0] } # re-house the others
+  - poke:  { addr: adir,  values: [4, 4, 4, 4, 4] }
+  - poke:  { addr: ax, values: [18, 27, 27, 24, 30] }
+  - poke:  { addr: ay, values: [26, 18, 22, 22, 22] }
+  - poke:  { addr: gdcnt, values: [0] }
+  - poke:  { addr: glimit, values: [99, 99, 99, 99, 99] }  # dots can't trigger
+  - poke:  { addr: gtimeout, values: [10, 0] }
+  - until: { ref: tick, count: 12 }
+  - assert: { mem: gstate, equals: [0, 0, 4] }       # preferred (Pixie) forced
+  # (D) protocol row 3: ghost speed 75% ($3C): 50 half-cells across dotted
+  # row 16 (ghosts don't eat) = exactly 214 jiffies
+  - poke:  { addr: glimit, values: [0, 0, 0, 30, 60] }     # restore table
+  - poke:  { addr: gstate, values: [0, 1, 0, 0, 0] }
+  - poke:  { addr: adir,  values: [4, 3, 4, 4, 4] }
+  - poke:  { addr: ax, values: [52, 2] }             # player parked (26,16)
+  - poke:  { addr: ay, values: [32, 32] }            # Bruiser starts (1,16)
+  - poke:  { addr: aacc, values: [0, 0] }
+  - poke:  { addr: apause, values: [0, 0] }
+  - until: { ref: tick, count: 213 }
+  - assert: { mem: ax, equals: [52, 51] }            # 49 steps after 213
+  - until: { ref: tick, count: 1 }
+  - assert: { mem: ax, equals: [52, 52] }            # the 50th lands on t=214
+  # (E) tunnel slowdown 40% ($20): col 3 -> mouth -> void, emerges t=88.
+  # The player parks IN the left mouth so the chase target keeps him heading
+  # left along the tunnel row (a parked player elsewhere pulls him off it).
+  - poke:  { addr: gstate, values: [0, 1, 0, 0, 0] }
+  - poke:  { addr: adir,  values: [4, 1, 4, 4, 4] }
+  - poke:  { addr: ax, values: [2, 6] }              # player (1,6); Bruiser (3,6)
+  - poke:  { addr: ay, values: [12, 12] }
+  - poke:  { addr: aacc, values: [0, 0] }
+  - until: { ref: tick, count: 56 }
+  - assert: { mem: ahid, equals: [0, 4] }            # just entered the void
+  - assert: { mem: ax, equals: [2, 54] }
+  - until: { ref: tick, count: 32 }
+  - assert: { mem: ahid, equals: [0, 0] }            # emerged on schedule
+  - assert: { mem: "@6,27", equals: [130] }          # reverse-video B visible

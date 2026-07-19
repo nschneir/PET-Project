@@ -25,6 +25,11 @@ start:  cld
         jsr     draw_maze
         jsr     init_actors
         jsr     player_init
+        lda     #$B5            ; RNG seed (game start reseeds from the
+        sta     rng             ; jiffy clock; tests poke their own)
+        lda     #$27
+        sta     rng+1
+        jsr     ghost_init
         lda     #0
         sta     tickcnt
         sta     tickcnt+1
@@ -44,6 +49,7 @@ tick:   lda     KEYDOWN
         sta     SCREEN+999      ; debug echo cell @24,39 — raw byte on purpose
 :       jsr     player_input    ; A still holds the key-down byte
         jsr     player_tick
+        jsr     ghosts_tick
         jmp     loop
 
 pace:   lda     JIFFLO
@@ -75,6 +81,7 @@ banner: ldx     #0
         .include "inc/mazes.s"
         .include "inc/engine.s"
         .include "inc/player.s"
+        .include "inc/ghosts.s"
 
         .segment "RODATA"
 bantxt: .byte   13,19,46,32,13,21,14,3,8,5,18,0   ; "MS. MUNCHER"

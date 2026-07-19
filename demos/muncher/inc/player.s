@@ -6,7 +6,7 @@
 ;  - a reversal applies immediately, anywhere
 ;  - a perpendicular turn applies at a cell centre when legal, and grants
 ;    one free half-step in the new direction — the cornering advantage
-;    (arcade Ms. Pac-Man gains ground on every corner; ghosts never do)
+;    (the arcade heroine gains ground on every corner; ghosts never do)
 ; Eating (spec §8): landing on a dotted centre removes the dot and stalls
 ; her one jiffy (three for an energizer). Those stalls reproduce the
 ; arcade's "slower while eating dots" speed rows almost exactly:

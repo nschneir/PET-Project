@@ -49,3 +49,23 @@ Two real AI bugs found by the runtime tests and fixed within T7:
    pocket below the ghost house (our 25-row adaptation has no upward exit
    near the door column there). Fixed with region waypoints: below → ring-top
    corner, ring top → door mouth, door column → interior.
+
+## T11 visual comparison #2 — mazes 2-4 vs arcade (sw-maze2..4.jpg)
+
+Evidence: `evidence/maze2-solid.png`, `maze3-checker.png`, `maze4-sharp.png`;
+checker output (190/186/186 dots vs targets 188/186/182 ±8); progression
+yaml block (rotation, styles, 14+ recolor swap all asserted).
+
+| Feature | Verdict | Notes |
+|---|---|---|
+| Maze 2: tunnel pairs at very top + lower (arcade rows 1/23 → ours 1/19) | PASS | |
+| Maze 3: single tunnel pair above centre (arcade 9 → ours 7) | PASS | |
+| Maze 4: two tunnel pairs flanking the house (arcade 13/16 → ours 10/13) | PASS | |
+| Distinct per-maze "colors" | PASS | line-arc / solid / checkerboard / sharp-line; solid style reads like the arcade's filled walls |
+| 14+ recolor: shapes 3/4 swap styles | PASS | yaml-asserted |
+| Block-for-block match | DIVERGENCE (accepted) | 25-row adaptations preserve tunnel topology, house, energizer corners; interior block layouts are original approximations |
+| Fruit paths on all four mazes | PASS | host-validated cell-by-cell |
+
+Known cosmetics for T14: maze 4's sharp corners show small gaps at a few
+junctions; HUD lacks the current-board fruit icon and eaten-fruit history
+stack (spec §3) — carried as open items.

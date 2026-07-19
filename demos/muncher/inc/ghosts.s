@@ -418,12 +418,21 @@ gh_speed:
         rts
 gv1:    lda     ahid,x          ; hidden in the void: tunnel speed
         bne     gs_tun
-        lda     ay,x
+        txa
+        tay                     ; (Y borrows the actor index briefly)
+        ldx     cur_maze
+        lda     ay,y
         lsr
-        cmp     #6              ; maze 1 tunnel rows (T11 generalises)
-        beq     gs_row
-        cmp     #14
-        beq     gs_row
+        cmp     tun_a-1,x
+        beq     gs_row0
+        cmp     tun_b-1,x
+        beq     gs_row0
+        tya
+        tax
+        jmp     gs_norm
+gs_row0:tya
+        tax
+        jmp     gs_row          ; on a tunnel row: check the column zone
 gs_norm:lda     gstate,x
         cmp     #GST_FRIGHT
         bne     gs_n2

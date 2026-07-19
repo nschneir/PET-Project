@@ -19,8 +19,9 @@ nextln: .word   $0000
 start:  cld
         jsr     clrscr
         jsr     banner
-        lda     #0
-        sta     mstyle          ; maze 1: line-and-arc walls
+        lda     #1
+        sta     board
+        jsr     maze_select
         jsr     unpack_maze
         jsr     draw_maze
         jsr     init_actors
@@ -29,8 +30,6 @@ start:  cld
         sta     rng             ; jiffy clock; tests poke their own)
         lda     #$27
         sta     rng+1
-        lda     #1
-        sta     board
         lda     #3
         sta     lives
         lda     #0

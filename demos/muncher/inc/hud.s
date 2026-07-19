@@ -276,7 +276,8 @@ boardclr_tick:
         bcc     bc1
         lda     #21             ; tables saturate; the game runs forever
         sta     board
-bc1:    jsr     unpack_maze
+bc1:    jsr     maze_select
+        jsr     unpack_maze
         jsr     draw_maze
         jsr     init_actors
         jsr     player_init
@@ -501,8 +502,7 @@ newgame:
         sta     lives
         lda     #1
         sta     board
-        lda     #0
-        sta     mstyle
+        jsr     maze_select
         jsr     clrscr
         jsr     banner
         jsr     unpack_maze

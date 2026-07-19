@@ -4,12 +4,45 @@
 ; Cell codes in dots[]: 0 open, 1 dot, 2 energizer, 3 wall (mazecheck.py).
 ; House door cells (13,10)/(14,10) pack as open; drawn as G_HLINE.
 
-; ---- unpack_maze: current maze's packed map -> dots[], counts dots_left ----
-; (maze selection lands in T11; maze 1 hardwired until then)
+; ---- maze_select: board -> cur_maze + wall style (spec §5/§10) ----
+; Boards 1-21 use the table; later boards alternate mazes 3/4 every 4.
+; From board 14 the recycled 3/4 shapes SWAP styles (the arcade recolor).
+maze_select:
+        lda     board
+        cmp     #22
+        bcc     ms_tbl
+        sec                     ; (board-14)/4 parity -> maze 3 or 4
+        sbc     #14
+        lsr
+        lsr
+        and     #1
+        clc
+        adc     #3
+        jmp     ms_set
+ms_tbl: tay
+        lda     bmaze_tbl-1,y
+ms_set: sta     cur_maze
+        tay
+        lda     mstyletbl-1,y
+        ldx     board
+        cpx     #14
+        bcc     ms_ok
+        cpy     #3              ; recolor: maze 3 wears maze 4's style
+        bne     ms_n3
+        lda     mstyletbl-1+4
+        jmp     ms_ok
+ms_n3:  cpy     #4              ; and maze 4 wears maze 3's
+        bne     ms_ok
+        lda     mstyletbl-1+3
+ms_ok:  sta     mstyle
+        rts
+
+; ---- unpack_maze: cur_maze's packed map -> dots[], counts dots_left ----
 unpack_maze:
-        lda     #<maze1_map
+        ldx     cur_maze
+        lda     mazemap_lo-1,x
         sta     PTR
-        lda     #>maze1_map
+        lda     mazemap_hi-1,x
         sta     PTR+1
         lda     #<dots
         sta     PTR2
@@ -101,6 +134,8 @@ dmdot:  lda     #G_DOT
 dmener: lda     #G_BALL
         jmp     dmput
 dmwall: lda     mstyle
+        beq     dmline
+        cmp     #3
         beq     dmline
         cmp     #1
         beq     dmchk
@@ -201,7 +236,12 @@ dme1:   lda     mtmp
         ora     #8              ; E bit
         sta     mtmp
 dme0:   ldx     mtmp
+        lda     mstyle
+        cmp     #3
+        beq     dmsh
         lda     wglyphs,x
+        jmp     dmput
+dmsh:   lda     wglyphs2,x
 dmput:  sta     (PTR2),y
         iny
         cpy     #MAZE_W
@@ -251,6 +291,26 @@ wglyphs: .byte  G_SPACE, G_VLINE, G_HLINE, G_ARC_LR
          .byte  G_HLINE, G_ARC_LL, G_HLINE, G_TEE_U
          .byte  G_ARC_UL, G_TEE_R, G_TEE_D, G_CROSS
 
+bmaze_tbl: .byte 1,1, 2,2,2, 3,3,3,3, 4,4,4,4, 3,3,3,3, 4,4,4,4
+mazemap_lo: .byte <maze1_map, <maze2_map, <maze3_map, <maze4_map
+mazemap_hi: .byte >maze1_map, >maze2_map, >maze3_map, >maze4_map
+mstyletbl:  .byte 0, 2, 1, 3    ; line / solid / checker / sharp-line
+tun_a:      .byte 6, 1, 7, 10   ; tunnel rows per maze ($FF = none)
+tun_b:      .byte 14, 19, $FF, 13
+mdots_tbl:  .byte MAZE1_DOTS, MAZE2_DOTS, MAZE3_DOTS, MAZE4_DOTS
+mf1left_tbl:.byte MAZE1_DOTS-MAZE1_FRUIT1_EATEN, MAZE2_DOTS-MAZE2_FRUIT1_EATEN
+            .byte MAZE3_DOTS-MAZE3_FRUIT1_EATEN, MAZE4_DOTS-MAZE4_FRUIT1_EATEN
+mf2_tbl:    .byte MAZE1_FRUIT2_LEFT, MAZE2_FRUIT2_LEFT
+            .byte MAZE3_FRUIT2_LEFT, MAZE4_FRUIT2_LEFT
+fpaths_lo:  .byte <fruit1_paths, <fruit2_paths, <fruit3_paths, <fruit4_paths
+fpaths_hi:  .byte >fruit1_paths, >fruit2_paths, >fruit3_paths, >fruit4_paths
+fnmouth:    .byte FRUIT1_NMOUTH, FRUIT2_NMOUTH, FRUIT3_NMOUTH, FRUIT4_NMOUTH
+; sharp-cornered variant of the wall glyphs (style 3)
+wglyphs2: .byte G_SPACE, G_VLINE, G_HLINE, G_CORN_LR
+          .byte G_VLINE, G_VLINE, G_CORN_UR, G_TEE_L
+          .byte G_HLINE, G_CORN_LL, G_HLINE, G_TEE_U
+          .byte G_CORN_UL, G_TEE_R, G_TEE_D, G_CROSS
+
 ; row*28 into dots[] and row*40 into screen RAM
 m28_lo:  .repeat MAZE_H, r
          .byte  <(r*28)
@@ -271,6 +331,7 @@ rowscr_hi: .repeat MAZE_H, r
 dots:      .res 700             ; working cell array, row-major 28x25
 dots_left: .res 2
 mrow:      .res 1
+cur_maze:  .res 1
 mtmp:      .res 1
 mstyle:    .res 1
 rowbuf_p:  .res 28

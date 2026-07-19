@@ -518,3 +518,38 @@ steps:
   - until: { ref: tick, count: 1 }
   - assert: { mem: snd_cur, equals: [6] }            # zap kept playing (no
                                                      # preemption from below)
+  # --- T11: maze rotation, styles, recolor swap (spec §10) ---
+  # ride the board-clear tail (death_t=60) through each rotation edge
+  - poke:  { addr: game_state, values: [4] }
+  - poke:  { addr: death_t, values: [60] }
+  - poke:  { addr: board, values: [2] }
+  - until: { ref: tick, count: 1 }
+  - assert: { mem: board, equals: [3] }
+  - assert: { mem: cur_maze, equals: [2] }           # rounds 3-5: maze 2
+  - assert: { mem: mstyle, equals: [2] }             # solid walls
+  - assert: { mem: dots_left, equals: [190, 0] }     # fresh maze-2 dots
+  - poke:  { addr: game_state, values: [4] }
+  - poke:  { addr: death_t, values: [60] }
+  - poke:  { addr: board, values: [5] }
+  - until: { ref: tick, count: 1 }
+  - assert: { mem: cur_maze, equals: [3] }           # rounds 6-9: maze 3
+  - assert: { mem: mstyle, equals: [1] }             # checkerboard
+  - assert: { mem: dots_left, equals: [186, 0] }
+  - poke:  { addr: game_state, values: [4] }
+  - poke:  { addr: death_t, values: [60] }
+  - poke:  { addr: board, values: [9] }
+  - until: { ref: tick, count: 1 }
+  - assert: { mem: cur_maze, equals: [4] }           # rounds 10-13: maze 4
+  - assert: { mem: mstyle, equals: [3] }             # sharp-line walls
+  - poke:  { addr: game_state, values: [4] }
+  - poke:  { addr: death_t, values: [60] }
+  - poke:  { addr: board, values: [13] }
+  - until: { ref: tick, count: 1 }
+  - assert: { mem: cur_maze, equals: [3] }           # 14-17: maze 3 shape...
+  - assert: { mem: mstyle, equals: [3] }             # ...in maze 4's clothes
+  - poke:  { addr: game_state, values: [4] }
+  - poke:  { addr: death_t, values: [60] }
+  - poke:  { addr: board, values: [17] }
+  - until: { ref: tick, count: 1 }
+  - assert: { mem: cur_maze, equals: [4] }           # 18-21: maze 4 shape...
+  - assert: { mem: mstyle, equals: [1] }             # ...recoloured too

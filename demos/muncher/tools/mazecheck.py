@@ -66,6 +66,26 @@ FRUIT_PATHS = {
         dict(start=(0, 14), corner=3, runs=[("R", 9), ("U", 1)]),
         dict(start=(27, 14), corner=2, runs=[("L", 9), ("U", 1)]),
     ],
+    2: [
+        dict(start=(0, 1),  corner=0,
+             runs=[("R", 4), ("D", 2), ("R", 3), ("D", 3), ("R", 2), ("D", 3)]),
+        dict(start=(27, 1), corner=1,
+             runs=[("L", 4), ("D", 2), ("L", 3), ("D", 3), ("L", 2), ("D", 3)]),
+        dict(start=(0, 19), corner=3,
+             runs=[("R", 1), ("U", 3), ("R", 9), ("U", 3), ("L", 1)]),
+        dict(start=(27, 19), corner=2,
+             runs=[("L", 1), ("U", 3), ("L", 9), ("U", 3), ("R", 1)]),
+    ],
+    3: [
+        dict(start=(0, 7),  corner=0, runs=[("R", 3), ("D", 1), ("R", 6), ("D", 1)]),
+        dict(start=(27, 7), corner=1, runs=[("L", 3), ("D", 1), ("L", 6), ("D", 1)]),
+    ],
+    4: [
+        dict(start=(0, 10),  corner=0, runs=[("R", 9), ("U", 1)]),
+        dict(start=(27, 10), corner=1, runs=[("L", 9), ("U", 1)]),
+        dict(start=(0, 13),  corner=3, runs=[("R", 9)]),
+        dict(start=(27, 13), corner=2, runs=[("L", 9)]),
+    ],
 }
 DIRVEC = {"U": (0, -1), "L": (-1, 0), "D": (0, 1), "R": (1, 0)}
 DIRNUM = {"U": 0, "L": 1, "D": 2, "R": 3}
@@ -108,13 +128,15 @@ def emit_fruit(n, lines):
     paths = FRUIT_PATHS.get(n)
     if not paths:
         return
-    lines.append(f"; fruit paths maze {n}: 12-byte records "
-                 "(startx,starty,corner,nruns, then 4 dir,count pairs)")
+    lines.append(f"; fruit paths maze {n}: 16-byte records "
+                 "(startx,starty,corner,nruns, then 6 dir,count pairs)")
+    lines.append(f"FRUIT{n}_NMOUTH = {len(paths)}")
     lines.append(f"fruit{n}_cycle: .byte " + ", ".join(
         f"{DIRNUM[d]}, {c}" for d, c in FRUIT_CYCLE))
     lines.append(f"fruit{n}_paths:")
     for p in paths:
-        runs = list(p["runs"]) + [("U", 0)] * (4 - len(p["runs"]))
+        assert len(p["runs"]) <= 6
+        runs = list(p["runs"]) + [("U", 0)] * (6 - len(p["runs"]))
         row = [p["start"][0], p["start"][1], p["corner"], len(p["runs"])]
         for d, c in runs:
             row += [DIRNUM[d], c]

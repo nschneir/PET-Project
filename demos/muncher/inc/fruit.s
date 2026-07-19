@@ -113,9 +113,10 @@ ft_eat: ldx     #5
 fspawn_chk:                     ; no fruit afield: is one due?
         lda     dots_left+1
         bne     fs_no           ; (>255 left cannot pass either threshold)
+        ldx     cur_maze
         lda     f1done
         bne     fs2
-        lda     #MAZE1_DOTS - MAZE1_FRUIT1_EATEN
+        lda     mf1left_tbl-1,x
         cmp     dots_left       ; eaten >= threshold  <=>  left <= dots-thr
         bcc     fs_no
         lda     #1
@@ -123,9 +124,9 @@ fspawn_chk:                     ; no fruit afield: is one due?
         bne     fspawn
 fs2:    lda     f2done
         bne     fs_no
-        lda     dots_left
-        cmp     #MAZE1_FRUIT2_LEFT+1
-        bcs     fs_no
+        lda     mf2_tbl-1,x
+        cmp     dots_left
+        bcc     fs_no
         lda     #1
         sta     f2done
         bne     fspawn
@@ -134,10 +135,19 @@ fs_no:  rts
 ; ---- fspawn: build the run queue and place the fruit ----
 fspawn: jsr     lfsr
         and     #3
-        sta     fmin            ; entry mouth
+        ldx     cur_maze
+        cmp     fnmouth-1,x
+        bcc     fsp1
+        sec
+        sbc     fnmouth-1,x
+fsp1:   sta     fmin            ; entry mouth
         jsr     lfsr
         and     #3
-        sta     fmout           ; exit mouth
+        cmp     fnmouth-1,x
+        bcc     fsp2
+        sec
+        sbc     fnmouth-1,x
+fsp2:   sta     fmout           ; exit mouth
         lda     #0
         sta     fq_n
         sta     fq_i
@@ -222,18 +232,16 @@ fl5:    ; pick the board's fruit and go
         sta     factive
         jmp     draw_blob
 
-; fp_rec: A = mouth 0-3 -> PTR = its 12-byte record
-fp_rec: ldy     #0
-        sty     PTR+1
+; fp_rec: A = mouth 0-3 -> PTR = its 16-byte record for cur_maze
+fp_rec: asl
         asl
-        asl                     ; *4
-        sta     ftmp
-        asl                     ; *8
+        asl
+        asl                     ; *16 (<= 48: no carry out)
+        ldx     cur_maze
         clc
-        adc     ftmp            ; *12
-        adc     #<fruit1_paths
+        adc     fpaths_lo-1,x
         sta     PTR
-        lda     #>fruit1_paths
+        lda     fpaths_hi-1,x
         adc     #0
         sta     PTR+1
         rts

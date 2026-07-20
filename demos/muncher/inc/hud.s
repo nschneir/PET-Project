@@ -375,8 +375,30 @@ gameover_tick:
         lda     death_t
         cmp     #1
         bne     go1
+        jsr     hs_rank         ; C clear = made the table: bigger box
+        bcs     gnq
+        lda     #1
+        bne     gq1
+gnq:    lda     #0
+gq1:    sta     gq
         jsr     go_box          ; rounded reverse-video panel
-go1:    lda     death_t         ; any key (after a short guard so a held
+go1:    lda     gq
+        beq     go_nq
+        lda     death_t         ; qualified: straight into typing
+        cmp     #20
+        bcc     go_out
+        lda     #0
+        sta     ini_pos
+        lda     #1              ; 'A' placeholders
+        sta     ini_ch
+        sta     ini_ch+1
+        sta     ini_ch+2
+        lda     #$FF
+        sta     lastkey
+        lda     #3
+        sta     game_state
+go_out: rts
+go_nq:  lda     death_t         ; any key (after a short guard so a held
         cmp     #30             ; steering key doesn't blink past the box)
         bcc     go_out
         lda     keybuf
@@ -385,94 +407,98 @@ go1:    lda     death_t         ; any key (after a short guard so a held
         lda     death_t
         cmp     #150
         bcc     go_out
-go_fin: jsr     hs_rank         ; C clear = made the table
-        bcc     go_entry
-        jmp     title_enter
-go_entry:
-        lda     #0
-        sta     death_t
-        sta     ini_pos
-        lda     #1              ; 'A'
-        sta     ini_ch
-        sta     ini_ch+1
-        sta     ini_ch+2
-        lda     #$FF
-        sta     lastkey
-        ldx     #0
-go2:    lda     txt_inits,x
-        beq     go3
-        sta     SCREEN+14*40+7,x
-        inx
-        bne     go2
-go3:    lda     #3
-        sta     game_state
-go_out: rts
+go_fin: jmp     title_enter
 
+; typed entry: letters and digits go straight in; the third character
+; commits (RETURN or SPACE commits early with 'A' placeholders)
 initials_tick:
         jsr     ini_draw
-        lda     KEYDOWN
+        lda     keybuf
         cmp     lastkey         ; edge-triggered: act once per press
         bne     it1
         rts
 it1:    sta     lastkey
-        cmp     #K_W
-        bne     it2
-        ldx     ini_pos
-        ldy     ini_ch,x
-        lda     nxtch,y
-        sta     ini_ch,x
-        rts
-it2:    cmp     #K_S
-        bne     it3
-        ldx     ini_pos
-        ldy     ini_ch,x
-        lda     prvch,y
-        sta     ini_ch,x
-        rts
-it3:    cmp     #K_D
-        bne     it4
-        lda     ini_pos
-        cmp     #2
-        bcs     it_out
-        inc     ini_pos
-        rts
-it4:    cmp     #K_A
-        bne     it5
-        lda     ini_pos
+        cmp     #$FF
         beq     it_out
-        dec     ini_pos
-        rts
-it5:    cmp     #K_SP
-        bne     it_out
+        cmp     #$0D            ; RETURN
+        beq     it_commit
+        cmp     #K_SP
+        beq     it_commit
+        cmp     #$30
+        bcc     it_out
+        cmp     #$3A
+        bcc     it_put          ; digits: PETSCII = screen code
+        cmp     #$41
+        bcc     it_out
+        cmp     #$5B
+        bcs     it_out
+        sec
+        sbc     #64             ; letters -> screen codes 1-26
+it_put: ldx     ini_pos
+        cpx     #3
+        bcs     it_out
+        sta     ini_ch,x
+        inx
+        stx     ini_pos
+        cpx     #3
+        bcc     it_out
+it_commit:
         jsr     hs_insert
         jmp     title_enter     ; back to the title, new entry on display
 it_out: rts
 
+; slots live INSIDE the box, aligned under GAME OVER (row gtop+4)
 ini_draw:
+        ldy     gtop
+        iny
+        iny
+        iny
+        iny
+        lda     rowscr_lo,y
+        sta     PTR
+        lda     rowscr_hi,y
+        sta     PTR+1
         ldx     #2
 id1:    lda     ini_ch,x
-        cpx     ini_pos         ; the active slot blinks (reverse video)
-        bne     id2
-        ldy     tickcnt
-        cpy     #128
-        bcc     id2
         ora     #$80
-id2:    sta     SCREEN+16*40+12,x
+        cpx     ini_pos         ; the active slot blinks
+        bne     id2
+        lda     tickcnt
+        and     #16
+        beq     id2x
+        lda     #100+128        ; underline cursor
+        bne     id2
+id2x:   lda     ini_ch,x
+        ora     #$80
+id2:    ldy     gcol1,x
+        sta     (PTR),y
         dex
         bpl     id1
         rts
 
-; ---- go_box: GAME OVER + final score in a rounded reverse-video box ----
-go_box: ldx     #10             ; rows 10-14, cols 10-29
+; ---- go_box: GAME OVER + final score in a rounded reverse-video box.
+; With a table-worthy score (gq=1) the box grows to hold the initials
+; line, everything left-aligned with GAME OVER. ----
+go_box: lda     #10
+        sta     gtop
+        lda     #14
+        sta     gbot
+        lda     gq
+        beq     gb_sz
+        lda     #9
+        sta     gtop
+        lda     #15
+        sta     gbot
+gb_sz:  ldx     gtop            ; rows gtop-gbot, cols 10-29
 gbr:    lda     rowscr_lo,x
         sta     PTR
         lda     rowscr_hi,x
         sta     PTR+1
         ldy     #10
 gbc:    lda     #160            ; reverse space fill
-        cpx     #10
+        cpx     gtop
         beq     gb_t
-        cpx     #14
+        cpx     gbot
         beq     gb_b
         cpy     #10
         beq     gb_v
@@ -501,31 +527,68 @@ gb_put: sta     (PTR),y
         cpy     #30
         bne     gbc
         inx
-        cpx     #15
-        bne     gbr
-        ldx     #0              ; "GAME OVER", reverse video, row 11
+        cpx     gbot
+        beq     gbr
+        bcs     gb_txt
+        jmp     gbr
+gb_txt: ldy     gtop            ; "GAME OVER" on the row under the lid
+        iny
+        lda     rowscr_lo,y
+        sta     PTR
+        lda     rowscr_hi,y
+        sta     PTR+1
+        ldx     #0
 gbt1:   lda     txt_gover,x
         beq     gbt2
         ora     #$80
-        sta     SCREEN+11*40+15,x
+        ldy     gcol1,x
+        sta     (PTR),y
         inx
         bne     gbt1
-gbt2:   lda     score           ; final score, reverse video, row 13
+gbt2:   lda     score           ; final score aligned beneath it
         sta     d6buf
         lda     score+1
         sta     d6buf+1
         lda     score+2
         sta     d6buf+2
-        lda     #<(SCREEN+13*40+17)
+        ldy     gtop
+        iny
+        iny
+        lda     rowscr_lo,y
         sta     PTR
-        lda     #>(SCREEN+13*40+17)
+        lda     rowscr_hi,y
         sta     PTR+1
-        lda     #$80
+        lda     PTR
+        clc
+        adc     #15
+        sta     PTR
+        bcc     gbt3
+        inc     PTR+1
+gbt3:   lda     #$80
         sta     revflag
         jsr     draw6
         lda     #0
         sta     revflag
+        lda     gq              ; qualified: label the entry line so the
+        bne     gbt4            ; player knows to type their initials
         rts
+gbt4:   ldy     gtop
+        iny
+        iny
+        iny
+        lda     rowscr_lo,y
+        sta     PTR
+        lda     rowscr_hi,y
+        sta     PTR+1
+        ldx     #0
+gbt5:   lda     txt_hs,x
+        beq     gbt6
+        ora     #$80
+        ldy     gcol1,x
+        sta     (PTR),y
+        inx
+        bne     gbt5
+gbt6:   rts
 
 ; ---- hs_rank: C clear if score beats entry 4 (the lowest) ----
 hs_rank:
@@ -679,7 +742,8 @@ txt_1up:  .byte 49,21,16,0                          ; "1UP"
 txt_high: .byte 8,9,7,8,0                           ; "HIGH"
 txt_round:.byte 18,15,21,14,4,0                     ; "ROUND"
 txt_gover:.byte 7,1,13,5,32,15,22,5,18,0            ; "GAME OVER"
-txt_inits:.byte 9,14,9,20,9,1,12,19,63,0            ; "INITIALS?"
+gcol1:  .byte 15,16,17,18,19,20,21,22,23,24         ; box text columns
+txt_hs: .byte 8,9,7,8,32,19,3,15,18,5,0             ; "HIGH SCORE"
 hsx3:   .byte 0,1,2,3,4        ; X*3 helper: (X<<1)+hsx3[X] = X*3
 fhrow_lo: .byte <(SCREEN+13*40+29),<(SCREEN+14*40+29),<(SCREEN+15*40+29)
           .byte <(SCREEN+16*40+29),<(SCREEN+17*40+29),<(SCREEN+18*40+29)
@@ -687,20 +751,6 @@ fhrow_lo: .byte <(SCREEN+13*40+29),<(SCREEN+14*40+29),<(SCREEN+15*40+29)
 fhrow_hi: .byte >(SCREEN+13*40+29),>(SCREEN+14*40+29),>(SCREEN+15*40+29)
           .byte >(SCREEN+16*40+29),>(SCREEN+17*40+29),>(SCREEN+18*40+29)
           .byte >(SCREEN+19*40+29)
-; initials character cycle: A..Z, 0..9, space
-nxtch:  .res 0
-        .byte 0                 ; [0] unused
-        .byte 2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,48 ; A..Z ->
-        .byte 0,0,0,0,0         ; 27-31 unused
-        .byte 1                 ; [32] space -> A
-        .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 ; 33-47 unused
-        .byte 49,50,51,52,53,54,55,56,57,32 ; 48-57: 0..9 -> (9 -> space)
-prvch:  .byte 0
-        .byte 32,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25 ; A..Z <-
-        .byte 0,0,0,0,0
-        .byte 57                ; space <- 9
-        .byte 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-        .byte 26,48,49,50,51,52,53,54,55,56 ; 0..9 <-
 
         .segment "BSS"
 score:  .res 3
@@ -718,6 +768,9 @@ hs_sc:  .res 15                 ; 5 entries x 3 BCD bytes
 hs_nm:  .res 15                 ; 5 entries x 3 initials (screen codes)
 revflag:.res 1
 fhist_n:.res 1
+gq:     .res 1                  ; game over qualifies for the table
+gtop:   .res 1                  ; box extents
+gbot:   .res 1
 ini_pos:.res 1
 ini_ch: .res 3
 lastkey:.res 1

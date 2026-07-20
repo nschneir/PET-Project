@@ -17,7 +17,6 @@ steps:
   - poke:  { addr: "$97", values: [68] }    # hold D (PETSCII $44)
   - until: { ref: tick, count: 2 }
   - assert: { mem: tickcnt, equals: 2 }     # exactly one increment per jiffy
-  - assert: { mem: "@24,39", equals: [68] } # sticky debug echo saw the key
   # --- T3: maze 1 drawn from packed data ---
   - assert: { mem: dots_left, equals: [178, 0] }  # checker-verified count
   - assert: { mem: "@0,0",  equals: [85] }  # border corner renders as arc
@@ -474,19 +473,19 @@ steps:
   - until: { ref: tick, count: 30 }
   - assert: { mem: game_state, equals: [1] }         # dying on her last life
   - until: { ref: tick, count: 145 }
-  - assert: { mem: game_state, equals: [2] }         # GAME OVER screen
-  - until: { ref: tick, count: 155 }
-  - assert: { mem: game_state, equals: [3] }         # qualified: initials
-  # entry: W (A->B), D (next slot), SPACE (confirm) -> table rank 0
-  - poke:  { addr: "$97", values: [87] }             # W
+  - assert: { mem: game_state, equals: [2] }         # GAME OVER box (grown)
+  - until: { ref: tick, count: 25 }
+  - assert: { mem: game_state, equals: [3] }         # qualified: typing mode
+  # typed entry: B, A, A — the third character commits to the table
+  - poke:  { addr: "$97", values: [66] }             # 'B'
   - until: { ref: tick, count: 2 }
   - poke:  { addr: "$97", values: [255] }            # release
   - until: { ref: tick, count: 2 }
-  - poke:  { addr: "$97", values: [68] }             # D
+  - poke:  { addr: "$97", values: [65] }             # 'A'
   - until: { ref: tick, count: 2 }
   - poke:  { addr: "$97", values: [255] }
   - until: { ref: tick, count: 2 }
-  - poke:  { addr: "$97", values: [32] }             # SPACE: commit
+  - poke:  { addr: "$97", values: [65] }             # 'A' — commits
   - until: { ref: tick, count: 3 }
   - assert: { mem: hs_sc, equals: [0, 0, 1] }        # rank 0 = our 010000
   - assert: { mem: hs_nm, equals: [2, 1, 1] }        # "BAA"

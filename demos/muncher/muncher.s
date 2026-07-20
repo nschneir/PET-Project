@@ -73,10 +73,7 @@ loop:   jsr     pace
         inc     tickcnt+1
 tick:   lda     KEYDOWN         ; read FIRST, before the IRQ rewrites it
         sta     keybuf
-        cmp     #$FF
-        beq     :+              ; no key: keep last echo (sticky for tests)
-        sta     SCREEN+999      ; debug echo cell @24,39 — raw byte on purpose
-:       jsr     snd_tick        ; the one voice plays in every state
+        jsr     snd_tick        ; the one voice plays in every state
         ldy     game_state
         beq     playing
         dey

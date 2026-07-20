@@ -454,6 +454,7 @@ ini_draw:
         iny
         iny
         iny
+        iny
         lda     rowscr_lo,y
         sta     PTR
         lda     rowscr_hi,y
@@ -487,7 +488,7 @@ go_box: lda     #10
         beq     gb_sz
         lda     #9
         sta     gtop
-        lda     #15
+        lda     #16
         sta     gbot
 gb_sz:  ldx     gtop            ; rows gtop-gbot, cols 10-29
 gbr:    lda     rowscr_lo,x
@@ -573,6 +574,7 @@ gbt3:   lda     #$80
         bne     gbt4            ; player knows to type their initials
         rts
 gbt4:   ldy     gtop
+        iny
         iny
         iny
         iny
@@ -742,8 +744,8 @@ txt_1up:  .byte 49,21,16,0                          ; "1UP"
 txt_high: .byte 8,9,7,8,0                           ; "HIGH"
 txt_round:.byte 18,15,21,14,4,0                     ; "ROUND"
 txt_gover:.byte 7,1,13,5,32,15,22,5,18,0            ; "GAME OVER"
-gcol1:  .byte 15,16,17,18,19,20,21,22,23,24         ; box text columns
-txt_hs: .byte 8,9,7,8,32,19,3,15,18,5,0             ; "HIGH SCORE"
+gcol1:  .byte 15,16,17,18,19,20,21,22,23,24,25      ; box text columns
+txt_hs: .byte 8,9,7,8,32,19,3,15,18,5,33,0          ; "HIGH SCORE!"
 hsx3:   .byte 0,1,2,3,4        ; X*3 helper: (X<<1)+hsx3[X] = X*3
 fhrow_lo: .byte <(SCREEN+13*40+29),<(SCREEN+14*40+29),<(SCREEN+15*40+29)
           .byte <(SCREEN+16*40+29),<(SCREEN+17*40+29),<(SCREEN+18*40+29)

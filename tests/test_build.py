@@ -66,3 +66,52 @@ def test_missing_tool_message(monkeypatch):
     monkeypatch.setattr("petlib.build.shutil.which", lambda n: None)
     with pytest.raises(BuildError, match="[Ii]nstall"):
         build_asm(Path("x.s"))
+
+
+def _stub_pair(tmp_path, monkeypatch, ca65_body=None, deps_line=None):
+    """Stub ca65/ld65; ca65 honors --create-dep when deps_line given."""
+    default_ca65 = (
+        "import sys, pathlib\n"
+        "a = sys.argv[1:]\n"
+        "pathlib.Path(a[a.index('-o')+1]).write_bytes(b'OBJ')\n"
+    )
+    if deps_line is not None:
+        default_ca65 += (
+            "if '--create-dep' in a:\n"
+            f"    pathlib.Path(a[a.index('--create-dep')+1]).write_text({deps_line!r})\n"
+        )
+    ca65 = _stub_tool(tmp_path, "ca65", ca65_body or default_ca65)
+    ld65 = _stub_tool(tmp_path, "ld65", (
+        "import sys, pathlib\n"
+        "a = sys.argv[1:]\n"
+        "pathlib.Path(a[a.index('-o')+1]).write_bytes(b'\\x01\\x04PRG')\n"
+        "pathlib.Path(a[a.index('-Ln')+1]).write_text('al 00040D .start\\n')\n"
+    ))
+    monkeypatch.setenv("PET_TOOLS_CA65", str(ca65))
+    monkeypatch.setenv("PET_TOOLS_LD65", str(ld65))
+
+
+def test_build_asm_collects_deps_and_built_at(tmp_path, monkeypatch):
+    import time
+    src = tmp_path / "prog.s"
+    inc = tmp_path / "inc.s"
+    src.write_text('; top\n.include "inc.s"\n')
+    inc.write_text("; include\n")
+    deps = f"prog.o: {src} \\\n {inc}\n"
+    _stub_pair(tmp_path, monkeypatch, deps_line=deps)
+    t0 = time.time()
+    res = build_asm(src)
+    assert src in res.deps and inc in res.deps
+    assert res.built_at >= t0
+
+
+def test_build_failure_never_touches_existing_prg(tmp_path, monkeypatch):
+    src = tmp_path / "prog.s"
+    src.write_text("; broken\n")
+    old = tmp_path / "prog.prg"
+    old.write_bytes(b"\x01\x04OLD")
+    _stub_pair(tmp_path, monkeypatch,
+               ca65_body="import sys\nsys.stderr.write('boom\\n')\nsys.exit(1)\n")
+    with pytest.raises(BuildError):
+        build_asm(src)
+    assert old.read_bytes() == b"\x01\x04OLD"  # stale binary intact, not rebuilt

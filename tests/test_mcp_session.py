@@ -13,6 +13,7 @@ def home(tmp_path, monkeypatch):
 def _fake_session(labels=None):
     s = Mock()
     s.name, s.model, s.pid, s.port, s.labels = "pet4032", "pet4032", 1, 6502, labels
+    s.loaded_prg, s.loaded_at, s.loaded_deps = None, 0.0, None
     s.profile.basic_version = "4.0"
     mon = Mock()
     s.monitor.return_value.__enter__ = Mock(return_value=mon)

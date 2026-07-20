@@ -11,7 +11,8 @@ import os
 import shutil
 import subprocess
 import tempfile
-from dataclasses import dataclass
+import time
+from dataclasses import dataclass, field
 from pathlib import Path
 
 
@@ -23,6 +24,8 @@ class BuildError(Exception):
 class BuildResult:
     prg: Path
     labels: Path
+    deps: tuple[Path, ...] = field(default=())
+    built_at: float = 0.0
 
 
 def _find_tool(name: str, env_var: str) -> str:
@@ -72,7 +75,23 @@ def build_asm(
     with tempfile.TemporaryDirectory() as td:
         obj = Path(td) / (source.stem + ".o")
         cfg = Path(td) / "pet.cfg"
+        dep = Path(td) / "deps.d"
         cfg.write_text(linker_config(basic_start))
-        _run([ca65, "-g", str(source), "-o", str(obj)])
+        _run([ca65, "-g", str(source), "-o", str(obj),
+              "--create-dep", str(dep)])
         _run([ld65, "-o", str(prg), "-C", str(cfg), "-Ln", str(labels), str(obj)])
-    return BuildResult(prg=prg, labels=labels)
+        deps = _parse_deps(dep, fallback=source)
+    return BuildResult(prg=prg, labels=labels, deps=deps, built_at=time.time())
+
+
+def _parse_deps(dep_file: Path, fallback: Path) -> tuple[Path, ...]:
+    """Parse ca65's Makefile-style dependency file: every source file the
+    build read (the top file plus everything it .include'd). Used for the
+    stale-binary warning (`pet status`). Falls back to just the top file
+    if the dep file is missing (very old ca65)."""
+    if not dep_file.exists():
+        return (fallback.resolve(),)
+    text = dep_file.read_text().replace("\\\n", " ")
+    _, _, tail = text.partition(":")
+    deps = tuple(Path(tok).resolve() for tok in tail.split() if tok)
+    return deps or (fallback.resolve(),)

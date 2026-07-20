@@ -72,6 +72,23 @@ def parse_ref(labels: dict[str, int], ref, *, screen_base: int | None = None,
     return resolve(labels, r)  # KeyError with candidates on unknown symbol
 
 
+def staleness(session) -> list[str]:
+    """Source files (from the last load's dependency list) modified since
+    the load. Non-empty means the emulator is running an out-of-date
+    program — the trap the Ms. Muncher dogfood fell into."""
+    import os
+    if not session.loaded_prg or not session.loaded_deps:
+        return []
+    out = []
+    for d in session.loaded_deps:
+        try:
+            if os.path.getmtime(d) > session.loaded_at:
+                out.append(d)
+        except OSError:
+            out.append(d)               # vanished source counts as stale
+    return out
+
+
 def session_labels(s) -> dict[str, int]:
     if isinstance(s.labels, str) and s.labels:
         try:

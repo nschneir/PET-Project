@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json as _json
 import sys
+import time
 from pathlib import Path
 
 import click
@@ -23,6 +24,7 @@ from .ops import (
     parse_ref,
     run_until,
     session_labels,
+    staleness,
     wait_for_break,
     wait_for_mem,
     wait_for_text,
@@ -248,9 +250,18 @@ def status_cmd(ctx):
     """
     s = attach(ctx)
     state = machine_state(s)
+    stale = staleness(s)
+    text = f"session {s.name} ({s.model}) state={state} pid={s.pid} port={s.port}"
+    if s.loaded_prg:
+        text += (f"\nprogram: {s.loaded_prg} (loaded "
+                 f"{time.strftime('%H:%M:%S', time.localtime(s.loaded_at))})")
+    for f in stale:
+        text += f"\nSTALE (source changed since load): {f}"
     emit(ctx, {"name": s.name, "model": s.model, "pid": s.pid,
-               "port": s.port, "state": state},
-         f"session {s.name} ({s.model}) state={state} pid={s.pid} port={s.port}")
+               "port": s.port, "state": state,
+               "program": s.loaded_prg, "loaded_at": s.loaded_at,
+               "stale": stale},
+         text)
 
 
 @main.group()
@@ -541,6 +552,7 @@ def load_cmd(ctx, prg, do_run, symbols):
             mon.resume()
     if symbols:
         s.set_labels_path(str(symbols.resolve()))
+    s.record_loaded(prg, [prg])
     emit(ctx, {"loaded": str(prg.resolve()), "run": do_run,
                "symbols": str(symbols.resolve()) if symbols else None},
          f"autostarted {prg}{'' if do_run else ' (no RUN)'}")
@@ -555,6 +567,7 @@ def run_cmd(ctx, source):
     src = source.resolve()
     ext = src.suffix.lower()
     labels = None
+    deps: tuple = ()
     try:
         if ext == ".prg":
             prg = src
@@ -562,12 +575,18 @@ def run_cmd(ctx, source):
             prg = tokenize(src, src.with_suffix(".prg"), s.profile.basic_version)
         elif ext == ".s":
             res = build_asm(src, basic_start=s.profile.basic_start)
-            prg, labels = res.prg, res.labels
+            prg, labels, deps = res.prg, res.labels, res.deps
         else:
             fail(ctx, f"don't know how to run {ext!r} files (use .bas, .s, or .prg)")
             return
     except (BasicError, BuildError) as e:
-        fail(ctx, str(e))
+        msg = str(e)
+        if s.loaded_prg:
+            msg += (f"\nemulator still running the PREVIOUS program "
+                    f"({s.loaded_prg}, loaded "
+                    f"{time.strftime('%H:%M:%S', time.localtime(s.loaded_at))})"
+                    " — nothing was reloaded")
+        fail(ctx, msg)
         return
     with s.monitor() as mon:
         try:
@@ -576,6 +595,7 @@ def run_cmd(ctx, source):
             mon.resume()
     if labels:
         s.set_labels_path(str(labels))
+    s.record_loaded(prg, deps if deps else [src])
     emit(ctx, {"source": str(src), "prg": str(prg),
                "symbols": str(labels) if labels else None},
          f"running {prg}")

@@ -10,12 +10,14 @@ from petlib.session import SessionError
 def _fake_session(name="pet4032", port=6502):
     s = Mock()
     s.name, s.pid, s.port, s.model = name, 1234, port, "pet4032"
+    s.loaded_prg, s.loaded_at, s.loaded_deps = None, 0.0, None
     return s
 
 
 def _fake(labels=None):
     fake = Mock()
     fake.name, fake.model, fake.labels = "pet4032", "pet4032", labels
+    fake.loaded_prg, fake.loaded_at, fake.loaded_deps = None, 0.0, None
     mon = Mock()
     fake.monitor.return_value.__enter__ = Mock(return_value=mon)
     fake.monitor.return_value.__exit__ = Mock(return_value=False)
@@ -129,7 +131,8 @@ def test_status_command():
     assert r.exit_code == 0, r.output
     out = json.loads(r.output)
     assert out == {"name": "pet4032", "model": "pet4032", "pid": 4242,
-                   "port": 6510, "state": "running"}
+                   "port": 6510, "state": "running",
+                   "program": None, "loaded_at": 0.0, "stale": []}
 
 
 def test_status_human_line():

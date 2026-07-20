@@ -118,6 +118,9 @@ class Session:
     labels: str | None = None
     daemon_pid: int | None = None
     socket: str | None = None
+    loaded_prg: str | None = None
+    loaded_at: float = 0.0
+    loaded_deps: list[str] | None = None
 
     @property
     def profile(self) -> MachineProfile:
@@ -134,12 +137,22 @@ class Session:
                 {"name": self.name, "pid": self.pid, "port": self.port,
                  "model": self.model, "labels": self.labels,
                  "daemon_pid": self.daemon_pid, "socket": self.socket,
+                 "loaded_prg": self.loaded_prg, "loaded_at": self.loaded_at,
+                 "loaded_deps": self.loaded_deps,
                  "created": time.time()}
             )
         )
 
     def set_labels_path(self, path: str) -> None:
         self.labels = str(Path(path).resolve())
+        self._save()
+
+    def record_loaded(self, prg, deps=()) -> None:
+        """Remember what program the emulator is now running, and which
+        source files produced it (for the stale-source warning)."""
+        self.loaded_prg = str(Path(prg).resolve())
+        self.loaded_at = time.time()
+        self.loaded_deps = [str(Path(d).resolve()) for d in deps]
         self._save()
 
     def _respawns_path(self) -> Path:
@@ -165,7 +178,10 @@ class Session:
             r = json.loads(f.read_text())
             s = Session(name=r["name"], pid=r["pid"], port=r["port"],
                         model=r["model"], labels=r.get("labels"),
-                        daemon_pid=r.get("daemon_pid"), socket=r.get("socket"))
+                        daemon_pid=r.get("daemon_pid"), socket=r.get("socket"),
+                        loaded_prg=r.get("loaded_prg"),
+                        loaded_at=r.get("loaded_at", 0.0),
+                        loaded_deps=r.get("loaded_deps"))
             if s.is_alive():
                 out.append(s)
             else:

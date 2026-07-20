@@ -28,6 +28,7 @@ from .ops import (
     pc_symbol,
     run_until,
     session_labels,
+    staleness,
     wait_for_break,
     wait_for_mem,
     wait_for_text,
@@ -97,13 +98,16 @@ def pet_session_reset(hard: bool = False, session: str | None = None) -> dict:
 
 
 @srv.tool()
-def pet_status(session: str | None = None) -> dict:
+def pet_status(session: str | None = None) -> dict:  # noqa: D401
     """The session and whether the machine is running or stopped right now.
     state is answered by the session daemon's own tracking (no emulator
-    traffic); "unknown" without a daemon."""
+    traffic); "unknown" without a daemon. Also reports the loaded program
+    and any source files changed since it was loaded (stale binary!)."""
     s = _attach(session)
     return {"name": s.name, "model": s.model, "pid": s.pid, "port": s.port,
-            "state": machine_state(s)}
+            "state": machine_state(s),
+            "program": s.loaded_prg, "loaded_at": s.loaded_at,
+            "stale": staleness(s)}
 
 
 @srv.tool()
@@ -417,13 +421,14 @@ def pet_run(source: str, session: str | None = None) -> dict:
     src = Path(source).resolve()
     ext = src.suffix.lower()
     labels_path = None
+    deps: tuple = ()
     if ext == ".prg":
         prg = src
     elif ext == ".bas":
         prg = tokenize(src, src.with_suffix(".prg"), s.profile.basic_version)
     elif ext == ".s":
         res = build_asm(src, basic_start=s.profile.basic_start)
-        prg, labels_path = res.prg, res.labels
+        prg, labels_path, deps = res.prg, res.labels, res.deps
     else:
         raise ValueError(f"cannot run {ext!r} files (use .bas, .s, or .prg)")
     with s.monitor() as mon:
@@ -433,6 +438,7 @@ def pet_run(source: str, session: str | None = None) -> dict:
             mon.resume()
     if labels_path:
         s.set_labels_path(str(labels_path))
+    s.record_loaded(prg, deps if ext == ".s" else [src])
     return {"source": str(src), "prg": str(prg),
             "symbols": str(labels_path) if labels_path else None}
 

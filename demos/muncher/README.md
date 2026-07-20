@@ -33,7 +33,8 @@ pet run demos/muncher/muncher.s
   instant)
 - **SPACE** — start from the title (also skips intermissions)
 - **1 / 2 / 3** *(hidden, title screen only)* — play Acts 1–3 directly
-- High-score initials: **W/S** cycle letters, **A/D** move, **SPACE** saves
+- High-score initials: just **type them** (letters/digits; the third
+  character saves, or **RETURN**/**SPACE** saves early)
 
 ## Engineering notes
 

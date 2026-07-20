@@ -99,21 +99,28 @@ quotes must be spelled with their plain ASCII equivalents (`-`, `"`).
 ## How `pet screen` decodes the screen
 
 `pet screen` reads screen RAM and maps each screen code to text
-(`petlib.text.screen_code_to_char`). Know its three rules before trusting
-what you see:
+(`petlib.text.screen_code_to_char`). Since v1.2 the default style is
+**unicode**: graphics decode to real box-drawing / block-element /
+geometric glyphs, so mazes, sprites, and blobs read naturally. The rules:
 
-1. **Reverse video is stripped.** Codes $80-$FF decode as their base glyph
-   (bit 7 cleared): a reverse `A` ($81) reads as `A`.
-2. **Therefore the solid block is invisible.** Reverse-space $A0 — the
-   character most drawing code uses for solid pixels — strips to space
-   ($20) and decodes as a **blank**. A shape drawn in solid blocks shows
-   as empty space in `pet screen` text.
-3. **Unmapped graphics become `·`.** Graphics characters with no text
-   equivalent render as a placeholder dot.
+1. **Graphics map to Unicode equivalents.** Lines/corners/tees become
+   `─ │ ╭ ╮ ╰ ╯ ┌ ┐ └ ┘ ├ ┤ ┬ ┴ ┼`, blocks and quadrants become
+   `▌ ▄ ▖ ▗ ▘ ▝ ▚`, shapes become `● ○ ♥ ◆ ♠ ♣ ▒ ╲ ╱ ╳ ◣ ◤`.
+2. **Reverse video keeps the base glyph — except where Unicode has the
+   pixel complement.** Reverse `A` ($81) reads as `A`, but reverse-space
+   $A0 (the solid block) decodes as `█`, reverse half-blocks flip
+   (`▌`↔`▐`, `▄`↔`▀`), reverse quadrants become three-quarter blocks
+   (`▛ ▜ ▙ ▟`), and reverse ball/ring become `◘ ◙`. Pass
+   `--ansi-reverse` to wrap the remaining reverse cells in terminal
+   inverse-video escapes.
+3. **Genuinely unmappable graphics become `·`.** And `--style ascii`
+   restores the old conservative mapping (all graphics collapse to `·`
+   except `- | +`).
 
 Letters, digits, and punctuation round-trip faithfully — text output is
-fully trustworthy. To verify graphics drawn with blocks or line
-characters, assert the screen **codes** numerically instead:
+fully trustworthy. When you need exact glyph identity (e.g. asserting a
+specific character code, not its look-alike), read the numbers instead:
+`pet screen --codes` prints the raw screen-code matrix, or
 `pet mem get $80D2` for row 5, column 10 on a 40-column model (row stride
 80 on 80-column models), or use `pet screen --png` when pixel appearance
 matters.

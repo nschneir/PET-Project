@@ -183,3 +183,42 @@ def test_reg_reports_state():
         S.attach.return_value = fake
         r = CliRunner().invoke(main, ["--json", "reg"])
     assert json.loads(r.output)["state"] == "stopped"
+
+
+def test_screen_codes_matrix():
+    mon = Mock()
+    mon.memory_read.return_value = bytes([81, 32, 87]) + bytes([32] * 997)
+    fake, p = _patched(mon)
+    fake.profile = __import__("petlib.machines", fromlist=["get_profile"]).get_profile("pet4032")
+    with p as S:
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["--json", "screen", "--codes"])
+    assert r.exit_code == 0, r.output
+    codes = json.loads(r.output)["codes"]
+    assert len(codes) == 25 and codes[0][:3] == [81, 32, 87]
+
+
+def test_screen_style_ascii():
+    mon = Mock()
+    mon.memory_read.return_value = bytes([81, 64, 87]) + bytes([32] * 997)
+    fake, p = _patched(mon)
+    fake.profile = __import__("petlib.machines", fromlist=["get_profile"]).get_profile("pet4032")
+    with p as S:
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["screen", "--style", "ascii"])
+    assert r.exit_code == 0, r.output
+    assert r.output.splitlines()[0] == "·-·"
+
+
+def test_screen_png_scale():
+    mon = Mock()
+    fake, p = _patched(mon)
+    with p as S, patch("petlib.cli.save_screenshot_png",
+                       return_value=(760, 500)) as save:
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["--json", "screen", "--png", "/tmp/x.png",
+                                      "--scale", "2"])
+    assert r.exit_code == 0, r.output
+    save.assert_called_once()
+    assert save.call_args.kwargs["scale"] == 2
+    assert json.loads(r.output)["width"] == 760

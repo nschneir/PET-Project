@@ -116,12 +116,32 @@ also includes `"state"` in its JSON output.
 ### `pet screen`
 
 Show the emulated screen. With no option, prints the screen decoded to text —
-the preferred way to observe program output. With `--png` it writes an image.
+the preferred way to observe program output. With `--png` it writes an image;
+with `--codes` it prints the raw screen-code matrix.
 
 - `--png PATH` — save a PNG screenshot instead of printing text.
+- `--scale N` — integer nearest-neighbour upscale for `--png` (default 1;
+  PET screens read better at 2–3×).
+- `--codes` — print the 25×40 matrix of raw screen codes (decimal). With
+  `--json`, nested arrays under `"codes"`. Use this to assert exact glyph
+  identity.
+- `--style unicode|ascii` — text decoding style (default `unicode`).
+  Unicode maps graphics to real box/block/shape glyphs (`╭─╮ ● ▌ █ …`);
+  `ascii` is the legacy conservative mapping (graphics → `·` except
+  `- | +`).
+- `--ansi-reverse` — wrap reverse-video cells with no Unicode complement
+  in terminal inverse-video escapes.
 
 JSON (text): `{"text", "rows": [...]}`. JSON (`--png`): `{"png", "width",
-"height"}`. Machine state preserved.
+"height"}`. JSON (`--codes`): `{"codes": [[...], ...]}`. Machine state
+preserved.
+
+> **Migration note (v1.2):** the default decoding changed from the
+> conservative ASCII mapping to Unicode. `pet wait --text` and YAML
+> `wait: {text: ...}` match against the decoded text, so patterns that
+> relied on graphics decoding to `·` (or reverse-space decoding to blank)
+> must be updated or run with `--style ascii`. Plain-text patterns
+> (letters/digits/punctuation) are unaffected.
 
 ---
 

@@ -36,7 +36,7 @@ from .ops import (
 from .packaging import package_program
 from .protocol import CP_EXEC, CP_LOAD, CP_STORE
 from .romdoc import identify, rom_labels
-from .screen import read_screen_text, save_screenshot_png
+from .screen import read_screen_codes, read_screen_text, save_screenshot_png
 from .session import Session
 from .symbols import format_addr
 from .testing import load_test, program_test, run_test
@@ -111,26 +111,43 @@ def pet_status(session: str | None = None) -> dict:  # noqa: D401
 
 
 @srv.tool()
-def pet_screen_text(session: str | None = None) -> dict:
+def pet_screen_text(session: str | None = None, style: str = "unicode",
+                    ansi_reverse: bool = False) -> dict:
     """Read the PET screen as plain text. This is the PREFERRED way to see
-    program output — faster and more reliable than screenshots for AI use."""
+    program output — faster and more reliable than screenshots for AI use.
+    Graphics decode to Unicode glyphs; style="ascii" restores the legacy
+    conservative mapping."""
     s = _attach(session)
     with s.monitor() as mon:
         try:
-            text = read_screen_text(mon, s.profile)
+            text = read_screen_text(mon, s.profile, style, ansi_reverse)
         finally:
             mon.release()
     return {"text": text, "rows": text.splitlines()}
 
 
 @srv.tool()
-def pet_screenshot(path: str, session: str | None = None) -> dict:
-    """Save a PNG screenshot. Prefer pet_screen_text for reading output;
-    use this only when pixel-level appearance matters."""
+def pet_screen_codes(session: str | None = None) -> dict:
+    """Read the raw screen-code matrix (rows x cols of ints) — exact
+    values for checking glyphs without decoding ambiguity."""
     s = _attach(session)
     with s.monitor() as mon:
         try:
-            w, h = save_screenshot_png(mon, path)
+            codes = read_screen_codes(mon, s.profile)
+        finally:
+            mon.release()
+    return {"codes": codes}
+
+
+@srv.tool()
+def pet_screenshot(path: str, session: str | None = None, scale: int = 1) -> dict:
+    """Save a PNG screenshot. Prefer pet_screen_text for reading output;
+    use this only when pixel-level appearance matters. scale gives an
+    integer nearest-neighbour upscale (small PET screens read better at 2-3x)."""
+    s = _attach(session)
+    with s.monitor() as mon:
+        try:
+            w, h = save_screenshot_png(mon, path, scale=scale)
         finally:
             mon.release()
     return {"png": path, "width": w, "height": h}

@@ -41,7 +41,7 @@ from .ops import (
 from .packaging import PackageError, package_program
 from .protocol import CP_EXEC, CP_LOAD, CP_STORE
 from .romdoc import identify, rom_labels
-from .screen import read_screen_text, save_screenshot_png
+from .screen import read_screen_codes, read_screen_text, save_screenshot_png
 from .session import Session, SessionError
 from .symbols import format_addr
 from .testing import TestError, load_test, program_test, run_test
@@ -217,22 +217,38 @@ def _decdump(addr: int, data: bytes) -> str:
 @main.command("screen")
 @click.option("--png", "png_path", default=None, type=click.Path(dir_okay=False),
               help="Save a PNG screenshot to this path instead of printing text.")
+@click.option("--scale", default=1, show_default=True,
+              help="Integer upscale factor for --png (nearest-neighbour).")
+@click.option("--codes", "codes_", is_flag=True,
+              help="Print the raw screen-code matrix instead of decoded text.")
+@click.option("--style", type=click.Choice(["unicode", "ascii"]),
+              default="unicode", show_default=True,
+              help="Text decoding: Unicode graphics or the legacy ASCII-safe set.")
+@click.option("--ansi-reverse", is_flag=True,
+              help="Wrap reverse-video cells in ANSI inverse escapes.")
 @click.pass_context
-def screen_cmd(ctx, png_path):
-    """Show the emulated screen — decoded text by default, or a PNG with --png.
+def screen_cmd(ctx, png_path, scale, codes_, style, ansi_reverse):
+    """Show the emulated screen — decoded text by default, a PNG with --png,
+    or the raw screen-code matrix with --codes.
 
-    Printing the screen is the preferred way to observe program output. Does
-    not disturb run/stop state.
+    Printing the screen is the preferred way to observe program output.
+    Graphics decode to Unicode box/block/shape glyphs (mazes and sprites
+    read naturally); --style ascii restores the conservative legacy
+    mapping. Does not disturb run/stop state.
     """
     s = attach(ctx)
     with s.monitor() as mon:
         try:
             if png_path:
-                w, h = save_screenshot_png(mon, png_path)
+                w, h = save_screenshot_png(mon, png_path, scale=scale)
                 emit(ctx, {"png": png_path, "width": w, "height": h},
                      f"wrote {w}x{h} screenshot to {png_path}")
+            elif codes_:
+                m = read_screen_codes(mon, s.profile)
+                text = "\n".join(" ".join(f"{v:3d}" for v in row) for row in m)
+                emit(ctx, {"codes": m}, text)
             else:
-                text = read_screen_text(mon, s.profile)
+                text = read_screen_text(mon, s.profile, style, ansi_reverse)
                 emit(ctx, {"text": text, "rows": text.splitlines()}, text)
         finally:
             mon.release()

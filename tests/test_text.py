@@ -21,7 +21,9 @@ def test_reverse_video_bit_stripped():
 
 
 def test_graphics_codes_become_dot():
-    assert screen_code_to_char(97) == "·"
+    # legacy ascii style collapses graphics; unicode style decodes them
+    assert screen_code_to_char(97, style="ascii") == "·"
+    assert screen_code_to_char(97) == "▌"
 
 
 def test_screen_to_text_rows():
@@ -44,13 +46,13 @@ def test_ascii_to_petscii_rejects_unmappable():
 def test_screen_decode_matches_documented_behavior():
     """Pins the claims in petscii.md's 'How pet screen decodes' section."""
     from petlib import text
-    # reverse video strips to the base glyph
+    # reverse video without a Unicode complement keeps the base glyph
     assert text.screen_code_to_char(0x81) == "A"
-    # reverse-space $A0 (the solid block) decodes to a BLANK
-    assert text.screen_code_to_char(0xA0) == " "
-    # unmapped graphics render as the placeholder
-    unmapped = next(c for c in range(64, 128) if c not in text._GRAPHICS)
-    assert text.screen_code_to_char(unmapped) == text.GRAPHICS_PLACEHOLDER
+    # reverse-space $A0 (the solid block) decodes as a solid block
+    assert text.screen_code_to_char(0xA0) == "█"
+    # legacy ascii style: unmapped graphics render as the placeholder
+    unmapped = next(c for c in range(64, 128) if c not in text._GRAPHICS_ASCII)
+    assert text.screen_code_to_char(unmapped, style="ascii") == text.GRAPHICS_PLACEHOLDER
 
 
 def test_petscii_doc_has_decoder_section():

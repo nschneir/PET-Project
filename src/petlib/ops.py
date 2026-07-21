@@ -195,6 +195,59 @@ def wait_for_break(session, timeout: float = 30.0,
             # client's connect-stop): loop — the flag poll decides.
 
 
+#: default trap for call_routine's fake return address — the BASIC link
+#: bytes at the start of program text, never machine-executed.
+CALL_TRAP = 0x0400
+
+
+def call_routine(session, addr: int, a: int | None = None, x: int | None = None,
+                 y: int | None = None, timeout: float = 30.0,
+                 trap: int = CALL_TRAP) -> dict:
+    """JSR one routine in isolation and stop when it returns.
+
+    Emulates `JSR addr`: pushes a fake return address (trap-1, matching
+    real JSR semantics) on the 6502 stack, optionally sets A/X/Y, sets PC
+    to the routine, and runs until an exec checkpoint at the trap fires —
+    i.e. until the routine's own RTS. The machine is left STOPPED at the
+    trap so registers and memory can be asserted; on timeout the
+    checkpoint is removed and the machine left running.
+
+    Returns {"fired": bool, "registers": regs-or-None, "trap": trap}.
+    This is the unit-test primitive: poke inputs, call, assert outputs.
+    """
+    deadline = time.monotonic() + timeout
+    with session.monitor() as mon:
+        regs = mon.registers()          # also stops the machine
+        sp = regs["SP"]
+        ret = (trap - 1) & 0xFFFF
+        mon.memory_write(0x0100 + sp, bytes([ret >> 8]))
+        mon.memory_write(0x0100 + ((sp - 1) & 0xFF), bytes([ret & 0xFF]))
+        mon.set_register("SP", (sp - 2) & 0xFF)
+        for name, val in (("A", a), ("X", x), ("Y", y)):
+            if val is not None:
+                mon.set_register(name, val)
+        mon.set_register("PC", addr)
+        ck = mon.checkpoint_set(trap, op=CP_EXEC, temporary=False)
+        mon.resume()
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                mon.checkpoint_delete(ck.number)
+                mon.resume()
+                return {"fired": False, "registers": None, "trap": trap}
+            info = mon.wait_for_stop(min(1.0, remaining))
+            if info is not None and info.checkpoint == ck.number:
+                break
+            cur = next((c for c in mon.checkpoint_list()
+                        if c.number == ck.number), None)
+            if cur is not None and (cur.hit or cur.hit_count > 0):
+                break                    # durable flag caught a lost event
+            mon.resume()                 # the list stopped the machine
+        out = mon.registers()
+        mon.checkpoint_delete(ck.number)
+        return {"fired": True, "registers": out, "trap": trap}
+
+
 def run_until(session, addr: int, timeout: float = 30.0, count: int = 1) -> dict:
     """Run until addr is executed `count` times; the machine stays stopped at
     the final arrival ("frame stepping" when addr is a main-loop label).

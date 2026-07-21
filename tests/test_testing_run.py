@@ -272,3 +272,34 @@ def test_assert_mem_between():
 def test_assert_mem_between_hex_bounds():
     arg = {"mem": "$8000", "between": {"min": "$30", "max": "$39"}}
     assert _assert_step(bytes([0x35]), arg).passed is True
+
+
+def test_call_step_resolves_symbol_and_passes_registers(tmp_path):
+    s, mon = _fake_session()
+    launch = Mock(return_value=s)
+    lbl = tmp_path / "p.lbl"
+    lbl.write_text("al C:2000 .sndinit\n")
+    prog = tmp_path / "p.prg"
+    prog.write_bytes(b"\x01\x04")
+    spec = _spec(program=str(prog), autorun=True,
+                 steps=[{"call": {"routine": "sndinit", "a": 5, "x": 1}}])
+    fired = {"fired": True, "registers": {"PC": 0x0400, "A": 5}, "trap": 0x0400}
+    with patch("petlib.testing.read_screen_text", return_value="READY."), \
+         patch("petlib.testing._prepare", return_value=(prog, lbl)), \
+         patch("petlib.testing.call_routine", return_value=fired) as cr:
+        result = run_test(spec, launch=launch)
+    assert result.passed is True, result.steps
+    assert cr.call_args.args[1] == 0x2000
+    assert cr.call_args.kwargs["a"] == 5 and cr.call_args.kwargs["x"] == 1
+
+
+def test_call_step_timeout_fails_with_detail():
+    s, mon = _fake_session()
+    launch = Mock(return_value=s)
+    spec = _spec(steps=[{"call": {"routine": "$2000", "timeout": 1}}])
+    out = {"fired": False, "registers": None, "trap": 0x0400}
+    with patch("petlib.testing.read_screen_text", return_value="READY."), \
+         patch("petlib.testing.call_routine", return_value=out):
+        result = run_test(spec, launch=launch)
+    assert result.passed is False
+    assert "never returned" in result.steps[0].detail

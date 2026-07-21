@@ -625,3 +625,32 @@ steps:
   - poke:  { addr: lives, values: [5] }               # survive collisions
   - until: { ref: tick, count: 1200 }
   - assert: { mem: overruns, equals: [0] }            # every frame fit
+  # --- FT-call: routine-level unit tests (call: JSRs one routine in
+  # isolation — fake return on the stack, stops at its RTS — so inputs
+  # are poked, ONE routine runs, and results are asserted with nothing
+  # else executing in between) ---
+  # addscore: A = point-table index, 3-byte little-endian BCD add.
+  - poke:  { addr: score, values: [0, 0, 0] }
+  - poke:  { addr: hiscore, values: [0, 0, 0] }
+  - poke:  { addr: extra_given, values: [1] }    # suppress the bonus life
+  - call:  { routine: addscore, a: 0 }           # dot: +10
+  - assert: { mem: score, equals: ["$10", 0, 0] }
+  - call:  { routine: addscore, a: 1 }           # power ball: +50
+  - assert: { mem: score, equals: ["$60", 0, 0] }
+  - call:  { routine: addscore, a: 5 }           # 4th ghost: +1600
+  - assert: { mem: score, equals: ["$60", "$16", 0] }    # BCD 001660
+  - assert: { mem: hiscore, equals: ["$60", "$16", 0] }  # chases the score
+  # the 10,000-point bonus life, exercised in isolation:
+  - poke:  { addr: score, values: ["$90", "$99", 0] }    # BCD 009990
+  - poke:  { addr: extra_given, values: [0] }
+  - poke:  { addr: lives, values: [2] }
+  - call:  { routine: addscore, a: 0 }           # +10 rolls to 010000
+  - assert: { mem: score, equals: [0, 0, 1] }
+  - assert: { mem: lives, equals: [3] }          # bonus life granted...
+  - assert: { mem: extra_given, equals: [1] }    # ...exactly once
+  # cell_glyph: (ebcol, ebrow) -> A. The house door packs as OPEN but must
+  # draw as the lintel — the special case, tested without moving a ghost.
+  - poke:  { addr: ebcol, values: [13] }
+  - poke:  { addr: ebrow, values: [10] }
+  - call:  { routine: cell_glyph }
+  - assert: { reg: a, equals: 64 }               # G_HLINE

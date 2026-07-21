@@ -156,3 +156,32 @@ def test_until_timeout_is_loud():
     assert out["machine"] == "running" and out["checkpoint_removed"] is True
     assert out["reached"] == 1 and out["count"] == 3
     assert "left RUNNING" in out["error"] and "branch away" in out["error"]
+
+
+def test_call_command_invokes_routine(tmp_path):
+    import json as _j
+    lbl = tmp_path / "p.lbl"
+    lbl.write_text("al C:2000 .sndinit\n")
+    fake, mon = _fake(labels=str(lbl))
+    fired = {"fired": True, "registers": {"PC": 0x0400, "A": 42, "X": 0},
+             "trap": 0x0400}
+    with patch("petlib.cli.Session") as S, \
+         patch("petlib.cli.call_routine", return_value=fired) as cr:
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["--json", "call", "sndinit", "--a", "5"])
+    assert r.exit_code == 0, r.output
+    assert cr.call_args.args[1] == 0x2000
+    assert cr.call_args.kwargs["a"] == 5
+    out = _j.loads(r.output)
+    assert out["registers"]["A"] == 42 and out["stopped"] is True
+
+
+def test_call_command_timeout_fails():
+    fake, mon = _fake()
+    out = {"fired": False, "registers": None, "trap": 0x0400}
+    with patch("petlib.cli.Session") as S, \
+         patch("petlib.cli.call_routine", return_value=out):
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["call", "$2000", "--timeout", "1"])
+    assert r.exit_code == 1
+    assert "never returned" in r.output

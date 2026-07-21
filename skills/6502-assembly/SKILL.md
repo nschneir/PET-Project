@@ -130,4 +130,7 @@ fastest starting point for an action game).
 `pet run FILE.s` registers the labels, so you can `pet break add start`, then
 `pet wait --break`, `pet reg`, `pet step`, and `pet mem read` your data by
 symbol. Disassemble live memory (with your labels and ROM labels) via
-`pet rom disasm start 32`.
+`pet rom disasm start 32`. Test one routine in isolation with
+`pet call ROUTINE` (fake JSR; stops at its RTS). For symptom-driven
+procedures — corruption hunts, clobber audits, deterministic
+reproduction — use the `6502-debugging` skill's playbook.

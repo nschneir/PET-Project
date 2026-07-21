@@ -18,7 +18,7 @@ import yaml
 from .basic import tokenize
 from .build import build_asm
 from .machines import get_profile
-from .ops import parse_ref, run_until
+from .ops import call_routine, parse_ref, run_until
 from .screen import read_screen_text
 from .session import Session
 from .symbols import load_labels
@@ -29,13 +29,14 @@ class TestError(Exception):
     __test__ = False  # not a pytest test class despite the Test* name
 
 
-_STEP_KINDS = ("wait", "key", "assert", "poke", "until")
+_STEP_KINDS = ("wait", "key", "assert", "poke", "until", "call")
 
 #: required and allowed keys for the step kinds that take a mapping we
 #: fully define (the older kinds predate validation and stay lenient).
 _STEP_KEYS = {
     "poke": ({"addr"}, {"addr", "value", "values"}),
     "until": ({"ref"}, {"ref", "count", "timeout"}),
+    "call": ({"routine"}, {"routine", "a", "x", "y", "timeout"}),
 }
 
 
@@ -207,6 +208,20 @@ def _do_step(session, kind: str, arg, default_timeout: float,
             finally:
                 mon.release()  # a stopped machine STAYS stopped for the next
         return True, f"poked {len(data)} byte(s) at ${addr:04x}"  # until step
+
+    if kind == "call":
+        timeout = arg.get("timeout", default_timeout)
+        addr = _addr(arg["routine"])
+        out = call_routine(session, addr,
+                           a=arg.get("a"), x=arg.get("x"), y=arg.get("y"),
+                           timeout=timeout)
+        if not out["fired"]:
+            return False, (f"call ${addr:04x}: never returned in {timeout}s "
+                           "(machine left running)")
+        r = out["registers"]
+        return True, (f"call ${addr:04x} returned: "
+                      f"A={r.get('A', 0):02x} X={r.get('X', 0):02x} "
+                      f"Y={r.get('Y', 0):02x} (machine stopped at trap)")
 
     if kind == "until":
         timeout = arg.get("timeout", default_timeout)

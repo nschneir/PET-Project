@@ -382,6 +382,27 @@ program can stop visiting REF (death, menu, pause screen), `until REF` can
 never fire — set a breakpoint at a code path that must still execute and use
 `pet wait --break` instead.
 
+### `pet call`
+
+JSR the routine at `REF` in isolation and stop when it returns — the
+**unit-test primitive**: poke inputs, call one routine, assert registers
+and memory afterwards without running the rest of the program. Emulates a
+real `JSR` (fake return address on the stack, so the routine's own `RTS`
+ends the call at a trap address). The machine ends **STOPPED** at the
+trap.
+
+- `REF` — the routine's address or symbol (must end in `RTS`).
+- `--a N`, `--x N`, `--y N` — register values on entry (`$hex`/decimal).
+- `--timeout SECS` (default `30`).
+
+JSON: `{"registers", "pc_symbol", "stopped": true, "called"}`. Exit 1 on
+timeout, machine left running — a timeout usually means the routine never
+`RTS`es from this entry state (infinite loop, or REF isn't a subroutine
+entry point).
+
+The same operation is a YAML test step: `call: { routine: LABEL, a: 5 }`
+followed by ordinary `assert:` steps (see `pet test run`).
+
 ---
 
 ## Waiting
@@ -605,6 +626,9 @@ steps:
   - until:  { ref: mainloop, count: 3 }     # frame-step to a label; the
                                             #   machine STAYS stopped there
   - poke:   { addr: "$97", values: [68] }   # write bytes (state-preserving)
+  - call:   { routine: add_score, a: 5 }    # JSR one routine in isolation
+                                            #   (unit test: poke inputs
+                                            #   first, assert results after)
   - assert: { screen: "READY." }            # substring on screen now
   - assert: { mem: "@12,20", equals: 81 }   # screen cell row 12, col 20
   - assert: { mem: "$8000", equals_text: "HELLO" }  # screen RAM as text
@@ -620,9 +644,13 @@ steps:
 
 Step kinds: `wait` (poll until true or timeout — fails the test on
 timeout), `key` (feed keyboard input), `assert` (check once, now),
-`poke` (write bytes; `value:` or `values:`), and `until` (run to `ref`
+`poke` (write bytes; `value:` or `values:`), `until` (run to `ref`
 `count` times via a checkpoint and leave the machine stopped there —
-deterministic frame stepping; fails on timeout with the reached count).
+deterministic frame stepping; fails on timeout with the reached count),
+and `call` (JSR `routine` in isolation with optional `a`/`x`/`y` on
+entry, stopping at its RTS — routine-level unit testing; fails on
+timeout, which usually means the routine never returns from that entry
+state).
 A `poke` right before an `until` is the held-key protocol (`pet key
 hold` as steps). Step addresses accept everything the CLI does —
 `$hex`/`0xhex`/decimal, symbols from the built program's label file,

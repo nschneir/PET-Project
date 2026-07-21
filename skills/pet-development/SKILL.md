@@ -130,6 +130,10 @@ source of bugs:
 
 ## When something goes wrong — diagnosis table
 
+(Quick lookups only — for full procedures such as store-watchpoint
+corruption hunts, register-clobber audits, and deterministic
+reproduction, use the `6502-debugging` skill.)
+
 | Symptom | First move |
 |---------|------------|
 | Screen shows graphics glyphs instead of text | Uppercase in the `.bas` source — rewrite keywords AND strings lowercase. |

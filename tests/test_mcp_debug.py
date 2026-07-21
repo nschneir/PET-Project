@@ -134,3 +134,15 @@ def test_break_and_watch_clear_tools():
         S.attach.return_value = s
         err, out = call_tool("pet_watch_clear", {})
     assert err is False and out == {"removed": [2], "count": 1}
+
+
+def test_call_tool_runs_routine():
+    s, mon = _fake()
+    fired = {"fired": True, "registers": {"PC": 0x0400, "A": 42}, "trap": 0x0400}
+    with patch("petlib.mcp_server.Session") as S, \
+         patch("petlib.mcp_server.call_routine", return_value=fired) as cr:
+        S.attach.return_value = s
+        err, out = call_tool("pet_call", {"routine": "$2000", "a": 5})
+    assert not err, out
+    assert cr.call_args.args[1] == 0x2000 and cr.call_args.kwargs["a"] == 5
+    assert out["registers"]["A"] == 42 and out["fired"] is True

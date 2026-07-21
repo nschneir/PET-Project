@@ -3,6 +3,27 @@
 All notable changes to PET Project (`pet-tools` / `petlib`). Dates are the
 day the release was tagged.
 
+## [1.3.0] — 2026-07-21
+
+Routine-level unit testing and a debugging playbook — the two additions a
+post-project retrospective ranked worth building.
+
+### Added
+- **`pet call ROUTINE`** — the unit-test primitive: emulates a `JSR` in
+  isolation (fake return address on the stack, optional `--a/--x/--y` on
+  entry) and stops at the routine's own `RTS`, leaving registers and
+  memory holding its results. Poke inputs, call one routine, assert
+  outputs — nothing else runs in between. Also a YAML **`call:` step**
+  (`call: { routine: addscore, a: 5 }`) and MCP `pet_call`. The Ms.
+  Muncher suite now unit-tests `addscore` (BCD adds, hiscore chase, the
+  10,000-point bonus life) and `cell_glyph`'s door special case this way.
+- **`6502-debugging` skill** — a symptom-indexed playbook of the
+  procedures that cracked the dogfood's hard bugs: prove-the-binary-first
+  (stale-load rule zero), store-watchpoint corruption hunts,
+  register-clobber audits by isolation, deterministic reproduction with
+  poke + frame-stepping, branch-away deadlock avoidance, exact-glyph
+  assertions, and warp inspection discipline.
+
 ## [1.2.0] — 2026-07-21
 
 The friction-fixes release: every change answers a concrete pain point hit

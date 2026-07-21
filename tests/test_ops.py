@@ -355,3 +355,64 @@ def test_wait_for_break_number_filter_on_event_fast_path():
     mon.registers.return_value = {"PC": 0x040D}
     out = wait_for_break(s, timeout=2, number=4)
     assert out["checkpoint"] == 4      # event for #1 didn't short-circuit
+
+
+def _call_ck(number=9, addr=0x0400, hit=True):
+    return Checkpoint(
+        number=number, hit=hit, start=addr, end=addr, stop=True, enabled=True,
+        op=CP_EXEC, temporary=False, hit_count=1 if hit else 0,
+        ignore_count=0, has_condition=False, memspace=0)
+
+
+def test_call_routine_pushes_return_and_sets_registers():
+    from petlib.ops import call_routine
+    s, mon = _fake_session()
+    mon.registers.return_value = {"PC": 0x1234, "SP": 0xFB, "A": 0, "X": 0, "Y": 0}
+    mon.checkpoint_set.return_value = _call_ck(hit=False)
+    mon.wait_for_stop.return_value = StopInfo(pc=0x0400, checkpoint=9)
+    out = call_routine(s, 0x2000, a=5, x=1, y=2, timeout=2)
+    # JSR emulation: hi(trap-1) at $0100+SP, lo at $0100+SP-1, SP -= 2
+    mon.memory_write.assert_any_call(0x0100 + 0xFB, bytes([0x03]))
+    mon.memory_write.assert_any_call(0x0100 + 0xFA, bytes([0xFF]))
+    reg_calls = {c.args[0]: c.args[1] for c in mon.set_register.call_args_list}
+    assert reg_calls["SP"] == 0xF9
+    assert reg_calls["PC"] == 0x2000
+    assert reg_calls["A"] == 5 and reg_calls["X"] == 1 and reg_calls["Y"] == 2
+    assert out["fired"] is True and out["registers"]["PC"] == 0x1234
+    mon.checkpoint_delete.assert_called_once_with(9)
+
+
+def test_call_routine_registers_optional():
+    from petlib.ops import call_routine
+    s, mon = _fake_session()
+    mon.registers.return_value = {"PC": 0x1234, "SP": 0xFB, "A": 7}
+    mon.checkpoint_set.return_value = _call_ck(hit=False)
+    mon.wait_for_stop.return_value = StopInfo(pc=0x0400, checkpoint=9)
+    call_routine(s, 0x2000, timeout=2)
+    names = [c.args[0] for c in mon.set_register.call_args_list]
+    assert "A" not in names and "X" not in names and "Y" not in names
+
+
+def test_call_routine_timeout_cleans_up():
+    from petlib.ops import call_routine
+    s, mon = _fake_session()
+    mon.registers.return_value = {"PC": 0x1234, "SP": 0xFB}
+    mon.checkpoint_set.return_value = _call_ck(hit=False)
+    mon.wait_for_stop.return_value = None
+    mon.checkpoint_list.return_value = [_call_ck(hit=False)]
+    out = call_routine(s, 0x2000, timeout=0.3)
+    assert out["fired"] is False and out["registers"] is None
+    mon.checkpoint_delete.assert_called_once_with(9)
+    mon.resume.assert_called()          # machine left running on timeout
+
+
+def test_call_routine_durable_flag_fallback():
+    # STOPPED event lost (warp race): the hit flag on the checkpoint decides
+    from petlib.ops import call_routine
+    s, mon = _fake_session()
+    mon.registers.return_value = {"PC": 0x0400, "SP": 0xF9}
+    mon.checkpoint_set.return_value = _call_ck(hit=False)
+    mon.wait_for_stop.return_value = None
+    mon.checkpoint_list.return_value = [_call_ck(hit=True)]
+    out = call_routine(s, 0x2000, timeout=2)
+    assert out["fired"] is True

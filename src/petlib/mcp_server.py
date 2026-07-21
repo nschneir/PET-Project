@@ -18,6 +18,7 @@ from .disasm import disassemble
 from .disk import create_image, get_file, list_files, put_file
 from .machines import get_profile
 from .ops import (
+    call_routine,
     clear_checkpoints,
     find_bytes,
     key_hold,
@@ -404,6 +405,22 @@ def pet_wait_mem(addr: str, equals: str, timeout: float = 30.0,
     s = _attach(session)
     return wait_for_mem(s, _ref(s, addr),
                         parse_number(equals), timeout)
+
+
+@srv.tool()
+def pet_call(routine: str, a: int | None = None, x: int | None = None,
+             y: int | None = None, timeout: float = 30.0,
+             session: str | None = None) -> dict:
+    """JSR one routine in isolation (fake return address on the stack,
+    optional A/X/Y on entry) and stop at its RTS — the unit-test
+    primitive: poke inputs, call, then assert registers/memory. Machine
+    ends STOPPED on success, RUNNING on timeout."""
+    s = _attach(session)
+    addr = _ref(s, routine, session_labels(s))
+    out = call_routine(s, addr, a=a, x=x, y=y, timeout=timeout)
+    if out.get("fired"):
+        out["pc_symbol"] = pc_symbol(session_labels(s), dict(out["registers"]))
+    return out
 
 
 @srv.tool()

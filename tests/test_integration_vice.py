@@ -79,3 +79,25 @@ def test_boot_banner_free_bytes_matches_readme(tmp_path, monkeypatch, model):
         assert f"{BOOT_FREE[model]} BYTES FREE" in text
     finally:
         s.stop()
+
+
+def test_call_routine_isolated(session):
+    """FT-call: JSR one routine in isolation — LDA #$2A / STA $1000 / RTS
+    poked into the tape buffer; assert its effects without running anything
+    else."""
+    from petlib.ops import call_routine
+    wait_for_text(session, "READY.", timeout=45)
+    with session.monitor() as mon:
+        try:
+            mon.memory_write(0x033A, bytes([0xA9, 0x2A, 0x8D, 0x00, 0x10, 0x60]))
+        finally:
+            mon.release()
+    out = call_routine(session, 0x033A, timeout=15)
+    assert out["fired"] is True
+    assert out["registers"]["A"] == 0x2A
+    assert out["registers"]["PC"] == out["trap"]
+    with session.monitor() as mon:
+        try:
+            assert mon.memory_read(0x1000, 1) == bytes([0x2A])
+        finally:
+            mon.release()

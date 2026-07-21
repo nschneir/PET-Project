@@ -17,6 +17,7 @@ from .disasm import disassemble
 from .disk import DiskError, create_image, get_file, list_files, put_file
 from .machines import get_profile
 from .ops import (
+    call_routine,
     clear_checkpoints,
     find_bytes,
     machine_state,
@@ -916,6 +917,40 @@ def until_cmd(ctx, ref, count, timeout):
                     "machine": "running", "checkpoint_removed": True})
         return
     _emit_stopped_regs(ctx, labels, out["registers"], extra={"count": count})
+
+
+@main.command("call")
+@click.argument("ref")
+@click.option("--a", "a_", default=None, help="A register on entry ($hex/decimal).")
+@click.option("--x", "x_", default=None, help="X register on entry.")
+@click.option("--y", "y_", default=None, help="Y register on entry.")
+@click.option("--timeout", default=30.0, show_default=True,
+              help="Give up after this many seconds.")
+@click.pass_context
+def call_cmd(ctx, ref, a_, x_, y_, timeout):
+    """JSR the routine at REF in isolation and stop when it returns.
+
+    Emulates a JSR: fake return address on the stack, optional A/X/Y on
+    entry, runs until the routine's own RTS. The machine ends STOPPED so
+    registers and memory hold the routine's results — the unit-test
+    primitive (poke inputs first, call, then inspect). On timeout the
+    machine is left running.
+    """
+    s = attach(ctx)
+    labels = session_labels(s)
+    addr = resolve_ref(ctx, labels, ref, profile=s.profile)
+    regs_in = {k: parse_number(v) for k, v in
+               (("a", a_), ("x", x_), ("y", y_)) if v is not None}
+    out = call_routine(s, addr, a=regs_in.get("a"), x=regs_in.get("x"),
+                       y=regs_in.get("y"), timeout=timeout)
+    if not out["fired"]:
+        fail(ctx, f"call {format_addr(labels, addr)}: never returned in "
+                  f"{timeout}s — machine left running (runaway routine? "
+                  "check the address is a subroutine ending in RTS)",
+             extra={"machine": "running"})
+        return
+    _emit_stopped_regs(ctx, labels, out["registers"],
+                       extra={"called": format_addr(labels, addr)})
 
 
 @main.command("wait")

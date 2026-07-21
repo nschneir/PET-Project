@@ -143,3 +143,35 @@ def test_status_human_line():
         S.attach.return_value = fake
         r = CliRunner().invoke(main, ["status"])
     assert "state=stopped" in r.output and "pet4032" in r.output
+
+
+def test_session_ensure_attaches_when_running():
+    fake = _fake_session()
+    with patch("petlib.cli.Session") as S:
+        S.ensure.return_value = (fake, False)
+        r = CliRunner().invoke(main, ["--json", "session", "ensure"])
+    assert r.exit_code == 0, r.output
+    out = json.loads(r.output)
+    assert out["started"] is False and out["name"] == "pet4032"
+    S.ensure.assert_called_once_with(model="pet4032", name=None,
+                                     headless=False, warp=False)
+
+
+def test_session_ensure_starts_when_absent():
+    fake = _fake_session(name="fresh")
+    with patch("petlib.cli.Session") as S:
+        S.ensure.return_value = (fake, True)
+        r = CliRunner().invoke(main, ["session", "ensure", "--warp", "--headless"])
+    assert r.exit_code == 0, r.output
+    assert "started" in r.output.lower()
+    S.ensure.assert_called_once_with(model="pet4032", name=None,
+                                     headless=True, warp=True)
+
+
+def test_session_ensure_reports_running():
+    fake = _fake_session()
+    with patch("petlib.cli.Session") as S:
+        S.ensure.return_value = (fake, False)
+        r = CliRunner().invoke(main, ["session", "ensure"])
+    assert r.exit_code == 0
+    assert "already running" in r.output.lower()

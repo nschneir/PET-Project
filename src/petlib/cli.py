@@ -149,6 +149,35 @@ def session_start(ctx, model, name, headless, warp, disk8):
          f"started {s.model} session {s.name!r} (pid {s.pid}, monitor port {s.port})")
 
 
+@session.command("ensure")
+@click.option("--model", default="pet4032", show_default=True,
+              help="PET model to boot if no session is running.")
+@click.option("--name", "-s", default=None,
+              help="Session name to look for / start.")
+@click.option("--headless", is_flag=True,
+              help="Run without a VICE window (only if starting).")
+@click.option("--warp", is_flag=True,
+              help="Run at maximum speed (only if starting).")
+@click.pass_context
+def session_ensure(ctx, model, name, headless, warp):
+    """Attach to a running session, or start one if none exists.
+
+    Idempotent: exits 0 either way and reports which happened. Use it in
+    scripts and as the recovery step after a dead daemon.
+    """
+    try:
+        s, started = Session.ensure(model=model, name=name,
+                                    headless=headless, warp=warp)
+    except (SessionError, KeyError) as e:
+        fail(ctx, str(e))
+        return
+    emit(ctx, {"name": s.name, "model": s.model, "pid": s.pid, "port": s.port,
+               "started": started},
+         (f"started {s.model} session {s.name!r} (pid {s.pid}, monitor port {s.port})"
+          if started else
+          f"already running: {s.model} session {s.name!r} (pid {s.pid})"))
+
+
 @session.command("list")
 @click.pass_context
 def session_list(ctx):

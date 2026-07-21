@@ -168,7 +168,8 @@ class Session:
         if len(stamps) == RESPAWN_LIMIT and stamps[-1] - stamps[0] <= RESPAWN_WINDOW:
             raise SessionError(
                 f"session daemon for {self.name!r} crashed {RESPAWN_LIMIT} "
-                f"times in {RESPAWN_WINDOW:.0f}s; stop and restart the session"
+                f"times in {RESPAWN_WINDOW:.0f}s; recover with: "
+                f"pet session stop {self.name} && pet session ensure --model {self.model}"
             )
 
     @staticmethod
@@ -266,6 +267,20 @@ class Session:
             f"VICE started but its monitor never answered after {max(1, attempts)} "
             f"attempt(s): {last_err}"
         )
+
+    @classmethod
+    def ensure(cls, model: str = "pet4032", name: str | None = None,
+               headless: bool = False, warp: bool = False) -> tuple[Session, bool]:
+        """Attach to a running session, or launch one if absent.
+
+        Returns (session, started). Idempotent bootstrap for scripts and
+        recovery one-liners: safe to run whether or not a session exists.
+        """
+        try:
+            return cls.attach(name), False
+        except SessionError:
+            return cls.launch(model=model, name=name, headless=headless,
+                              warp=warp), True
 
     @classmethod
     def attach(cls, name: str | None = None) -> Session:

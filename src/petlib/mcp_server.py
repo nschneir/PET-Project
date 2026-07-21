@@ -78,6 +78,15 @@ def pet_session_start(model: str = "pet4032", name: str | None = None,
 
 
 @srv.tool()
+def pet_session_ensure(model: str = "pet4032", name: str | None = None) -> dict:
+    """Attach to a running PET session, or boot one (headless, warp) if
+    none exists. Idempotent; "started" reports which happened."""
+    s, started = Session.ensure(model=model, name=name, headless=True, warp=True)
+    return {"name": s.name, "model": s.model, "pid": s.pid, "port": s.port,
+            "started": started}
+
+
+@srv.tool()
 def pet_session_stop(name: str | None = None) -> dict:
     """Stop a running PET session (the only one if name is omitted)."""
     s = Session.attach(name)

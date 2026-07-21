@@ -76,6 +76,19 @@ Daemon output goes to `<sessions-dir>/<name>.daemon.log`; a crashed daemon
 is respawned automatically by the next command (repeated crashes error out
 and ask for a session restart). `PET_TOOLS_NO_DAEMON=1` disables it.
 
+### `pet session ensure`
+
+Attach to a running session, or start one if none exists. Idempotent:
+exits 0 either way and reports which happened — the safe bootstrap for
+scripts and the recovery step after a dead daemon.
+
+- `--model MODEL` — model to boot if starting (default `pet4032`).
+- `--name/-s NAME` — session name to look for / start.
+- `--headless`, `--warp` — apply only when a session is started.
+
+JSON: `{"name", "model", "pid", "port", "started"}` — `started` is `true`
+when a new session was booted, `false` when one was already running.
+
 ### `pet session list`
 
 List running sessions (dead ones are pruned).

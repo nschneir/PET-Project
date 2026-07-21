@@ -201,3 +201,23 @@ def test_autorun_false_load_never_finishes():
          patch("petlib.testing._prepare", return_value=(Path("x.prg"), None)), \
          pytest.raises(TestError, match="never finished loading"):
         run_test(spec, launch=launch)
+
+
+def test_run_test_isolates_from_user_sessions():
+    """FT4(a): documents the isolation contract — each run launches its own
+    uniquely-named throwaway session and never attaches to (or stops) a
+    user's session."""
+    names = []
+
+    def launch(model, name, headless, warp):
+        names.append(name)
+        s, _ = _fake_session()
+        return s
+
+    with patch("petlib.testing.read_screen_text", return_value="READY."), \
+         patch("petlib.testing.Session") as S:
+        r1 = run_test(_spec(), launch=launch)
+        r2 = run_test(_spec(), launch=launch)
+    S.attach.assert_not_called()
+    assert names == [r1.session_name, r2.session_name]
+    assert len(set(names)) == 2 and all(n.startswith("t") for n in names)

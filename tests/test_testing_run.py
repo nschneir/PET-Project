@@ -221,3 +221,54 @@ def test_run_test_isolates_from_user_sessions():
     S.attach.assert_not_called()
     assert names == [r1.session_name, r2.session_name]
     assert len(set(names)) == 2 and all(n.startswith("t") for n in names)
+
+
+def _assert_step(mem_bytes, assert_arg):
+    s, mon = _fake_session()
+    launch = Mock(return_value=s)
+    mon.memory_read.return_value = mem_bytes
+    spec = _spec(steps=[{"assert": assert_arg}])
+    with patch("petlib.testing.read_screen_text", return_value="READY."):
+        return run_test(spec, launch=launch)
+
+
+def test_assert_mem_equals_any():
+    # FT6: either alternative passes
+    r = _assert_step(bytes([81]), {"mem": "$8000", "equals_any": [[81], [98]]})
+    assert r.passed is True
+    r = _assert_step(bytes([98]), {"mem": "$8000", "equals_any": [[81], [98]]})
+    assert r.passed is True
+    r = _assert_step(bytes([32]), {"mem": "$8000", "equals_any": [[81], [98]]})
+    assert r.passed is False
+    # failure message shows actual and every accepted alternative
+    assert "20" in r.steps[0].detail        # actual, hex
+    assert "51" in r.steps[0].detail and "62" in r.steps[0].detail
+
+
+def test_assert_mem_mask():
+    # FT6: masked compare — e.g. ignore the reverse-video bit
+    arg = {"mem": "$8000", "mask": {"and": 0x7F, "equals": [81]}}
+    assert _assert_step(bytes([81]), arg).passed is True
+    assert _assert_step(bytes([81 | 0x80]), arg).passed is True
+    r = _assert_step(bytes([87]), arg)
+    assert r.passed is False
+
+
+def test_assert_mem_mask_multibyte():
+    arg = {"mem": "$8000", "mask": {"and": "$7f", "equals": [81, 87]}}
+    assert _assert_step(bytes([0xD1, 0x57]), arg).passed is True
+
+
+def test_assert_mem_between():
+    # FT6: single-byte range check
+    arg = {"mem": "$8000", "between": {"min": 50, "max": 54}}
+    assert _assert_step(bytes([50]), arg).passed is True
+    assert _assert_step(bytes([54]), arg).passed is True
+    r = _assert_step(bytes([55]), arg)
+    assert r.passed is False
+    assert "55" in r.steps[0].detail
+
+
+def test_assert_mem_between_hex_bounds():
+    arg = {"mem": "$8000", "between": {"min": "$30", "max": "$39"}}
+    assert _assert_step(bytes([0x35]), arg).passed is True

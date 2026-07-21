@@ -248,22 +248,52 @@ def _do_step(session, kind: str, arg, default_timeout: float,
                     else f"screen missing {arg['screen']!r}")
     if "mem" in arg:
         addr = _addr(arg["mem"])
+
+        def _bytes(v) -> bytes:
+            return bytes(_num(b) for b in v) if isinstance(v, list) else bytes([_num(v)])
+
+        if "equals_text" in arg:
+            want_t = str(arg["equals_text"])
+            length = len(want_t)
+        elif "equals_any" in arg:
+            alts = [_bytes(a) for a in arg["equals_any"]]
+            if len({len(a) for a in alts}) != 1:
+                raise TestError(f"equals_any alternatives differ in length: {arg}")
+            length = len(alts[0])
+        elif "mask" in arg:
+            m = arg["mask"]
+            mask_and, want_b = _num(m["and"]), _bytes(m["equals"])
+            length = len(want_b)
+        elif "between" in arg:
+            lo, hi = _num(arg["between"]["min"]), _num(arg["between"]["max"])
+            length = 1
+        else:
+            want_b = _bytes(arg["equals"])
+            length = len(want_b)
         with session.monitor() as mon:
             try:
-                if "equals_text" in arg:
-                    want_t = str(arg["equals_text"])
-                    data = mon.memory_read(addr, len(want_t))
-                else:
-                    want = arg["equals"]
-                    want_b = (bytes(want) if isinstance(want, list)
-                              else bytes([_num(want)]))
-                    data = mon.memory_read(addr, len(want_b))
+                data = mon.memory_read(addr, length)
             finally:
                 mon.release()
         if "equals_text" in arg:
             got = screen_to_text(data, len(want_t))
             ok = got == want_t
             return ok, f"mem ${addr:04x} text {got!r}" + ("" if ok else f" != {want_t!r}")
+        if "equals_any" in arg:
+            ok = data in alts
+            return ok, (f"mem ${addr:04x} = {data.hex()}" if ok else
+                        f"mem ${addr:04x} = {data.hex()} != any of "
+                        + " / ".join(a.hex() for a in alts))
+        if "mask" in arg:
+            got_m = bytes(b & mask_and for b in data)
+            ok = got_m == want_b
+            return ok, (f"mem ${addr:04x} & {mask_and:#04x} = {got_m.hex()}"
+                        + ("" if ok else f" != {want_b.hex()} (raw {data.hex()})"))
+        if "between" in arg:
+            val = data[0]
+            ok = lo <= val <= hi
+            return ok, (f"mem ${addr:04x} = {val} in [{lo}, {hi}]" if ok
+                        else f"mem ${addr:04x} = {val} not in [{lo}, {hi}]")
         ok = data == want_b
         return ok, f"mem ${addr:04x} = {data.hex()}" + ("" if ok else f" != {want_b.hex()}")
     if "reg" in arg:

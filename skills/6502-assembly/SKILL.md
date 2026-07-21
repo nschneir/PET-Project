@@ -73,6 +73,13 @@ are in the `pet-development` skill's ROM-routines reference. CHROUT expects
   additions — use `jmp` or a always-true conditional branch.
 - Branches (`beq`, `bne`, …) reach only **±127 bytes**; use `jmp` for longer
   jumps.
+- **Growing code breaks short branches.** Inserting instructions into a
+  dispatch chain or handler pushes existing branches past ±127 bytes and
+  ca65 fails with "Range error". In any block you expect to grow, prefer a
+  `jmp` trampoline from the start — invert the branch over it:
+  `beq :+ / jmp far_target / :` — and expect to convert several
+  `bne`/`bcc` this way once a routine passes ~120 bytes (the Ms. Muncher
+  dogfood hit this three separate times while adding features).
 - Zero page is scarce and shared with BASIC/kernal — see the
   `pet-development` skill's zero-page reference before claiming zero-page
   locations.
@@ -83,6 +90,13 @@ are in the `pet-development` skill's ROM-routines reference. CHROUT expects
 - **Decimal-mode trap:** `sed` switches `adc`/`sbc` to BCD, and on the NMOS
   6502 an interrupt does *not* clear the D flag. `cld` once at program start
   (and in any interrupt handler that does arithmetic) keeps you in binary.
+- **Segment state carries across `.include`.** ca65 does not reset the
+  active segment at file boundaries: if one included file ends in
+  `.segment "BSS"`, the next include's code assembles into BSS — address
+  space that is *not in the .prg* — and the program crashes at runtime
+  (typically a `?SYNTAX ERROR` or garbage when execution reaches the
+  unloaded region). Start every included source file with an explicit
+  `.segment "CODE"` (or the segment it really wants).
 - **BSS is not in the .prg.** `.res` storage is just reserved address space
   — at load it holds whatever was in RAM (often `$AA`s), and a flag or
   timer that "should be zero" silently isn't. Initialize every mutable

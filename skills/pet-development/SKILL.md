@@ -106,6 +106,11 @@ source of bugs:
 ## Common pitfalls
 
 - Uppercase in BASIC source → graphics garbage on screen (write lowercase).
+- Multi-file assembly crashing with `?SYNTAX ERROR` at RUN, or a build
+  failing with branch "Range error" after adding code — both are ca65
+  traps (segment state leaking across `.include`; short branches
+  outgrowing ±127 bytes). See the `6502-assembly` skill's gotchas for the
+  fixes.
 - Forgetting to `pet wait` after `pet run` and reading the screen too early.
 - Reading `$8000` and expecting ASCII — it holds screen codes.
 - Assuming the machine is running after `pet step`/`finish`/`until` — it is

@@ -5,7 +5,13 @@ from petlib.packaging import PackageError, package_program
 
 
 def test_version():
-    assert petlib.__version__ == "1.1.0"
+    # compare against pyproject so a release bump can't leave this stale
+    import tomllib
+    from pathlib import Path
+
+    pyproject = tomllib.loads(
+        (Path(__file__).parents[1] / "pyproject.toml").read_text())
+    assert petlib.__version__ == pyproject["project"]["version"]
 
 
 def test_package_prg_copies_source(tmp_path):

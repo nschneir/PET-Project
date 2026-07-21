@@ -56,6 +56,7 @@ def parse_ref(labels: dict[str, int], ref, *, screen_base: int | None = None,
         if not 0 <= col < screen_width:
             raise ValueError(f"{r!r}: col {col} outside 0-{screen_width - 1}")
         return screen_base + row * screen_width + col
+    base_err: KeyError | None = None
     for sign, sep in ((1, "+"), (-1, "-")):
         if sep in r[1:]:
             base_s, off_s = r.rsplit(sep, 1)
@@ -65,11 +66,18 @@ def parse_ref(labels: dict[str, int], ref, *, screen_base: int | None = None,
                 continue                 # not an offset (hyphenated name etc.)
             try:
                 return parse_ref(labels, base_s) + sign * off
-            except (KeyError, ValueError):
-                continue                 # whole string may still be a symbol
+            except KeyError as e:
+                base_err = e             # remember: report the SYMBOL below
+            except ValueError:
+                pass                     # whole string may still be a symbol
     if r.startswith(("$", "0x", "0X")) or r.isdigit():
         return parse_number(r)
-    return resolve(labels, r)  # KeyError with candidates on unknown symbol
+    try:
+        return resolve(labels, r)  # KeyError with candidates on unknown symbol
+    except KeyError:
+        if base_err is not None:
+            raise base_err from None     # 'dots+82' → unknown symbol 'dots'
+        raise
 
 
 def staleness(session) -> list[str]:

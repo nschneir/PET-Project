@@ -21,7 +21,8 @@ exposes the same operations; see the README.
   `0xhex`, or decimal. Where a label file is registered on the session (via
   `pet build`/`pet run` of assembly, or `pet load --symbols`), a **symbol
   name** is accepted anywhere an address is. Addresses additionally accept
-  an **offset** (`alienX+49`, `$8000+40`) and a **screen cell** `@row,col`
+  an **offset** (`alienX+49`, `tick-1`, `dots+$52`, `$8000+40`) and a
+  **screen cell** `@row,col`
   (e.g. `@23,18`), resolved against the session model's real screen base
   and width — 40 vs 80 columns handled for you.
 - **Exit codes.** `0` on success; `1` on error, on a `pet wait` timeout, or on

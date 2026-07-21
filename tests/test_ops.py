@@ -313,3 +313,19 @@ def test_machine_state_swallows_dead_daemon():
     s.socket = "/tmp/x.sock"
     s.monitor.side_effect = ConnectionError("gone")
     assert machine_state(s) == "unknown"
+
+
+def test_parse_ref_arithmetic_reports_base_symbol():
+    # FT3: unknown symbol inside arithmetic names the SYMBOL, not the string
+    with pytest.raises(KeyError) as e:
+        parse_ref({"tick": 0x33}, "dots+82")
+    assert "dots" in str(e.value) and "dots+82" not in str(e.value)
+    with pytest.raises(KeyError) as e:
+        parse_ref({"tick": 0x33}, "hs_sc+$3")
+    assert "hs_sc" in str(e.value) and "hs_sc+$3" not in str(e.value)
+
+
+def test_parse_ref_whole_string_symbol_still_wins():
+    # a label literally named with a hyphen resolves whole when no
+    # arithmetic interpretation exists
+    assert parse_ref({"self-test": 0x2000}, "self-test") == 0x2000

@@ -47,5 +47,4 @@ Python checker (geometry, symmetry, dead ends, reachability, dot targets,
 and cell-by-cell fruit-path validation) that also emits the per-maze
 scaled thresholds. The whole game is exercised by a deterministic
 poke/until test suite (`pet test run demos/muncher/muncher-test.yaml`)
-plus pytest for the toolchain; the fidelity log with measurements and
-accepted divergences is `AUDIT.md`.
+plus pytest for the toolchain.

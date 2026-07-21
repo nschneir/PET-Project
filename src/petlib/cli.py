@@ -681,8 +681,8 @@ def break_() -> None:
 @click.option("--once", is_flag=True, help="Alias for --temporary.")
 @click.pass_context
 def break_add(ctx, ref, condition, temporary, once):
-    temporary = temporary or once
     """Set an execution breakpoint at REF (an address or a symbol)."""
+    temporary = temporary or once
     s = attach(ctx)
     labels = session_labels(s)
     addr = resolve_ref(ctx, labels, ref, profile=s.profile)
@@ -941,7 +941,11 @@ def wait_cmd(ctx, text_cond, mem_cond, break_cond, timeout):
     labels = session_labels(s)
 
     if break_cond:
-        number = None if break_cond == "any" else int(break_cond)
+        try:
+            number = None if break_cond == "any" else int(break_cond)
+        except ValueError:
+            fail(ctx, f"--break takes a checkpoint id (integer), got {break_cond!r}")
+            return
         out = wait_for_break(s, timeout, number=number)
         if not out.get("fired"):
             fail(ctx, f"timeout: no checkpoint hit within {timeout}s — machine "

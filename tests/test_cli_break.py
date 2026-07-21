@@ -153,3 +153,10 @@ def test_break_add_once():
     assert r.exit_code == 0, r.output
     assert mon.checkpoint_set.call_args.kwargs["temporary"] is True
     assert json.loads(r.output)["temporary"] is True
+
+
+def test_break_add_keeps_help_text():
+    # regression: an assignment placed before the docstring silently
+    # removed the command's help
+    from petlib.cli import break_add
+    assert break_add.help and "breakpoint" in break_add.help

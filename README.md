@@ -164,9 +164,10 @@ tools describe themselves.
 
 [`demos/`](demos/) is a set of ready-to-paste prompts, graded from a first
 BASIC program through a machine-level debug hunt and a full arcade Snake in
-6502 assembly (title screen, levels, high score) up to the flagship: an
-arcade-faithful Invaders with sound, waves, and a packaged disk image
-at the end. To use one:
+6502 assembly (title screen, levels, high score) up to the flagships: an
+arcade-faithful Invaders with sound, waves, and a packaged disk image, and
+Ms. Muncher — a four-maze arcade chase with cutscenes and a self-playing
+demo mode ([`demos/muncher/`](demos/muncher/)). To use one:
 
 1. Set up your agent (one section up — or use any shell agent with no setup).
 2. Open a demo file and copy its prompt.
@@ -199,7 +200,7 @@ Neither artifact contains ROMs or anything from this toolset.
 
 ## Status
 
-Stable — current release **v1.1.0**. Full history: [CHANGELOG.md](CHANGELOG.md).
+Stable — current release **v1.2.0**. Full history: [CHANGELOG.md](CHANGELOG.md).
 
 ## AI Disclosure
 

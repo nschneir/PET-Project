@@ -15,6 +15,12 @@ They're graded — start at 01 if you're new:
 | 04 | Snake | 6502 assembly | The full assembler + debugger workflow | ✅ passed |
 | 05 | Debug hunt | BASIC + debugger | Breakpoints, stepping, memory inspection | ✅ passed |
 | 06 | Invaders | 6502 assembly | Arcade-fidelity spec, CB2 sound, review loop, packaging | ✅ passed |
+| 07 | Ms. Muncher | 6502 assembly | Full spec→plan→implement workflow: half-cell actor engine, 4 mazes, cutscenes, demo mode, high scores | ✅ passed |
+
+Demo 07 has no prompt file: it was built interactively through the
+brainstorm → spec → plan → implement workflow rather than from a single
+pasted prompt. The playable result and its deterministic test suite live
+in [`muncher/`](muncher/).
 
 Dogfooding status: each prompt is validated by handing it to a real AI agent
 (given only this toolset) and confirming the result independently. Demos

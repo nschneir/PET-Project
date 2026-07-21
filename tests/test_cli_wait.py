@@ -170,3 +170,13 @@ def test_wait_break_bare_still_works():
         r = CliRunner().invoke(main, ["--json", "wait", "--break"])
     assert r.exit_code == 0, r.output
     assert w.call_args.kwargs.get("number") is None
+
+
+def test_wait_break_non_numeric_id_fails_cleanly():
+    fake, _ = _fake()
+    with patch("petlib.cli.Session") as S:
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["--json", "wait", "--break", "abc"])
+    assert r.exit_code == 1
+    assert r.exception is None or isinstance(r.exception, SystemExit)
+    assert "checkpoint id" in json.loads(r.output)["error"]

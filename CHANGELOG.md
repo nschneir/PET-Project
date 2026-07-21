@@ -3,6 +3,55 @@
 All notable changes to PET Project (`pet-tools` / `petlib`). Dates are the
 day the release was tagged.
 
+## [1.2.0] — 2026-07-21
+
+The friction-fixes release: every change answers a concrete pain point hit
+while building Ms. Muncher (demo 07, an arcade-faithful maze chaser in
+`demos/muncher/`) with the 1.1 toolset.
+
+### Added
+- **Stale-binary guard** — the trap that cost the most dogfood time: a
+  failed rebuild left the emulator running the previous binary while
+  "verification" proceeded against it. `pet build` now records the full
+  dependency list (ca65 `--create-dep`, so `.include`d files count);
+  `pet run`/`pet load` stamp load provenance on the session; `pet status`
+  reports the loaded program and a loud `STALE (source changed since
+  load:)` line; a failed `pet run` says the emulator is still running the
+  PREVIOUS program.
+- **Unicode screen decoding** — `pet screen` now decodes graphics codes to
+  real box/block/shape glyphs (`╭─╮ ● ▌ █ …`), with reverse-video codes
+  mapped to their pixel-complement glyph where Unicode has one
+  (`▌`↔`▐`, quadrants → `▛▜▙▟`, `$A0` → `█`); `--ansi-reverse` for
+  terminal inverse on the rest, `--style ascii` for the legacy mapping.
+  **Migration:** `wait --text` patterns matching the old `·` placeholder
+  need updating (plain text is unaffected) — see docs/cli.md.
+- **`pet screen --codes`** — the raw 25×40 screen-code matrix (exact glyph
+  assertions), and **`pet screen --png --scale N`** — nearest-neighbour
+  upscale (PET screens read better at 2–3×).
+- **`pet session ensure`** — attach-or-start, idempotent; the recovery
+  one-liner the daemon circuit-breaker error now points at. A test
+  documents the `pet test run` isolation contract (throwaway uniquely
+  named session, user sessions untouched).
+- **CLI paper cuts** — `pet break rm` / `pet watch remove` / `pet watch
+  rm`; `pet break add --once`; `pet wait --break CK_ID` (id filter so a
+  leftover breakpoint can't intercept a watchpoint wait); `pet mem write
+  --stdin` (batch `REF V1 V2 …` lines, heredoc-friendly).
+- **Richer YAML asserts** — `equals_any` (alternatives), `mask`
+  (`{and: $7f, equals: [...]}` — e.g. ignore the reverse-video bit), and
+  `between` (`{min, max}` byte range).
+
+### Fixed
+- Unknown symbol in an arithmetic ref (`dots+82`) now reports the symbol
+  (`dots`, with candidates), not the whole string.
+- `wait_for_break`'s stop-event fast path respects the checkpoint filter.
+
+### Documentation
+- 6502-assembly skill: growing code breaks short branches (prefer `jmp`
+  trampolines in blocks expected to grow); ca65 segment state carries
+  across `.include` (start every include with an explicit `.segment`).
+  Both hit repeatedly during the dogfood; pet-development cross-references
+  the symptoms.
+
 ## [1.1.0] — 2026-07-12
 
 The dogfooding release: everything here came out of building real software

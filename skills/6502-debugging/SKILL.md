@@ -1,22 +1,22 @@
 ---
 name: 6502-debugging
-description: Use when a PET program misbehaves at runtime — crashes, corruption, wrong values, dead input, visual glitches — and you need a procedure, not a guess. Symptom-indexed playbook of debugging procedures using pet-tools, distilled from real dogfood sessions.
+description: Use when a PET program misbehaves at runtime — crashes, corruption, wrong values, dead input, visual glitches — and you need a procedure, not a guess. Symptom-indexed playbook of runtime debugging procedures using pet-tools.
 ---
 
 # 6502 debugging playbook
 
 Procedures that turn a symptom into a verified cause using `pet` commands.
-Each one was extracted from a real debugging session where improvising cost
-time; follow the procedure before forming theories. The companion
+Follow the procedure before forming theories — each one exists because
+improvising in its situation reliably wastes time. The companion
 references are the `pet-development` skill's diagnosis table (quick
 symptom→cause lookups) and the `6502-assembly` skill's gotchas (the bugs
 you write, rather than find).
 
 ## Rule zero: prove you are debugging the binary you think you are
 
-The most expensive dogfood failure was a multi-hour hunt for a "bug" that
-did not exist: a rebuild had failed silently and every observation was of
-the *previous* binary. Before trusting any runtime evidence:
+The most expensive class of debugging failure is the hunt for a "bug"
+that does not exist: a rebuild failed silently and every observation is
+of the *previous* binary. Before trusting any runtime evidence:
 
 1. `pet status` — read the `program:` line and look for
    `STALE (source changed since load)`. Stale means rebuild and reload
@@ -46,10 +46,10 @@ trap it:
 
 The machine halts ON the writing instruction; `pet reg` and the PC symbol
 name the culprit. Pass the watchpoint's ID to `--break` so a leftover
-breakpoint cannot intercept the wait. This found the Ms. Muncher
-actor-table corruption in one shot after code-reading had failed. If the
-writes are legitimate but wrong (right routine, wrong index), add a
-condition: `pet break add <label> --condition 'X > 4'`.
+breakpoint cannot intercept the wait. One watchpoint routinely finds in
+seconds what an hour of code-reading cannot. If the writes are legitimate
+but wrong (right routine, wrong index), add a condition:
+`pet break add <label> --condition 'X > 4'`.
 
 ## A loop goes wrong partway / the wrong actor moves
 
@@ -62,8 +62,8 @@ destroys X or Y. Two procedures:
 - Audit in place: `pet until <loop-label>`, note X, `pet step --over`
   through the body watching for the register to change across a `jsr`.
 
-Both Ms. Muncher X-clobber bugs (snd_play and popup_at inside the actor
-loop) would have fallen to the isolation audit in minutes.
+Clobber bugs cluster in helpers added to an existing loop late in
+development (sound triggers, HUD updates) — audit those first.
 
 ## Reproducing a timing-dependent bug deterministically
 

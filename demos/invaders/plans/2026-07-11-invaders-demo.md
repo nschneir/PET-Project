@@ -31,7 +31,7 @@ priority sound driver owns the VIA CB2 registers.
 - Store **screen codes** to $8000+, never PETSCII.
 - Zero page: only $FB-$FE (PTR=$FB/$FC, PTR2=$FD/$FE). Everything else in BSS.
 - All work in `demos/invaders/` (gitignored); only docs changes are committed.
-- Session: `pet session start --warp --headless` (model pet4032, the default). Use the venv: `export PATH="/Volumes/Sugaree/Dev/eight-bit-ai/.venv/bin:$PATH"`.
+- Session: `pet session start --warp --headless` (model pet4032, the default). Use the venv: `export PATH="$PWD/.venv/bin:$PATH"  # from the repo root`.
 
 ---
 

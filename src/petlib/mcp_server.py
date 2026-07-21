@@ -407,13 +407,14 @@ def pet_wait_mem(addr: str, equals: str, timeout: float = 30.0,
 
 
 @srv.tool()
-def pet_wait_break(timeout: float = 30.0, session: str | None = None) -> dict:
+def pet_wait_break(timeout: float = 30.0, session: str | None = None,
+                   checkpoint_id: int | None = None) -> dict:
     """Block until a breakpoint/watchpoint fires; reports checkpoint id, PC,
     and registers. Machine is left stopped when it fires. On timeout the
     machine is LEFT RUNNING (your checkpoints remain set) and the result is
     {"fired": null, "machine": "running", ...} — data, not an error."""
     s = _attach(session)
-    out = wait_for_break(s, timeout)
+    out = wait_for_break(s, timeout, number=checkpoint_id)
     if out.get("fired"):
         out["pc_symbol"] = pc_symbol(session_labels(s), out.pop("registers"))
     else:

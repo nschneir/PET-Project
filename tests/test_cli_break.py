@@ -124,3 +124,32 @@ def test_watch_clear_spares_breakpoints():
         S.attach.return_value = fake
         r = CliRunner().invoke(main, ["--json", "watch", "clear"])
     assert json.loads(r.output) == {"removed": [2], "count": 1}
+
+
+def test_break_rm_alias():
+    fake, mon = _fake()
+    with patch("petlib.cli.Session") as S:
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["break", "rm", "3"])
+    assert r.exit_code == 0, r.output
+    mon.checkpoint_delete.assert_called_once_with(3)
+
+
+def test_watch_rm_alias():
+    fake, mon = _fake()
+    with patch("petlib.cli.Session") as S:
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["watch", "rm", "5"])
+    assert r.exit_code == 0, r.output
+    mon.checkpoint_delete.assert_called_once_with(5)
+
+
+def test_break_add_once():
+    fake, mon = _fake()
+    mon.checkpoint_set.return_value = _ck()
+    with patch("petlib.cli.Session") as S:
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["--json", "break", "add", "$040d", "--once"])
+    assert r.exit_code == 0, r.output
+    assert mon.checkpoint_set.call_args.kwargs["temporary"] is True
+    assert json.loads(r.output)["temporary"] is True

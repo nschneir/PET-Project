@@ -343,25 +343,48 @@ def mem_read(ctx, addr, length, decimal):
 
 
 @mem.command("write")
-@click.argument("addr")
-@click.argument("values", nargs=-1, required=True)
+@click.argument("addr", required=False)
+@click.argument("values", nargs=-1)
+@click.option("--stdin", "from_stdin", is_flag=True,
+              help="Read 'REF V1 V2 …' lines from stdin (batch writes).")
 @click.pass_context
-def mem_write(ctx, addr, values):
+def mem_write(ctx, addr, values, from_stdin):
     """Write one or more byte VALUES to memory starting at ADDR.
 
     ADDR is $hex/0x/decimal, a symbol, symbol+offset, or @row,col; each
-    VALUE is a byte ($hex/0x/decimal). Does not disturb run/stop state.
+    VALUE is a byte ($hex/0x/decimal). With --stdin, reads one write per
+    line ('REF V1 V2 …' — blank lines and #-comments skipped) instead of
+    arguments: the heredoc-friendly batch form. Does not disturb run/stop
+    state.
     """
+    if from_stdin:
+        if addr is not None or values:
+            fail(ctx, "--stdin takes no ADDR/VALUES arguments")
+            return
+        lines = [ln.split() for ln in sys.stdin.read().splitlines()
+                 if ln.strip() and not ln.lstrip().startswith("#")]
+        if not lines:
+            fail(ctx, "--stdin: no writes on stdin")
+            return
+    elif addr is None or not values:
+        fail(ctx, "give ADDR and VALUES, or use --stdin")
+        return
+    else:
+        lines = [[addr, *values]]
     s = attach(ctx)
-    start = resolve_ref(ctx, session_labels(s), addr, profile=s.profile)
-    data = bytes(parse_number(v) for v in values)
+    labels = session_labels(s)
+    writes = [(resolve_ref(ctx, labels, ln[0], profile=s.profile),
+               bytes(parse_number(v) for v in ln[1:])) for ln in lines]
     with s.monitor() as mon:
         try:
-            mon.memory_write(start, data)
+            for start, data in writes:
+                mon.memory_write(start, data)
         finally:
             mon.release()
-    emit(ctx, {"addr": start, "written": len(data)},
-         f"wrote {len(data)} byte(s) at ${start:04x}")
+    total = sum(len(d) for _, d in writes)
+    emit(ctx, {"writes": [{"addr": a, "written": len(d)} for a, d in writes],
+               "written": total},
+         "\n".join(f"wrote {len(d)} byte(s) at ${a:04x}" for a, d in writes))
 
 
 @mem.command("get")
@@ -655,8 +678,10 @@ def break_() -> None:
 @click.argument("ref")
 @click.option("--condition", default=None, help="VICE condition, e.g. 'A != 0'.")
 @click.option("--temporary", is_flag=True, help="Delete the breakpoint after it fires once.")
+@click.option("--once", is_flag=True, help="Alias for --temporary.")
 @click.pass_context
-def break_add(ctx, ref, condition, temporary):
+def break_add(ctx, ref, condition, temporary, once):
+    temporary = temporary or once
     """Set an execution breakpoint at REF (an address or a symbol)."""
     s = attach(ctx)
     labels = session_labels(s)
@@ -813,6 +838,11 @@ def watch_clear(ctx):
          f"removed {len(removed)} watchpoint(s)")
 
 
+break_.add_command(break_remove, "rm")
+watch.add_command(break_remove, "remove")
+watch.add_command(break_remove, "rm")
+
+
 def _emit_stopped_regs(ctx, labels, regs, extra=None):
     sym = _pc_symbol(labels, regs)
     human = "  ".join(f"{k}={v:04x}" for k, v in sorted(regs.items()))
@@ -891,7 +921,10 @@ def until_cmd(ctx, ref, count, timeout):
 @main.command("wait")
 @click.option("--text", "text_cond", default=None, help="Wait for screen text.")
 @click.option("--mem", "mem_cond", default=None, help="ADDR=VALUE, e.g. '$1000=42'.")
-@click.option("--break", "break_cond", is_flag=True, help="Wait for a checkpoint hit.")
+@click.option("--break", "break_cond", is_flag=False, flag_value="any",
+              default=None,
+              help="Wait for a checkpoint hit; give an ID to wait for that "
+                   "checkpoint only (leftover breakpoints can't intercept).")
 @click.option("--timeout", default=30.0, show_default=True,
               help="Give up after this many seconds.")
 @click.pass_context
@@ -908,7 +941,8 @@ def wait_cmd(ctx, text_cond, mem_cond, break_cond, timeout):
     labels = session_labels(s)
 
     if break_cond:
-        out = wait_for_break(s, timeout)
+        number = None if break_cond == "any" else int(break_cond)
+        out = wait_for_break(s, timeout, number=number)
         if not out.get("fired"):
             fail(ctx, f"timeout: no checkpoint hit within {timeout}s — machine "
                       "left running; your checkpoints remain set.",

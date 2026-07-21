@@ -222,3 +222,16 @@ def test_screen_png_scale():
     save.assert_called_once()
     assert save.call_args.kwargs["scale"] == 2
     assert json.loads(r.output)["width"] == 760
+
+
+def test_mem_write_stdin():
+    mon = Mock()
+    fake, p = _patched(mon)
+    with p as S:
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["mem", "write", "--stdin"],
+                               input="$1000 1 2 3\n$2000 $ff\n")
+    assert r.exit_code == 0, r.output
+    calls = mon.memory_write.call_args_list
+    assert calls[0].args == (0x1000, bytes([1, 2, 3]))
+    assert calls[1].args == (0x2000, bytes([0xFF]))

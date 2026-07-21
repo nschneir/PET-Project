@@ -41,11 +41,18 @@ def code_blocks(text: str, lang: str) -> list[str]:
     return re.findall(rf"```{lang}\n(.*?)```", text, re.S)
 
 
-DOC_HEADING = re.compile(r"^### `(pet[^`]*)`", re.M)
+DOC_HEADING = re.compile(r"^### `(pet[^`]*)`(?: \(alias(?:es)?: (.+)\))?", re.M)
 
 
 def documented_paths(doc_text: str) -> set[str]:
-    return set(DOC_HEADING.findall(doc_text))
+    """Heading paths, including aliases documented inline as
+    '### `pet x remove` (alias: `pet x rm`)'."""
+    out = set()
+    for name, aliases in DOC_HEADING.findall(doc_text):
+        out.add(name)
+        if aliases:
+            out.update(re.findall(r"`(pet[^`]*)`", aliases))
+    return out
 
 
 PET_MENTION = re.compile(r"`(pet(?: [a-z]+)+)\b")

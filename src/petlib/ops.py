@@ -153,7 +153,8 @@ def wait_for_mem(session, addr: int, value: int, timeout: float = 30.0) -> dict:
     return {"fired": None, "timeout": timeout, "last_value": val}
 
 
-def wait_for_break(session, timeout: float = 30.0) -> dict:
+def wait_for_break(session, timeout: float = 30.0,
+                   number: int | None = None) -> dict:
     """Checkpoint-hit wait, robust under warp.
 
     The hit flag on a stopped checkpoint is the durable source of truth:
@@ -176,7 +177,9 @@ def wait_for_break(session, timeout: float = 30.0) -> dict:
 
     with session.monitor() as mon:
         while True:
-            hit = next((ck for ck in mon.checkpoint_list() if ck.hit), None)
+            hit = next((ck for ck in mon.checkpoint_list()
+                        if ck.hit and (number is None or ck.number == number)),
+                       None)
             if hit is not None:
                 return _fired(mon, hit.number)          # machine stays stopped
             remaining = deadline - time.monotonic()
@@ -185,7 +188,8 @@ def wait_for_break(session, timeout: float = 30.0) -> dict:
                 return {"fired": None, "timeout": timeout}
             mon.resume()                                 # the list stopped the machine
             info = mon.wait_for_stop(min(1.0, remaining))
-            if info is not None and info.checkpoint is not None:
+            if (info is not None and info.checkpoint is not None
+                    and (number is None or info.checkpoint == number)):
                 return _fired(mon, info.checkpoint, info.pc)
             # Slice elapsed, or a STOPPED with no checkpoint id (e.g. another
             # client's connect-stop): loop — the flag poll decides.

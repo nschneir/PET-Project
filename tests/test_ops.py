@@ -329,3 +329,29 @@ def test_parse_ref_whole_string_symbol_still_wins():
     # a label literally named with a hyphen resolves whole when no
     # arithmetic interpretation exists
     assert parse_ref({"self-test": 0x2000}, "self-test") == 0x2000
+
+
+def _ck_hit(number):
+    return Checkpoint(
+        number=number, hit=True, start=0x040D, end=0x040D, stop=True,
+        enabled=True, op=CP_EXEC, temporary=False, hit_count=1,
+        ignore_count=0, has_condition=False, memspace=0)
+
+
+def test_wait_for_break_number_filter_ignores_other_checkpoints():
+    # FT5: a leftover breakpoint (#1) must not satisfy a wait for #4
+    s, mon = _fake_session()
+    mon.checkpoint_list.side_effect = [[_ck_hit(1)], [_ck_hit(1), _ck_hit(4)]]
+    mon.wait_for_stop.return_value = None
+    mon.registers.return_value = {"PC": 0x040D}
+    out = wait_for_break(s, timeout=2, number=4)
+    assert out["fired"] == "break" and out["checkpoint"] == 4
+
+
+def test_wait_for_break_number_filter_on_event_fast_path():
+    s, mon = _fake_session()
+    mon.checkpoint_list.side_effect = [[], [], [_ck_hit(4)]]
+    mon.wait_for_stop.return_value = StopInfo(pc=0x1234, checkpoint=1)
+    mon.registers.return_value = {"PC": 0x040D}
+    out = wait_for_break(s, timeout=2, number=4)
+    assert out["checkpoint"] == 4      # event for #1 didn't short-circuit

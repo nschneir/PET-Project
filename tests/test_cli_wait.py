@@ -145,3 +145,28 @@ def test_wait_text_timeout_carries_machine_field():
                                       "--timeout", "0.1"])
     assert r.exit_code == 1
     assert json.loads(r.output)["machine"] == "running"
+
+
+def test_wait_break_with_id_filter():
+    fake, _ = _fake()
+    fired = {"fired": "break", "checkpoint": 4, "pc": 0x040D,
+             "registers": {"PC": 0x040D}, "elapsed": 0.1}
+    with patch("petlib.cli.Session") as S, \
+         patch("petlib.cli.wait_for_break", return_value=fired) as w:
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["--json", "wait", "--break", "4"])
+    assert r.exit_code == 0, r.output
+    assert w.call_args.kwargs.get("number") == 4
+    assert json.loads(r.output)["checkpoint"] == 4
+
+
+def test_wait_break_bare_still_works():
+    fake, _ = _fake()
+    fired = {"fired": "break", "checkpoint": 1, "pc": 0x040D,
+             "registers": {"PC": 0x040D}, "elapsed": 0.1}
+    with patch("petlib.cli.Session") as S, \
+         patch("petlib.cli.wait_for_break", return_value=fired) as w:
+        S.attach.return_value = fake
+        r = CliRunner().invoke(main, ["--json", "wait", "--break"])
+    assert r.exit_code == 0, r.output
+    assert w.call_args.kwargs.get("number") is None

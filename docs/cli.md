@@ -234,8 +234,17 @@ Write bytes to emulated memory.
 
 - `ADDR` — start address (`$hex`/`0x`/decimal/symbol).
 - `VALUES...` — one or more byte values (`$hex`/`0x`/decimal).
+- `--stdin` — batch form: read one write per line (`REF V1 V2 …`; blank
+  lines and `#` comments skipped) from stdin instead of arguments. The
+  heredoc pattern:
 
-JSON: `{"addr", "written"}`. Machine state preserved.
+      pet mem write --stdin <<EOF
+      dots+82 0
+      hs_sc   $01 $23 $45
+      EOF
+
+JSON: `{"writes": [{"addr", "written"}, ...], "written": total}`. Machine
+state preserved.
 
 ---
 
@@ -276,7 +285,7 @@ Set an execution breakpoint at an address or symbol.
 
 - `REF` — address or symbol.
 - `--condition EXPR` — a VICE condition, e.g. `'A != 0'`.
-- `--temporary` — delete the breakpoint after it fires once.
+- `--temporary` / `--once` — delete the breakpoint after it fires once.
 
 JSON: `{"id", "address", "condition", "temporary"}`. Machine state preserved.
 
@@ -286,7 +295,7 @@ List all checkpoints with hit counts.
 JSON: `{"breakpoints": [{"id", "address", "end", "op", "enabled", "hits",
 "has_condition"}, ...]}`.
 
-### `pet break remove`
+### `pet break remove` (alias: `pet break rm`)
 
 - `CK_ID` — checkpoint id (integer). JSON: `{"removed": id}`.
 
@@ -315,6 +324,10 @@ Set a watchpoint on a memory range (default: both load and store).
 - `--length N` (default `1`) — number of bytes to watch.
 
 JSON: `{"id", "address", "length", "op"}`. Machine state preserved.
+
+### `pet watch remove` (alias: `pet watch rm`)
+
+- `CK_ID` — checkpoint id (integer). JSON: `{"removed": id}`.
 
 ### `pet watch clear`
 
@@ -381,7 +394,9 @@ synchronization primitive for scripted use.
 - `--text STR` — wait until STR appears on the screen.
 - `--mem ADDR=VALUE` — wait until the byte at ADDR equals VALUE (e.g.
   `'$1000=42'`).
-- `--break` — wait until a checkpoint fires; **leaves the machine stopped**.
+- `--break [CK_ID]` — wait until a checkpoint fires; **leaves the machine
+  stopped**. Give an id to wait for that checkpoint only, so a leftover
+  breakpoint can't intercept the wait meant for a watchpoint.
 - `--timeout SECS` (default `30`).
 
 Exactly one of `--text`/`--mem`/`--break` is required. JSON on fire:

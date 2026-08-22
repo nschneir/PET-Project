@@ -14,9 +14,6 @@ PET coding and debugging using the VICE emulator.
 > The Python package is imported as `petlib`, installed as `pet-tools`, and
 > driven by the `pet` command-line tool.
 
-> 🖥️ **On the Commodore 64?** There's a sibling toolset for the C64:
-> **[Project64](https://github.com/nschneir/Project64)**.
-
 ## Install
 
 Requires **Python 3.11+**, **VICE 3.5+** (provides `xpet` and `petcat`), and

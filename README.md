@@ -205,6 +205,22 @@ Neither artifact contains ROMs or anything from this toolset.
 
 Stable — current release **v1.3.0**. Full history: [CHANGELOG.md](CHANGELOG.md).
 
+## Related projects
+
+PET Project is one of three Commodore toolsets built the same way — AI-written,
+human-directed, and pointed at real hardware behavior rather than an
+approximation of it.
+
+- **[Project64](https://nschneir.github.io/Project64/)** — tools, skills, and
+  an MCP for agentic Commodore 64 coding and debugging through the VICE
+  emulator, driven by a `c64` command-line tool. PET Project's sibling: same
+  shape, different machine.
+- **[image64](https://nschneir.github.io/image64/)** — a native macOS app and
+  command-line tool that converts modern images into pictures the C64 can
+  actually display. Project64's upstream neighbor: it exports the native C64
+  formats plus a runnable program, so an export goes straight to
+  `c64 run picture.prg`.
+
 ## AI Disclosure
 
 PET Project is developed primarily by AI — Anthropic's Claude, working

@@ -249,7 +249,12 @@
   var controlsEl = document.getElementById("controls-text");
   var soundHint = document.getElementById("sound-hint");
   var player = null;
-  var scriptsLoaded = false;
+  // The one in-flight (or settled) script-load chain. Concurrent callers --
+  // a visitor switching demos during a slow first load -- await this same
+  // promise instead of starting a second chain, which would re-fetch the
+  // emulator and re-declare its globals. Cleared on failure so a later
+  // attempt retries from scratch.
+  var emuPromise = null;
   // Bumped on every boot request; a boot chain that no longer owns the slot
   // (the visitor switched demos while the emulator was still loading) sees a
   // stale seq and bails instead of constructing an orphan player.
@@ -272,12 +277,16 @@
   }
 
   function loadEmulator() {
-    if (scriptsLoaded) return Promise.resolve();
+    if (emuPromise) return emuPromise;
     var p = Promise.resolve();
     EMU_SCRIPTS.forEach(function(f) {
       p = p.then(function() { return loadScript(EMU_BASE + f); });
     });
-    return p.then(function() { scriptsLoaded = true; });
+    emuPromise = p;
+    // Forget a failed chain so the next boot attempt starts a fresh one.
+    // (This handler only resets state; the caller still sees the rejection.)
+    emuPromise.catch(function() { emuPromise = null; });
+    return emuPromise;
   }
 
   function clearSlot() {

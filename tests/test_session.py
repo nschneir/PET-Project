@@ -266,9 +266,33 @@ def _fake_xpet(tmp_path, name, body):
     return str(p)
 
 
+def _sh_single_quote(s):
+    """Wrap s for /bin/sh single quotes. Backslashes are literal inside them,
+    so only the quote itself needs escaping."""
+    return s.replace("'", "'\\''")
+
+
 def _dying_xpet(tmp_path, name, output, status=255):
-    quoted = output.replace("\\", "\\\\").replace("'", "'\\''")
+    quoted = _sh_single_quote(output)
     return _fake_xpet(tmp_path, name, f"printf '%s\\n' '{quoted}'\nexit {status}\n")
+
+
+def _flaky_xpet(tmp_path, name, output, status=255):
+    """An xpet that dies the first time it is run and stays up the second —
+    the shape of a transient launch failure. Returns (path, marker); the
+    marker file records each run, so a caller can tell the runs apart."""
+    marker = tmp_path / f"{name}.runs"
+    quoted = _sh_single_quote(output)
+    body = (
+        f"if [ ! -f '{marker}' ]; then\n"
+        f"  printf 1 > '{marker}'\n"
+        f"  printf '%s\\n' '{quoted}'\n"
+        f"  exit {status}\n"
+        f"fi\n"
+        f"printf 2 >> '{marker}'\n"
+        f"exec sleep 30\n"
+    )
+    return _fake_xpet(tmp_path, name, body), marker
 
 
 class _WorkingMon:
@@ -280,6 +304,19 @@ class _WorkingMon:
     def connect(self, deadline=0): ...
     def ping(self): ...
     def resume(self): ...
+
+
+def _mon_up_after(marker):
+    """A monitor that answers only once the marker says the second xpet run
+    is under way — so the fake monitor cannot 'succeed' against the xpet that
+    is in the middle of dying."""
+
+    class _Mon(_WorkingMon):
+        def connect(self, deadline=0):
+            if not marker.exists() or b"2" not in marker.read_bytes():
+                raise ConnectionError("monitor not up yet")
+
+    return _Mon
 
 
 def test_launch_fails_fast_when_vice_exits(home, tmp_path, monkeypatch):
@@ -307,6 +344,29 @@ def test_launch_fails_fast_when_vice_exits(home, tmp_path, monkeypatch):
     msg = str(excinfo.value)
     assert "255" in msg, f"exit status missing from: {msg}"
     assert "Couldn't load ROM" in msg, f"VICE's own output missing from: {msg}"
+
+
+def test_launch_retries_a_child_that_dies_on_the_first_attempt(
+    home, tmp_path, monkeypatch
+):
+    """Watching the child must not make every exit fatal. The retry loop
+    exists for transient failures (a port lost to the _free_port race, say),
+    and those show up as an xpet that exits at once — indistinguishable at
+    the process level from the ROM case. So a first attempt that dies has to
+    be retried on a fresh port, not surfaced immediately."""
+    monkeypatch.setenv("PET_TOOLS_NO_DAEMON", "1")
+    monkeypatch.setenv("PET_TOOLS_LAUNCH_ATTEMPTS", "2")
+    monkeypatch.setenv("PET_TOOLS_LAUNCH_DEADLINE", "10")
+    exe, marker = _flaky_xpet(tmp_path, "xpet-flaky", ROM_FAILURE_OUTPUT)
+    monkeypatch.setenv("PET_TOOLS_XPET", exe)
+    monkeypatch.setattr("petlib.session.MonitorClient", _mon_up_after(marker))
+
+    s = Session.launch(model="pet4032", name="flaky")
+    try:
+        assert s.is_alive(), "the second attempt's xpet should be the session"
+        assert marker.read_bytes() == b"12", "expected exactly two xpet runs"
+    finally:
+        os.kill(s.pid, signal.SIGKILL)
 
 
 def test_launch_failure_hints_at_rom_install(home, tmp_path, monkeypatch):

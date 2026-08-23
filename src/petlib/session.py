@@ -116,9 +116,10 @@ _ROM_LOAD_FAILURE = re.compile(
 )
 
 ROM_HINT = (
-    "VICE could not load its ROM images. The Debian/Ubuntu `vice` package "
-    "ships without the Commodore ROMs for licensing reasons — see the "
-    "README's Install section for where to get them and where to put them."
+    "VICE could not load its ROM images. If you are on Debian/Ubuntu, its "
+    "`vice` package ships without the Commodore ROMs for licensing reasons "
+    "— see the README's Install section for where to get them and where to "
+    "put them."
 )
 
 _CONNECT_SLICE = 0.25   # how often the launch wait re-checks the child
@@ -313,6 +314,7 @@ class Session:
         deadline = float(os.environ.get("PET_TOOLS_LAUNCH_DEADLINE", "20"))
         log_path = _vice_log_path(name)
         last_err: Exception | None = None
+        died_err: SessionError | None = None
         for _ in range(max(1, attempts)):
             port = _free_port()
             args = base_args + [
@@ -334,9 +336,18 @@ class Session:
                 last_err = e
                 _kill_proc(proc)
                 continue
-            except SessionError:
+            except SessionError as e:
+                # The child is gone. That is usually terminal (missing ROMs,
+                # no display), but it is also how a transient failure looks —
+                # e.g. another process taking the port _free_port just picked
+                # — and retrying on a fresh port is exactly what fixes those.
+                # So keep the diagnosis and try again; it is raised below if
+                # every attempt dies. Detection costs ~250 ms, so the terminal
+                # case still fails in about a second rather than the full
+                # deadline.
+                died_err = e
                 _kill_proc(proc)   # already exited; this just reaps it
-                raise
+                continue
             session = cls(name=name, pid=proc.pid, port=port, model=model)
             if os.environ.get("PET_TOOLS_NO_DAEMON") != "1":
                 sock_path = _default_socket_path(name)
@@ -349,6 +360,8 @@ class Session:
             session._respawns_path().unlink(missing_ok=True)  # fresh breaker
             session._save()
             return session
+        if died_err is not None:
+            raise died_err   # VICE's own words beat a generic timeout
         raise SessionError(
             f"VICE started but its monitor never answered after {max(1, attempts)} "
             f"attempt(s): {last_err} (VICE's own output: {log_path})"

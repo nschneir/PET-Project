@@ -17,8 +17,13 @@ PET coding and debugging using the VICE emulator.
 ## Install
 
 Requires **Python 3.11+**, **VICE 3.5+** (provides `xpet` and `petcat`), and
-the **cc65** suite (`ca65`/`ld65`, for assembling 6502 programs). Then install
-this package.
+the **cc65** suite (`ca65`/`ld65`, for assembling 6502 programs).
+
+pet-tools is not on PyPI, so it installs from a checkout. Every
+`pip install -e .` below runs from that directory:
+
+    git clone https://github.com/nschneir/PET-Project.git
+    cd PET-Project
 
 ### macOS (Homebrew)
 
@@ -27,84 +32,79 @@ this package.
 
 Homebrew's VICE bundles the Commodore ROM images, so that is the whole setup.
 If `pip` answers `error: externally-managed-environment`, Homebrew's Python is
-marked externally managed (PEP 668) like Debian's — use the same venv route as
-below: `python3 -m venv .venv && .venv/bin/pip install -e .`
+marked externally managed (PEP 668) like Debian's — use the venv route from
+step 4 below.
 
 ### Debian / Ubuntu
 
-Follow the steps in order — step 1 is Debian-only, and steps 2-4 each have a
-hard stop if you skip them.
+Three things differ from macOS: the package lives outside `main`, the packaged
+VICE ships **no ROMs**, and the system Python refuses `pip install`. Step 1 is
+Debian-only.
 
-**1. Debian only: enable the `contrib` component.** `vice` lives in `contrib`,
-which default installs do not enable — without it `apt` reports "Unable to
-locate package vice". (Ubuntu ships `vice` in `multiverse`, which *is* enabled
-by default, so go straight to step 2.) Pick the line that matches your Debian:
+**1. Debian only — enable the `contrib` component.** `vice` lives there, and
+stock installs leave `contrib` off, so `apt` reports "Unable to locate package
+vice". Ubuntu carries `vice` in `multiverse`, on by default — skip to step 2.
 
-- **Debian 13+** (deb822 format): add `contrib` to the `Components:` line of
-  `/etc/apt/sources.list.d/debian.sources`.
-- **Debian 12 and older**: `sudo apt-add-repository contrib` (from
-  `software-properties-common`) makes the edit for you; it does not handle the
-  deb822 format above. Or add `contrib` to each `deb` line in
-  `/etc/apt/sources.list` by hand.
+| Debian | Enable `contrib` by |
+| --- | --- |
+| 13+ (deb822 format) | adding `contrib` to the `Components:` line of `/etc/apt/sources.list.d/debian.sources` |
+| 12 and older | running `sudo add-apt-repository contrib` (from `software-properties-common`), or adding `contrib` to each `deb` line in `/etc/apt/sources.list` |
 
 **2. Install VICE and cc65.**
 
     sudo apt update
     sudo apt install vice cc65
 
-**3. Install the ROMs — the step with no macOS equivalent.** The Debian
-package is in `contrib` *because* it deliberately omits the Commodore ROM
-images: "This package does not contain the various ROM images needed to
-actually use the emulators; they are available separately from other
-locations". Ubuntu's package is built from the same source. Without the ROMs,
-`xpet` exits immediately with `Couldn't load ROM` and no PET ever boots. Take
-them from the upstream VICE release tarball.
+**3. Install the ROMs.** This step has no macOS equivalent. Debian strips the
+Commodore ROM images out of the package — which is *why* it sits in `contrib`
+— and Ubuntu rebuilds from the same source. Without them, `xpet` exits
+immediately with `Couldn't load ROM` and no PET ever boots.
 
-First, download and unpack it. Nothing from the tarball is needed after this
-step, so unpack it somewhere scratch like `/tmp` rather than in the repo:
+Download and unpack the upstream VICE tarball. Nothing in it is needed
+afterwards, so unpack it in `/tmp` rather than in the repo:
 
     curl -L -o /tmp/vice.tar.gz https://sourceforge.net/projects/vice-emu/files/releases/vice-3.9.tar.gz/download
     tar xf /tmp/vice.tar.gz -C /tmp
 
-Then copy the two ROM directories into place and delete the download:
+Copy both ROM directories into place, then delete the download:
 
     mkdir -p ~/.local/share/vice
     cp -r /tmp/vice-3.9/data/PET /tmp/vice-3.9/data/DRIVES ~/.local/share/vice/
     rm -rf /tmp/vice.tar.gz /tmp/vice-3.9
 
-Both directories matter: `PET` holds the machine ROMs (BASIC, kernal, editor,
-character generator), and `DRIVES` holds the drive DOS ROMs that the emulated
-2031/4040/8050 units need — leaving it out costs you hardware-level drive
-emulation, which is what every `pet disk` command and `--disk` boot relies on.
+Copy **both**: `PET` holds the machine ROMs (BASIC, kernal, editor, character
+generator) and `DRIVES` holds the drive DOS ROMs the emulated 2031/4040/8050
+units need — skipping it breaks every `pet disk` command and `--disk` boot.
 
-`~/.local/share/vice` is used above because it is the search location that
-needs no root. VICE also looks in `PREFIX/share/vice` (`/usr/share/vice` for
-the Debian/Ubuntu package) and in a `PET`/`DRIVES` pair beside the `xpet`
-binary. To confirm what your build searches, run `xpet` and look for the
-`VICE system file search path: …` line in its startup log; `xpet -directory
-<path>` overrides it.
+`~/.local/share/vice` is used because it is the one search location needing no
+root; VICE also checks `/usr/share/vice` and a `PET`/`DRIVES` pair beside the
+`xpet` binary. Run `xpet` and look for its `VICE system file search path: …`
+line to see what your build searches (`xpet -directory <path>` overrides it).
 
-**4. Install pet-tools in a virtualenv.** Debian 12+ and Ubuntu 23.04+ mark
-the system Python as externally managed (PEP 668), so `pip install -e .` into
-it is refused:
+**4. Install pet-tools in a virtualenv.** Debian 12+ and Ubuntu 23.04+ mark the
+system Python as externally managed (PEP 668), so installing into it is
+refused:
 
     sudo apt install python3-venv
     python3 -m venv .venv
     .venv/bin/pip install -e .
     . .venv/bin/activate        # puts `pet` and `pet-tools-mcp` on PATH
 
-Activating matters: the MCP configs in [docs/agent-setup.md](docs/agent-setup.md)
-expect `pet-tools-mcp` to resolve from `PATH`. `pipx install -e .` is a fine
-alternative for a tool-style install.
+Activate before use: the MCP configs in
+[docs/agent-setup.md](docs/agent-setup.md) expect `pet-tools-mcp` to resolve
+from `PATH`. (`pipx install -e .` is a fine alternative.)
 
-Mind the Python floor: Ubuntu 22.04 LTS's system Python is 3.10, below this
-project's 3.11 requirement, and a venv built on it is refused too — install a
-newer interpreter (`apt install python3.11` where available, otherwise
-deadsnakes or pyenv) and build the venv with that. Debian 12 (3.11), Debian 13
-(3.13), and Ubuntu 24.04 (3.12) are fine as they ship.
+**Mind the Python floor.** Ubuntu 22.04 LTS ships Python 3.10, under this
+project's 3.11 requirement, and a venv built from it is refused too — install a
+newer interpreter and its matching `-venv` package (`apt install python3.11
+python3.11-venv` where available, otherwise deadsnakes or pyenv), then build
+the venv with that. Debian 12 (3.11), Debian 13 (3.13), and Ubuntu 24.04 (3.12)
+are fine as they ship.
 
-**Headless on Linux.** `--headless` works by setting `SDL_VIDEODRIVER=dummy`,
-which only the SDL builds of VICE honour. Debian and Ubuntu package the GTK3
+#### Headless on Linux
+
+`--headless` works by setting `SDL_VIDEODRIVER=dummy`, which only the SDL
+builds of VICE honour. Debian and Ubuntu package the GTK3
 build, which ignores those variables: on a desktop it still opens a window, and
 on a display-less machine (CI, SSH, a container) it cannot start at all. Wrap
 the command in `xvfb-run` there:

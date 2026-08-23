@@ -27,14 +27,21 @@ def test_install_section_covers_the_linux_reality():
     install silently stops working — so the README must keep naming them."""
     text = README.read_text()
     section = text[text.index("## Install"):text.index("## Quickstart")]
-    for needle in ("contrib", "multiverse", "ROM", "PEP 668", "venv",
-                   "pipx", "xvfb-run"):
+    for needle in ("contrib", "multiverse", "ROM", "PEP 668", "venv", "pipx"):
         assert needle in section, \
             f"README Install section no longer mentions {needle!r}"
-    assert "$HOME/.local/share/vice/PET" in section, \
-        "Install section must name a directory on VICE's sysfile search path"
-    assert "~/.local/share/vice" in section, \
-        "Install section must show where to copy the ROMs"
+    # `pip install -e .` only works from a checkout, and pet-tools is not on
+    # PyPI — so the README has to say how you get one.
+    assert "git clone" in section, \
+        "Install section must tell the reader to clone the repo first"
+    # Both sources formats are live in the wild: a fresh Debian 13 writes
+    # deb822, an in-place upgrade from 12 keeps the one-line file and leaves
+    # sources.list.d empty. Naming only one strands half the readers.
+    for path in ("/etc/apt/sources.list.d/debian.sources", "/etc/apt/sources.list"):
+        assert path in section, f"Install section must name {path}"
+    for path in ("~/.local/share/vice", "/usr/share/vice"):
+        assert path in section, \
+            f"Install section must name {path} on VICE's sysfile search path"
     # Debian strips every ROM, DRIVES included — copying only data/PET boots
     # the machine but leaves the drive DOS ROMs missing, and `pet disk` needs
     # them.
@@ -42,6 +49,19 @@ def test_install_section_covers_the_linux_reality():
         "Install section must tell Linux users to install the DRIVES ROMs too"
     assert "3.10" in section, \
         "Install section must flag Ubuntu 22.04's Python 3.10 vs the 3.11 floor"
+
+
+def test_headless_fix_documented_where_the_flag_is():
+    """The README dropped its headless section (nobody here runs display-less
+    machines), so `docs/cli.md`'s --headless entry is now the only place the
+    xvfb-run workaround lives. It has to carry the fix, not a back-reference."""
+    cli_doc = Path("docs/cli.md").read_text()
+    idx = cli_doc.index("- `--headless`")
+    entry = cli_doc[idx:cli_doc.index("\n- ", idx + 1)]
+    for needle in ("xvfb-run", "xvfb"):
+        assert needle in entry, f"--headless entry no longer mentions {needle!r}"
+    assert "README" not in entry, \
+        "--headless entry must carry the fix itself, not point at the README"
 
 
 def test_readme_agents_section_links_to_the_setup_guide():

@@ -32,53 +32,52 @@ below: `python3 -m venv .venv && .venv/bin/pip install -e .`
 
 ### Debian / Ubuntu
 
-Three things differ from the macOS path, and each one is a hard stop if you
-skip it: the package lives outside `main`, the packaged VICE ships **no ROMs**,
-and the system Python refuses `pip install`.
+Follow the steps in order — step 1 is Debian-only, and steps 2-4 each have a
+hard stop if you skip them.
 
-**1. Install VICE and cc65.** On Debian, `vice` lives in the `contrib`
-component, which default installs do not enable — without it `apt` reports
-"Unable to locate package vice". Add `contrib` to the `Components:` line of
-`/etc/apt/sources.list.d/debian.sources` (Debian 13's deb822 format), or to
-each `deb` line in `/etc/apt/sources.list` (Debian 12 and older). Then:
+**1. Debian only: enable the `contrib` component.** `vice` lives in `contrib`,
+which default installs do not enable — without it `apt` reports "Unable to
+locate package vice". (Ubuntu ships `vice` in `multiverse`, which *is* enabled
+by default, so go straight to step 2.) Pick the line that matches your Debian:
+
+- **Debian 13+** (deb822 format): add `contrib` to the `Components:` line of
+  `/etc/apt/sources.list.d/debian.sources`.
+- **Debian 12 and older**: `sudo apt-add-repository contrib` (from
+  `software-properties-common`) makes the edit for you; it does not handle the
+  deb822 format above. Or add `contrib` to each `deb` line in
+  `/etc/apt/sources.list` by hand.
+
+**2. Install VICE and cc65.**
 
     sudo apt update
     sudo apt install vice cc65
 
-(`sudo apt-add-repository contrib`, from `software-properties-common`, makes
-that edit for you on the older `sources.list` format; it does not handle the
-deb822 one.) On Ubuntu `vice` is in `multiverse`, enabled by default, so
-`sudo apt install vice cc65` is enough on its own.
-
-**2. Install the ROMs — the step with no macOS equivalent.** Debian's package
-is in `contrib` *because* it deliberately omits the Commodore ROM images:
-"This package does not contain the various ROM images needed to actually use
-the emulators; they are available separately from other locations". Ubuntu's
-package is built from the same source. (The stripping is thorough: the
-packaged VICE contains no `.bin` files at all.) Without the ROMs, `xpet` exits
-immediately with `Couldn't load ROM` and no PET ever boots. Take them from the
-upstream VICE release tarball:
+**3. Install the ROMs — the step with no macOS equivalent.** The Debian
+package is in `contrib` *because* it deliberately omits the Commodore ROM
+images: "This package does not contain the various ROM images needed to
+actually use the emulators; they are available separately from other
+locations". Ubuntu's package is built from the same source. Without the ROMs,
+`xpet` exits immediately with `Couldn't load ROM` and no PET ever boots. Take
+them from the upstream VICE release tarball:
 
     curl -L -o vice.tar.gz https://sourceforge.net/projects/vice-emu/files/releases/vice-3.9.tar.gz/download
     tar xf vice.tar.gz
     mkdir -p ~/.local/share/vice
     cp -r vice-3.9/data/PET vice-3.9/data/DRIVES ~/.local/share/vice/
 
-Both directories matter: `PET` holds the machine ROMs (BASIC, kernal, editor,
-character generator) and `DRIVES` holds the drive DOS ROMs that the emulated
-2031/4040/8050 units need, so leaving it out costs you hardware-level drive
-emulation — which is what every `pet disk` command and `--disk` boot relies on.
+Copy both directories: `PET` holds the machine ROMs (BASIC, kernal, editor,
+character generator), and `DRIVES` holds the drive DOS ROMs that the emulated
+2031/4040/8050 units need — leaving it out costs you hardware-level drive
+emulation, which is what every `pet disk` command and `--disk` boot relies on.
 
-VICE searches for system files in `$HOME/.local/share/vice/PET`, then
-`PREFIX/share/vice/PET` (`/usr/share/vice/PET` for the Debian/Ubuntu package),
-then a `PET` subdirectory of the directory holding the `xpet` binary — and the
-matching `DRIVES` directory alongside each. The `~/.local/…` entry is the one
-that needs no root, which is why it is used above. To confirm what your build
-actually searches, run `xpet` and look for the
+`~/.local/share/vice` is used above because it is the search location that
+needs no root. VICE also looks in `PREFIX/share/vice` (`/usr/share/vice` for
+the Debian/Ubuntu package) and in a `PET`/`DRIVES` pair beside the `xpet`
+binary. To confirm what your build searches, run `xpet` and look for the
 `VICE system file search path: …` line in its startup log; `xpet -directory
 <path>` overrides it.
 
-**3. Install pet-tools in a virtualenv.** Debian 12+ and Ubuntu 23.04+ mark
+**4. Install pet-tools in a virtualenv.** Debian 12+ and Ubuntu 23.04+ mark
 the system Python as externally managed (PEP 668), so `pip install -e .` into
 it is refused:
 

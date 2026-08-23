@@ -6,7 +6,8 @@ day the release was tagged.
 ## [1.4.0] — 2026-08-23
 
 A docs-and-site release: the two flagship demos are now playable in a
-browser, one click from the README. No petlib behavior changed.
+browser, one click from the README. The only petlib behavior change is to
+failed launches, which now fail fast and say why.
 
 ### Added
 - **Play in the browser** — `play.html` on the project site boots Invaders
@@ -19,7 +20,37 @@ browser, one click from the README. No petlib behavior changed.
   image rebuilt from VICE's true 4032 ROM set, so the browser machine
   matches this project's reference `pet4032`. No ROMs live in this repo.
 
+### Fixed
+- **Launch failures are fast and informative.** VICE's own output was sent
+  to `/dev/null`, so when `xpet` died at startup — the normal outcome on a
+  fresh Debian/Ubuntu box, where the packaged VICE has no ROMs — the retry
+  loop waited out the full deadline on both attempts (~40 s) and then
+  reported only that the monitor never answered. `Session.launch` now
+  captures VICE's output, polls the child each iteration, and aborts the
+  moment it exits, quoting the exit code and the tail of the log. ROM-load
+  failures additionally get a pointer to the README's Install section.
+- `c1541`/`petcat` "not found" errors offered only the macOS install hint;
+  they now name both `brew` and `apt`, matching `pet session start` and
+  `pet build`.
+
 ### Documentation
+- **Honest Debian/Ubuntu install.** The two-line `apt install vice cc65` +
+  `pip install -e .` recipe could not work: `vice` is in Debian's `contrib`
+  (not enabled by default), the package deliberately ships without the
+  Commodore ROM images, and Debian 12+/Ubuntu 23.04+ refuse `pip install`
+  into the system Python (PEP 668). The README's Install section now walks
+  all three — enabling `contrib`, copying the PET ROMs from the upstream
+  VICE tarball into VICE's documented sysfile search path, and installing
+  into a venv — plus the Python 3.11 floor (Ubuntu 22.04 ships 3.10) and
+  `xvfb-run` for display-less machines.
+- **`--headless` described accurately.** It sets `SDL_VIDEODRIVER`/
+  `SDL_AUDIODRIVER` to `dummy`, which only SDL builds of VICE honour; the
+  GTK3 build that Debian and Ubuntu package ignores it. `docs/cli.md`, the
+  `pet session start` help text, and the PET skill now say so and point at
+  `xvfb-run`.
+- `docs/agent-setup.md`: the cross-platform claim is scoped to the CLI
+  config files actually verified, the `cli.md` link moved into the intro,
+  and the `PATH`/venv requirement for `pet-tools-mcp` spelled out.
 - Screenshots and play links in README, `demos/README.md`, and the landing
   page — fresh 640×400 title stills in `img/play/`, captured with the
   project's own `pet screen --png`.

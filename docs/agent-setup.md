@@ -1,5 +1,7 @@
 # Using PET Project with AI coding agents
 
+<!-- Keep this intro in sync with the README's "Using with AI coding agents" section -->
+
 This toolset is built to be driven by an AI agent. Debugging state persists
 across commands: when the agent halts the machine at a breakpoint, it stays
 halted while the agent inspects memory, registers, and screen in separate tool
@@ -14,13 +16,17 @@ calls. There are two ways an agent can use it — pick either or both:
 Either way, the agent should read
 [`skills/pet-development/SKILL.md`](../skills/pet-development/SKILL.md) (the PET
 workflows and pitfalls) before starting — the per-agent steps below make that
-happen automatically.
+happen automatically. The command reference is in [`cli.md`](cli.md).
 
 Everything here works the same on **macOS and Linux**: the commands are plain
-POSIX, and the config-file locations are identical on both. Installing the
-prerequisites is the only step that differs, and the
+POSIX, and the CLI config files shown below (`~/.codex/config.toml`,
+`~/.cursor/mcp.json`, `~/.gemini/settings.json`) live in your home directory on
+both. Installing the prerequisites is the step that differs, and the
 [README's Install section](../README.md#install) covers both macOS (Homebrew)
-and Debian/Ubuntu (apt).
+and Debian/Ubuntu (apt) — note that Debian/Ubuntu need several extra steps
+(enable `contrib`, install the PET ROMs by hand, use a venv). Every MCP config
+here assumes `pet-tools-mcp` resolves from your `PATH`, so on Linux activate
+the venv you installed into (or use `pipx`) before starting your agent.
 
 The MCP config used by several agents below is this one block:
 
@@ -88,5 +94,3 @@ tools describe themselves.
    the JSON block above (the file is `~/.gemini/config/mcp_config.json`).
 2. Add the read-the-skill one-liner to `AGENTS.md`.
 3. Paste a prompt from [`demos/`](../demos/).
-
-The command reference is in [`docs/cli.md`](cli.md).

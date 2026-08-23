@@ -20,6 +20,23 @@ def test_install_section_near_top():
     assert "apt install vice cc65" in text
 
 
+def test_install_section_covers_the_linux_reality():
+    """A Debian/Ubuntu user needs three steps macOS does not: enable
+    `contrib`, install the Commodore ROMs by hand (the package ships none),
+    and install into a venv (PEP 668). Drop any of them and the documented
+    install silently stops working — so the README must keep naming them."""
+    text = README.read_text()
+    section = text[text.index("## Install"):text.index("## Quickstart")]
+    for needle in ("contrib", "multiverse", "ROM", "PEP 668", "venv",
+                   "pipx", "xvfb-run"):
+        assert needle in section, \
+            f"README Install section no longer mentions {needle!r}"
+    assert "~/.local/share/vice/PET" in section, \
+        "Install section must name a directory on VICE's sysfile search path"
+    assert "3.10" in section, \
+        "Install section must flag Ubuntu 22.04's Python 3.10 vs the 3.11 floor"
+
+
 def test_readme_agents_section_links_to_the_setup_guide():
     """The README keeps the two-route pitch; the per-agent steps live in
     docs/agent-setup.md, and the section must point at it."""
@@ -52,6 +69,17 @@ def test_agent_setup_guide_works_on_macos_and_linux():
     for macos_only in ("brew ", "/Library/", "Applications/", "defaults write"):
         assert macos_only not in guide, \
             f"agent-setup.md has a macOS-only instruction: {macos_only!r}"
+
+
+def test_agent_setup_cross_platform_claim_stays_scoped():
+    """The guide may promise macOS/Linux parity only for the config files
+    that were actually checked — not for every agent's IDE-managed paths."""
+    guide = AGENT_SETUP.read_text()
+    assert "the config-file locations are identical on both" not in guide, \
+        "agent-setup.md makes an unscoped cross-platform config claim"
+    for cfg in ("~/.codex/config.toml", "~/.cursor/mcp.json",
+                "~/.gemini/settings.json"):
+        assert cfg in guide, f"agent-setup.md must name the verified path {cfg}"
 
 
 def test_agent_setup_relative_links_resolve():

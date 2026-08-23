@@ -20,19 +20,92 @@ Requires **Python 3.11+**, **VICE 3.5+** (provides `xpet` and `petcat`), and
 the **cc65** suite (`ca65`/`ld65`, for assembling 6502 programs). Then install
 this package.
 
-macOS (Homebrew):
+### macOS (Homebrew)
 
     brew install vice cc65
     pip install -e .
 
-Debian / Ubuntu:
+Homebrew's VICE bundles the Commodore ROM images, so that is the whole setup.
 
+### Debian / Ubuntu
+
+Three things differ from the macOS path, and each one is a hard stop if you
+skip it: the package lives outside `main`, the packaged VICE ships **no ROMs**,
+and the system Python refuses `pip install`.
+
+**1. Install VICE and cc65.** On Debian, `vice` lives in the `contrib`
+component, which default installs do not enable — without it `apt` reports
+"Unable to locate package vice". Add `contrib` to the `Components:` line of
+`/etc/apt/sources.list.d/debian.sources` (Debian 13's deb822 format), or to
+each `deb` line in `/etc/apt/sources.list` (Debian 12 and older). Then:
+
+    sudo apt update
     sudo apt install vice cc65
-    pip install -e .
+
+(`sudo apt-add-repository contrib`, from `software-properties-common`, makes
+that edit for you on the older `sources.list` format; it does not handle the
+deb822 one.) On Ubuntu `vice` is in `multiverse`, enabled by default, so
+`sudo apt install vice cc65` is enough on its own.
+
+**2. Install the PET ROMs — the step with no macOS equivalent.** Debian's
+package is in `contrib` *because* it deliberately omits the Commodore ROM
+images: "This package does not contain the various ROM images needed to
+actually use the emulators; they are available separately from other
+locations". Ubuntu's package is built from the same source. Without the ROMs,
+`xpet` exits immediately with `Couldn't load ROM` and no PET ever boots. Take
+them from the upstream VICE release tarball:
+
+    curl -L -o vice.tar.gz https://sourceforge.net/projects/vice-emu/files/releases/vice-3.9.tar.gz/download
+    tar xf vice.tar.gz
+    mkdir -p ~/.local/share/vice/PET
+    cp vice-3.9/data/PET/* ~/.local/share/vice/PET/
+
+VICE searches for system files in `$HOME/.local/share/vice/PET`, then
+`PREFIX/share/vice/PET` (`/usr/share/vice/PET` for the Debian/Ubuntu package),
+then the emulator binary's own directory. The `~/.local/…` entry is the one
+that needs no root, which is why it is used above. The system path is
+version-dependent — Debian's older VICE 3.3 package used `/usr/lib/vice`
+instead — so if your VICE predates 3.5, check the path it actually uses:
+`xpet` prints
+`VICE system file search path: …` in its startup log, and `xpet -directory
+<path>` overrides it.
+
+**3. Install pet-tools in a virtualenv.** Debian 12+ and Ubuntu 23.04+ mark
+the system Python as externally managed (PEP 668), so `pip install -e .` into
+it is refused:
+
+    sudo apt install python3-venv
+    python3 -m venv .venv
+    .venv/bin/pip install -e .
+    . .venv/bin/activate        # puts `pet` and `pet-tools-mcp` on PATH
+
+Activating matters: the MCP configs in [docs/agent-setup.md](docs/agent-setup.md)
+expect `pet-tools-mcp` to resolve from `PATH`. `pipx install -e .` is a fine
+alternative for a tool-style install.
+
+Mind the Python floor: Ubuntu 22.04 LTS's system Python is 3.10, below this
+project's 3.11 requirement, and a venv built on it is refused too — install a
+newer interpreter (`apt install python3.11` where available, otherwise
+deadsnakes or pyenv) and build the venv with that. Debian 12 (3.11), Debian 13
+(3.13), and Ubuntu 24.04 (3.12) are fine as they ship.
+
+**Headless on Linux.** `--headless` works by setting `SDL_VIDEODRIVER=dummy`,
+which only the SDL builds of VICE honour. Debian and Ubuntu package the GTK3
+build, which ignores those variables: on a desktop it still opens a window, and
+on a display-less machine (CI, SSH, a container) it cannot start at all. Wrap
+the command in `xvfb-run` there:
+
+    sudo apt install xvfb
+    xvfb-run -a pet session start --model pet4032 --headless
+
+The same applies to `pet test run`, `pet test programs`, and the MCP server,
+which all launch VICE headless.
 
 ## Quickstart
 
-    pip install -e .
+Once the Install steps above are done (on Debian/Ubuntu, from the activated
+venv):
+
     pet session start --model pet4032      # boot an emulated PET 4032
     pet run tests/programs/hello-basic/program.bas   # tokenize + load + RUN
     pet run tests/programs/hello-asm/program.s       # assemble + load + RUN (needs cc65)
@@ -76,6 +149,8 @@ what BASIC reports, and is the budget a BASIC program (or a `SYS`-stub
 assembly program) actually has to fit in.
 
 ## Using with AI coding agents
+
+<!-- Keep this intro in sync with docs/agent-setup.md -->
 
 This toolset is built to be driven by an AI agent. Debugging state persists
 across commands: when the agent halts the machine at a breakpoint, it stays

@@ -63,7 +63,11 @@ Boot a fresh emulated PET.
   `pet3032`, `pet4032`, `pet8032`, `pet8296` (see the README's Supported
   machines table).
 - `-s, --name NAME` — session name (defaults to the model name).
-- `--headless` — suppress the VICE window (video/audio dummied).
+- `--headless` — suppress the VICE window. This sets `SDL_VIDEODRIVER` and
+  `SDL_AUDIODRIVER` to `dummy`, which only SDL builds of VICE honour; GTK3
+  builds (what Debian/Ubuntu package) ignore it and may still open a window.
+  On a display-less machine, wrap the command in `xvfb-run -a` instead — see
+  the README's Install section.
 - `--warp` — run at maximum speed (recommended for automation).
 - `--disk PATH` — attach a `.d64`/`.d80`/`.d82` image to drive 8 at boot.
 

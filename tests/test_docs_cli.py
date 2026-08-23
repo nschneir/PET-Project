@@ -28,6 +28,18 @@ def test_session_commands_share_name_option():
             f"session {cmd_name} lacks -s/--name (has {sorted(names)})"
 
 
+def test_headless_is_not_described_as_unconditionally_dummied():
+    """`--headless` sets SDL_VIDEODRIVER/SDL_AUDIODRIVER=dummy, which only
+    SDL builds of VICE honour; the GTK3 build Debian and Ubuntu package
+    ignores it. No doc or help string may claim the effect unqualified."""
+    for path in (DOC, Path("skills/pet-development/SKILL.md")):
+        assert "video/audio dummied" not in path.read_text(), \
+            f"{path}: unqualified '--headless' claim"
+    text = DOC.read_text()
+    assert "SDL" in text and "xvfb-run" in text, \
+        "docs/cli.md must say --headless is SDL-only and point at xvfb-run"
+
+
 def test_cli_md_names_every_machine_profile():
     from petlib.machines import PROFILES
     text = DOC.read_text()

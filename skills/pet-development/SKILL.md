@@ -34,7 +34,9 @@ Start a machine with `pet session start` before anything else, and
 
 `pet session start --model pet4032` boots a PET 4032 (the default). Add
 `--warp` to run at full speed for automation and `--headless` to suppress the
-window. Models: `pet2001` (BASIC 1.0), `pet3032` (BASIC 2.0), `pet4032`
+window (SDL builds of VICE only — on Linux/GTK3 builds a window may still
+appear; use `xvfb-run -a` on a display-less machine). Models: `pet2001`
+(BASIC 1.0), `pet3032` (BASIC 2.0), `pet4032`
 (BASIC 4.0), `pet8032` and `pet8296` (BASIC 4.0, 80-column). The 40- vs
 80-column split matters when reading the screen; BASIC version matters for
 which tokens and ROM routines exist.

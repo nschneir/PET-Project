@@ -64,6 +64,9 @@
   footer .links{display:flex;flex-wrap:wrap;gap:8px 22px;margin:.6em 0}
   .ready{color:var(--p-bright);margin-top:22px;font-size:1.05rem}
 
+  @media (max-width:560px){
+    .screen{border-radius:0}
+  }
   @media (prefers-reduced-motion:reduce){
     *{animation:none!important;transition:none!important}
     .reveal{opacity:1;transform:none}
@@ -247,7 +250,10 @@
   var soundHint = document.getElementById("sound-hint");
   var player = null;
   var scriptsLoaded = false;
-  var current = null;
+  // Bumped on every boot request; a boot chain that no longer owns the slot
+  // (the visitor switched demos while the emulator was still loading) sees a
+  // stale seq and bails instead of constructing an orphan player.
+  var bootSeq = 0;
 
   function demoById(id) {
     for (var i = 0; i < DEMOS.length; i++)
@@ -326,12 +332,15 @@
   }
 
   function bootDemo(demo) {
+    var seq = ++bootSeq;
     renderMessage(demo, "BOOTING…", "Loading the emulator and " +
                   demo.name + ".");
     loadEmulator().then(function() {
+      if (seq !== bootSeq) return;
       clearSlot();
       player = new PetPlayer(slot);
       player.play(demo.prg, function(state) {
+        if (seq !== bootSeq) return;
         if (state === "running") {
           soundHint.hidden = false;
         } else if (state.indexOf("error:") === 0) {
@@ -340,6 +349,7 @@
         }
       });
     }).catch(function(e) {
+      if (seq !== bootSeq) return;
       renderMessage(demo, "COULD NOT LOAD THE EMULATOR",
                     e.message + " — but the demo runs fine in VICE:");
     });
@@ -347,7 +357,6 @@
 
   function selectDemo(id, boot) {
     var demo = demoById(id);
-    current = demo.id;
     descEl.innerHTML = "";
     descEl.textContent = demo.desc;
     controlsEl.innerHTML = demo.controls;

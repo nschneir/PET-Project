@@ -58,14 +58,21 @@ images: "This package does not contain the various ROM images needed to
 actually use the emulators; they are available separately from other
 locations". Ubuntu's package is built from the same source. Without the ROMs,
 `xpet` exits immediately with `Couldn't load ROM` and no PET ever boots. Take
-them from the upstream VICE release tarball:
+them from the upstream VICE release tarball.
 
-    curl -L -o vice.tar.gz https://sourceforge.net/projects/vice-emu/files/releases/vice-3.9.tar.gz/download
-    tar xf vice.tar.gz
+First, download and unpack it. Nothing from the tarball is needed after this
+step, so unpack it somewhere scratch like `/tmp` rather than in the repo:
+
+    curl -L -o /tmp/vice.tar.gz https://sourceforge.net/projects/vice-emu/files/releases/vice-3.9.tar.gz/download
+    tar xf /tmp/vice.tar.gz -C /tmp
+
+Then copy the two ROM directories into place and delete the download:
+
     mkdir -p ~/.local/share/vice
-    cp -r vice-3.9/data/PET vice-3.9/data/DRIVES ~/.local/share/vice/
+    cp -r /tmp/vice-3.9/data/PET /tmp/vice-3.9/data/DRIVES ~/.local/share/vice/
+    rm -rf /tmp/vice.tar.gz /tmp/vice-3.9
 
-Copy both directories: `PET` holds the machine ROMs (BASIC, kernal, editor,
+Both directories matter: `PET` holds the machine ROMs (BASIC, kernal, editor,
 character generator), and `DRIVES` holds the drive DOS ROMs that the emulated
 2031/4040/8050 units need — leaving it out costs you hardware-level drive
 emulation, which is what every `pet disk` command and `--disk` boot relies on.

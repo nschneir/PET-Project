@@ -45,10 +45,16 @@ Debian-only.
 stock installs leave `contrib` off, so `apt` reports "Unable to locate package
 vice". Ubuntu carries `vice` in `multiverse`, on by default — skip to step 2.
 
-| Debian | Enable `contrib` by |
-| --- | --- |
-| 13+ (deb822 format) | adding `contrib` to the `Components:` line of `/etc/apt/sources.list.d/debian.sources` |
-| 12 and older | running `sudo add-apt-repository contrib` (from `software-properties-common`), or adding `contrib` to each `deb` line in `/etc/apt/sources.list` |
+Where your sources live depends on how the machine was installed, not on its
+version: an in-place upgrade to Debian 13 keeps the older one-line format,
+while a fresh 13 install uses deb822. Edit whichever file you have:
+
+- **`/etc/apt/sources.list.d/debian.sources`** (deb822, written by the Debian
+  13 installer) — add `contrib` to the `Components:` line.
+- **`/etc/apt/sources.list`** (one `deb` line per repo; Debian 12 and older,
+  and machines upgraded in place) — add `contrib` to the end of each `deb`
+  line, or let `sudo add-apt-repository contrib` (from
+  `software-properties-common`) make the edit for you.
 
 **2. Install VICE and cc65.**
 
@@ -100,17 +106,6 @@ newer interpreter and its matching `-venv` package (`apt install python3.11
 python3.11-venv` where available, otherwise deadsnakes or pyenv), then build
 the venv with that. Debian 12 (3.11), Debian 13 (3.13), and Ubuntu 24.04 (3.12)
 are fine as they ship.
-
-**Only if the machine has no display** (CI, SSH, a container): Debian and
-Ubuntu package the GTK3 build of VICE, which ignores what `--headless` sets and
-cannot start without a display. Install `xvfb` and prefix commands with
-`xvfb-run -a`:
-
-    sudo apt install xvfb
-    xvfb-run -a pet session start --model pet4032 --headless
-
-That covers `pet test run`, `pet test programs`, and the MCP server too — they
-all launch VICE headless. On a desktop, skip this.
 
 ## Quickstart
 

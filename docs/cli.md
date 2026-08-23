@@ -66,8 +66,8 @@ Boot a fresh emulated PET.
 - `--headless` — suppress the VICE window. This sets `SDL_VIDEODRIVER` and
   `SDL_AUDIODRIVER` to `dummy`, which only SDL builds of VICE honour; GTK3
   builds (what Debian/Ubuntu package) ignore it and may still open a window.
-  On a display-less machine, wrap the command in `xvfb-run -a` instead — see
-  the README's Install section.
+  On a display-less machine (CI, a container), those builds cannot start at
+  all — `apt install xvfb` and wrap the command in `xvfb-run -a` instead.
 - `--warp` — run at maximum speed (recommended for automation).
 - `--disk PATH` — attach a `.d64`/`.d80`/`.d82` image to drive 8 at boot.
 

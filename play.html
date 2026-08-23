@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PLAY — PET Project demos in your browser</title>
+<meta name="description" content="Play the PET Project demos — Invaders and Ms. Muncher — on an emulated Commodore PET, in the browser. Both were written by an AI agent.">
+<style>
+  :root{
+    --room:#04070a;
+    --screen:#0a140c;
+    --screen-2:#0c1a0f;
+    --p:#3bf34b;           /* phosphor green */
+    --p-bright:#b9ffc4;    /* highlight */
+    --p-dim:#1f8a35;       /* muted */
+    --p-faint:#12561f;     /* faintest */
+    --glow:0 0 2px rgba(59,243,75,.55), 0 0 10px rgba(59,243,75,.22);
+    --mono:ui-monospace,"Cascadia Mono","Menlo","Consolas","Courier New",monospace;
+    --maxw:1080px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--room);color:var(--p);
+    font-family:var(--mono);font-size:16px;line-height:1.5;
+    letter-spacing:.02em;text-shadow:var(--glow);
+    -webkit-font-smoothing:none;
+  }
+  /* CRT room backdrop */
+  body::before{
+    content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background:radial-gradient(ellipse 80% 70% at 50% 30%, rgba(59,243,75,.05), transparent 70%);
+  }
+  a{color:var(--p-bright);text-decoration:none;border-bottom:1px solid var(--p-dim)}
+  a:hover,a:focus-visible{background:var(--p);color:var(--room);border-bottom-color:var(--p);outline:none;text-shadow:none}
+  :focus-visible{outline:2px solid var(--p-bright);outline-offset:2px}
+
+  .screen{
+    position:relative;z-index:1;max-width:var(--maxw);margin:0 auto;
+    min-height:100vh;background:linear-gradient(180deg,var(--screen),var(--screen-2));
+    padding:clamp(14px,3vw,34px);
+    box-shadow:0 0 0 2px #0d2413, 0 0 40px rgba(59,243,75,.10) inset, 0 0 60px rgba(0,0,0,.6);
+    border-radius:14px;
+  }
+  /* scanlines + subtle screen curvature vignette */
+  .screen::after{
+    content:"";position:fixed;inset:0;z-index:40;pointer-events:none;
+    background:
+      repeating-linear-gradient(0deg, rgba(0,0,0,.16) 0 1px, transparent 1px 3px),
+      radial-gradient(120% 120% at 50% 50%, transparent 62%, rgba(0,0,0,.55) 100%);
+    mix-blend-mode:multiply;
+    animation:flicker 5s steps(60) infinite;
+  }
+  @keyframes flicker{0%,100%{opacity:.96}48%{opacity:.99}50%{opacity:.9}52%{opacity:.99}}
+
+  /* PETSCII-framed panel */
+  .panel{border:2px solid var(--p-dim);padding:clamp(14px,2.4vw,26px);margin:26px 0;position:relative;background:rgba(10,25,14,.35)}
+  .panel > .cap{position:absolute;top:-.75em;left:14px;background:var(--screen-2);padding:0 .5em;color:var(--p-bright);font-size:.82rem;letter-spacing:.18em}
+
+  .cursor{display:inline-block;width:.62em;height:1.05em;background:var(--p);vertical-align:-.16em;animation:blink 1.06s steps(1) infinite;box-shadow:var(--glow)}
+  @keyframes blink{50%{opacity:0}}
+
+  footer{margin:34px 0 8px;color:var(--p-dim);font-size:.86rem}
+  footer .links{display:flex;flex-wrap:wrap;gap:8px 22px;margin:.6em 0}
+  .ready{color:var(--p-bright);margin-top:22px;font-size:1.05rem}
+
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none!important;transition:none!important}
+    .reveal{opacity:1;transform:none}
+    .cursor{opacity:1}
+    html{scroll-behavior:auto}
+  }
+
+  /* page-specific rules */
+  .wrap{max-width:920px;margin:0 auto}
+  header{padding:6px 0 2px}
+  .backlink{display:inline-block;letter-spacing:.1em;border-bottom:none;color:var(--p-dim)}
+  .backlink:hover,.backlink:focus-visible{color:var(--room)}
+  .title{font-weight:700;line-height:.98;margin:.15em 0 0;
+    font-size:clamp(1.9rem,7vw,3.6rem);letter-spacing:.02em;color:var(--p-bright);
+    text-shadow:0 0 4px rgba(185,255,196,.6),0 0 22px rgba(59,243,75,.45)}
+  kbd{font-family:var(--mono);font-size:.92em;padding:.05em .38em;
+    border:1px solid var(--p-dim);background:rgba(59,243,75,.12);
+    color:var(--p-bright);text-shadow:none;white-space:nowrap}
+  .demo-strip{display:grid;gap:12px;
+    grid-template-columns:repeat(auto-fit,minmax(220px,1fr));margin:14px 0 8px}
+  .demo-tile{display:block;width:100%;padding:0;cursor:pointer;
+    font-family:var(--mono);font-size:1rem;color:var(--p-bright);
+    border:2px solid var(--p-faint);border-bottom-width:5px;
+    background:rgba(10,25,14,.7);text-shadow:var(--glow);
+    transition:border-color .15s,transform .15s,box-shadow .15s}
+  .demo-tile img{display:block;width:100%;height:auto;aspect-ratio:8/5;
+    object-fit:contain;background:#000;image-rendering:pixelated;
+    border-bottom:1px solid var(--p-faint)}
+  .demo-tile .tile-name{display:block;padding:.45em .6em;letter-spacing:.1em}
+  .demo-tile:hover,.demo-tile:focus-visible{border-color:var(--p);
+    transform:translateY(-2px);box-shadow:0 0 20px -5px var(--p);outline:none}
+  .demo-tile[aria-pressed="true"]{border-color:var(--p-bright);
+    background:rgba(59,243,75,.16);box-shadow:0 0 0 1px var(--p-bright) inset}
+  #player-frame{margin:14px 0 8px;border:2px solid var(--p-faint);background:#000}
+  .preview{position:relative;display:block;width:100%;padding:0;border:0;
+    background:#000;cursor:pointer;font-family:var(--mono);color:var(--p-bright)}
+  .preview img{display:block;width:100%;height:auto;aspect-ratio:8/5;
+    object-fit:contain;background:#000;image-rendering:pixelated;
+    opacity:.55;transition:opacity .15s}
+  .preview:hover img,.preview:focus-visible img{opacity:.8}
+  .preview .play-overlay{position:absolute;inset:0;display:flex;
+    flex-direction:column;align-items:center;justify-content:center;gap:.5em;
+    pointer-events:none}
+  .preview .play-badge{font-size:clamp(2.6rem,9vw,4.6rem);line-height:1;
+    color:var(--p-bright);text-shadow:0 0 10px rgba(4,7,10,.95),0 0 26px rgba(59,243,75,.7)}
+  .preview .play-cta{letter-spacing:.22em;padding:.35em .9em;
+    border:1px solid var(--p-dim);background:rgba(4,7,10,.82);text-shadow:none}
+  .slot-msg{padding:clamp(18px,4vw,34px);text-align:center;background:#000;
+    color:var(--p-bright)}
+  .slot-msg p{max-width:56ch;margin:.5em auto;color:var(--p)}
+  .slot-msg .dl{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:1em}
+  .btn{display:inline-block;padding:.5em 1em;border:2px solid var(--p);
+    background:transparent;color:var(--p-bright);font-family:var(--mono);
+    letter-spacing:.08em;cursor:pointer;text-shadow:var(--glow)}
+  .btn:hover,.btn:focus-visible{background:var(--p);color:var(--room);
+    text-shadow:none;outline:none}
+  .demo-desc{margin:0 0 12px;color:#fff;line-height:1.5}
+  .controls-legend{margin:.7em 0 .2em;color:var(--p-bright)}
+  .controls-legend .lbl{color:var(--p-dim);letter-spacing:.16em;margin-right:.6em}
+  .sound-hint{margin:.2em 0 .6em;color:var(--p-bright)}
+  .sound-hint[hidden]{display:none}
+  .credits .who{margin:0 0 1.1em}
+  .credits .name{display:block;color:var(--p-bright)}
+  .credits .by{display:block;margin-top:.25em}
+  .credits .lic{display:block;margin-top:.15em;color:var(--p-dim);font-size:.92em}
+</style>
+</head>
+<body>
+<div class="screen">
+  <div class="wrap">
+
+    <header>
+      <a class="backlink" href="index.html">&#x25C2; PET PROJECT</a>
+      <h1 class="title">PLAY</h1>
+    </header>
+
+    <nav class="demo-strip" id="demo-strip" aria-label="Choose a demo"></nav>
+
+    <main>
+      <p class="demo-desc" id="demo-desc" aria-live="polite"></p>
+      <div id="player-frame"><div id="player-slot"></div></div>
+      <p class="controls-legend" id="controls-legend">
+        <span class="lbl">CONTROLS</span>
+        <span id="controls-text" aria-live="polite"></span></p>
+      <p class="sound-hint" id="sound-hint" role="status" hidden>
+        the PET is muted until you click &mdash; click the screen for sound</p>
+    </main>
+
+    <section class="panel">
+      <span class="cap">RECEIPTS</span>
+      <p><b>Both demos were written by an AI agent</b> given only this repo's
+      toolset: it wrote, assembled, ran, and debugged them on the emulated PET.
+      The receipts are in each demo's folder:
+      <a href="https://github.com/nschneir/PET-Project/tree/main/demos/invaders">demos/invaders</a> &middot;
+      <a href="https://github.com/nschneir/PET-Project/tree/main/demos/muncher">demos/muncher</a>.</p>
+    </section>
+
+    <noscript>
+      <section class="panel">
+        <span class="cap">NO JAVASCRIPT</span>
+        <p>The in-browser PET needs JavaScript &mdash; but every demo is a plain
+        file you can run in <a href="https://vice-emu.sourceforge.io/">VICE</a>
+        (<code>xpet -model 4032 &lt;file&gt;</code>):</p>
+        <p>
+          INVADERS &mdash; <a href="demos/invaders/invaders.prg">invaders.prg</a> &middot;
+          <a href="demos/invaders/invaders.d64">invaders.d64</a><br>
+          MS. MUNCHER &mdash; <a href="demos/muncher/muncher.prg">muncher.prg</a> &middot;
+          <a href="demos/muncher/muncher.d64">muncher.d64</a>
+        </p>
+      </section>
+    </noscript>
+
+    <section class="panel credits">
+      <span class="cap">CREDITS</span>
+      <p>The demos are ours. The PET they run on is other people&rsquo;s work:</p>
+      <p class="who">
+        <span class="name"><a href="https://github.com/nschneir/pet2001web">pet2001web</a>
+        &mdash; the emulator in the frame above</span>
+        <span class="by">An adaptation of <b>Thomas Skibo</b>&rsquo;s JavaScript
+        <a href="https://github.com/skibo/skibo.github.io">PET 2001 emulator</a>,
+        served from its own repo so this page and the emulator share an origin.
+        Skibo points to <b>Norbert Landsteiner</b>&rsquo;s much-extended
+        <a href="https://www.masswerk.at/pet/">masswerk.at/pet</a> as the
+        maintained version &mdash; visit it for the full experience.</span>
+        <span class="lic">BSD-2-Clause</span>
+      </p>
+      <p class="who">
+        <span class="name">Commodore BASIC 4.0 / editor / character ROMs</span>
+        <span class="by">Historical Commodore firmware, embedded in the emulator
+        repo as upstream ships it. This repo (PET-Project) hosts no ROM images.</span>
+      </p>
+    </section>
+
+    <footer>
+      <div class="links">
+        <a href="index.html">&#x25B8; Home</a>
+        <a href="https://github.com/nschneir/PET-Project">&#x25B8; GitHub</a>
+        <a href="https://github.com/nschneir/PET-Project/tree/main/demos">&#x25B8; Demos</a>
+      </div>
+      <p class="ready">READY.<span class="cursor" aria-hidden="true"></span></p>
+    </footer>
+
+  </div>
+</div>
+
+<script>
+(function() {
+  "use strict";
+
+  var EMU_BASE = "https://nschneir.github.io/pet2001web/";
+  var EMU_SCRIPTS = [
+    "js/cpu6502.js", "js/pet2001roms.js", "js/pet2001video.js",
+    "js/pet2001ieee.js", "js/pet2001io.js", "js/pet2001hw.js",
+    "js/pet2001.js", "js/petkeys.js", "js/petloader.js",
+    "js/cb2audio.js", "js/petplayer.js"
+  ];
+
+  var DEMOS = [
+    { id: "invaders", name: "INVADERS",
+      prg: "demos/invaders/invaders.prg", d64: "demos/invaders/invaders.d64",
+      img: "img/play/invaders.png",
+      desc: "Arcade-faithful Invaders in 6502 assembly — marching waves, " +
+            "eroding shields, the mystery UFO, one CB2 voice.",
+      controls: "<kbd>A</kbd> / <kbd>D</kbd> move · <kbd>SPACE</kbd> fires " +
+                "· any key starts" },
+    { id: "muncher", name: "MS. MUNCHER",
+      prg: "demos/muncher/muncher.prg", d64: "demos/muncher/muncher.d64",
+      img: "img/play/muncher.png",
+      desc: "A four-maze arcade chase — half-cell movement, four ghosts, " +
+            "cutscenes, fruit, and a self-playing demo mode.",
+      controls: "<kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> steer " +
+                "· <kbd>SPACE</kbd> starts · <kbd>1</kbd>/<kbd>2</kbd>/" +
+                "<kbd>3</kbd> on the title pick an act" }
+  ];
+
+  var strip = document.getElementById("demo-strip");
+  var slot = document.getElementById("player-slot");
+  var frame = document.getElementById("player-frame");
+  var descEl = document.getElementById("demo-desc");
+  var controlsEl = document.getElementById("controls-text");
+  var soundHint = document.getElementById("sound-hint");
+  var player = null;
+  var scriptsLoaded = false;
+  var current = null;
+
+  function demoById(id) {
+    for (var i = 0; i < DEMOS.length; i++)
+      if (DEMOS[i].id === id) return DEMOS[i];
+    return DEMOS[0];
+  }
+
+  function loadScript(url) {
+    return new Promise(function(res, rej) {
+      var s = document.createElement("script");
+      s.src = url;
+      s.onload = res;
+      s.onerror = function() { rej(new Error("failed to load " + url)); };
+      document.head.appendChild(s);
+    });
+  }
+
+  function loadEmulator() {
+    if (scriptsLoaded) return Promise.resolve();
+    var p = Promise.resolve();
+    EMU_SCRIPTS.forEach(function(f) {
+      p = p.then(function() { return loadScript(EMU_BASE + f); });
+    });
+    return p.then(function() { scriptsLoaded = true; });
+  }
+
+  function clearSlot() {
+    if (player) { player.destroy(); player = null; }
+    while (slot.firstChild) slot.removeChild(slot.firstChild);
+  }
+
+  function renderMessage(demo, head, body) {
+    clearSlot();
+    var box = document.createElement("div");
+    box.className = "slot-msg";
+    var h = document.createElement("b");
+    h.textContent = head;
+    var p = document.createElement("p");
+    p.textContent = body;
+    var dl = document.createElement("div");
+    dl.className = "dl";
+    [[demo.prg, ".PRG"], [demo.d64, ".D64"]].forEach(function(pair) {
+      var a = document.createElement("a");
+      a.className = "btn";
+      a.href = pair[0];
+      a.textContent = "DOWNLOAD " + demo.name + " " + pair[1];
+      dl.appendChild(a);
+    });
+    var vice = document.createElement("p");
+    vice.textContent = "Runs in VICE: xpet -model 4032 <file>";
+    box.appendChild(h); box.appendChild(p); box.appendChild(dl);
+    box.appendChild(vice);
+    slot.appendChild(box);
+  }
+
+  function renderPreview(demo) {
+    clearSlot();
+    var b = document.createElement("button");
+    b.className = "preview";
+    b.setAttribute("aria-label", "Play " + demo.name);
+    var img = document.createElement("img");
+    img.src = demo.img;
+    img.alt = "";
+    var ov = document.createElement("div");
+    ov.className = "play-overlay";
+    var badge = document.createElement("div");
+    badge.className = "play-badge";
+    badge.textContent = "▶";
+    var cta = document.createElement("div");
+    cta.className = "play-cta";
+    cta.textContent = "CLICK TO BOOT";
+    ov.appendChild(badge); ov.appendChild(cta);
+    b.appendChild(img); b.appendChild(ov);
+    b.addEventListener("click", function() { bootDemo(demo); });
+    slot.appendChild(b);
+  }
+
+  function bootDemo(demo) {
+    renderMessage(demo, "BOOTING…", "Loading the emulator and " +
+                  demo.name + ".");
+    loadEmulator().then(function() {
+      clearSlot();
+      player = new PetPlayer(slot);
+      player.play(demo.prg, function(state) {
+        if (state === "running") {
+          soundHint.hidden = false;
+        } else if (state.indexOf("error:") === 0) {
+          renderMessage(demo, "THE EMULATED PET DID NOT COME UP",
+                        state.slice(6) + " — but the demo runs fine in VICE:");
+        }
+      });
+    }).catch(function(e) {
+      renderMessage(demo, "COULD NOT LOAD THE EMULATOR",
+                    e.message + " — but the demo runs fine in VICE:");
+    });
+  }
+
+  function selectDemo(id, boot) {
+    var demo = demoById(id);
+    current = demo.id;
+    descEl.innerHTML = "";
+    descEl.textContent = demo.desc;
+    controlsEl.innerHTML = demo.controls;
+    soundHint.hidden = true;
+    var tiles = strip.querySelectorAll(".demo-tile");
+    for (var i = 0; i < tiles.length; i++)
+      tiles[i].setAttribute("aria-pressed",
+        tiles[i].dataset.demo === demo.id ? "true" : "false");
+    if (boot) bootDemo(demo); else renderPreview(demo);
+  }
+
+  DEMOS.forEach(function(demo) {
+    var b = document.createElement("button");
+    b.className = "demo-tile";
+    b.dataset.demo = demo.id;
+    b.setAttribute("aria-pressed", "false");
+    var img = document.createElement("img");
+    img.src = demo.img;
+    img.alt = demo.name + " title screen";
+    var name = document.createElement("span");
+    name.className = "tile-name";
+    name.textContent = demo.name;
+    b.appendChild(img); b.appendChild(name);
+    b.addEventListener("click", function() { selectDemo(demo.id, true); });
+    strip.appendChild(b);
+  });
+
+  frame.addEventListener("pointerdown", function() {
+    if (player) { player.unlockAudio(); soundHint.hidden = true; }
+  });
+
+  selectDemo(DEMOS[0].id, false);
+})();
+</script>
+</body>
+</html>

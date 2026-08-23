@@ -114,8 +114,7 @@ The two flagship demos are playable right now — no install — at
 The page boots an emulated PET (ROM 4.0, 40 columns) in your browser and runs
 the same `.prg` files checked into this repo.
 
-[![Invaders running on the emulated PET](img/play/invaders.png)](https://nschneir.github.io/PET-Project/play.html)
-[![Ms. Muncher running on the emulated PET](img/play/muncher.png)](https://nschneir.github.io/PET-Project/play.html)
+<a href="https://nschneir.github.io/PET-Project/play.html"><img src="img/play/invaders.png" alt="Invaders running on the emulated PET" width="49%"></a> <a href="https://nschneir.github.io/PET-Project/play.html"><img src="img/play/muncher.png" alt="Ms. Muncher running on the emulated PET" width="49%"></a>
 
 The reference example programs (with expected screen output, runnable as
 regression tests via `pet test programs`) live in

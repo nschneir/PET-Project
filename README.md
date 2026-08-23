@@ -101,19 +101,16 @@ python3.11-venv` where available, otherwise deadsnakes or pyenv), then build
 the venv with that. Debian 12 (3.11), Debian 13 (3.13), and Ubuntu 24.04 (3.12)
 are fine as they ship.
 
-#### Headless on Linux
-
-`--headless` works by setting `SDL_VIDEODRIVER=dummy`, which only the SDL
-builds of VICE honour. Debian and Ubuntu package the GTK3
-build, which ignores those variables: on a desktop it still opens a window, and
-on a display-less machine (CI, SSH, a container) it cannot start at all. Wrap
-the command in `xvfb-run` there:
+**Only if the machine has no display** (CI, SSH, a container): Debian and
+Ubuntu package the GTK3 build of VICE, which ignores what `--headless` sets and
+cannot start without a display. Install `xvfb` and prefix commands with
+`xvfb-run -a`:
 
     sudo apt install xvfb
     xvfb-run -a pet session start --model pet4032 --headless
 
-The same applies to `pet test run`, `pet test programs`, and the MCP server,
-which all launch VICE headless.
+That covers `pet test run`, `pet test programs`, and the MCP server too — they
+all launch VICE headless. On a desktop, skip this.
 
 ## Quickstart
 

@@ -88,77 +88,9 @@ calls. There are two ways an agent can use it — pick either or both:
   tools over stdio. CLI and MCP share the same sessions, so they are
   interchangeable.
 
-Either way, the agent should read
-[`skills/pet-development/SKILL.md`](skills/pet-development/SKILL.md) (the PET
-workflows and pitfalls) before starting — the per-agent steps below make that
-happen automatically.
-
-The MCP config used by several agents below is this one block:
-
-```json
-{
-  "mcpServers": {
-    "pet-tools": { "command": "pet-tools-mcp" }
-  }
-}
-```
-
-Setup was verified against each agent's docs in **July 2026**; if something
-has moved, check the agent's current MCP documentation.
-
-### Any agent with a shell (simplest — works everywhere)
-
-1. Install (see above) — that's the whole setup.
-2. Start your task prompt with: *"Read docs/cli.md and
-   skills/pet-development/SKILL.md, then …"*
-
-### Claude Code
-
-1. From the repo root, install the skills so Claude discovers them
-   automatically:
-
-   ```
-   mkdir -p .claude/skills && cp -R skills/* .claude/skills/
-   ```
-
-2. (Optional) Add the MCP server: `claude mcp add pet-tools -- pet-tools-mcp`
-3. Ask for what you want — e.g. paste a prompt from [`demos/`](demos/).
-
-No `CLAUDE.md` edits are needed: installed skills load on demand, and the MCP
-tools describe themselves.
-
-### OpenAI Codex
-
-1. Add the MCP server: `codex mcp add pet-tools -- pet-tools-mcp`
-   (or add `[mcp_servers.pet_tools]` with `command = "pet-tools-mcp"` to
-   `~/.codex/config.toml`).
-2. Codex has no skills mechanism, so tell it where the docs are: add one line
-   to the repo's `AGENTS.md` — *"For Commodore PET work, first read
-   skills/pet-development/SKILL.md and docs/cli.md."*
-3. Paste a prompt from [`demos/`](demos/).
-
-### Cursor
-
-1. Create `.cursor/mcp.json` in the repo (or `~/.cursor/mcp.json` globally)
-   containing the JSON block above.
-2. Create a rule (`.cursor/rules/pet.mdc`) — or a plain `AGENTS.md` — with the
-   same one-liner: *"For Commodore PET work, first read
-   skills/pet-development/SKILL.md and docs/cli.md."*
-3. Paste a prompt from [`demos/`](demos/).
-
-### Gemini CLI
-
-1. Add the JSON block above to `.gemini/settings.json` in the repo (or
-   `~/.gemini/settings.json` globally).
-2. Add the same read-the-skill one-liner to `GEMINI.md`.
-3. Paste a prompt from [`demos/`](demos/).
-
-### Google Antigravity
-
-1. Open the MCP store → **Manage MCP Servers** → **View raw config** and add
-   the JSON block above (the file is `~/.gemini/config/mcp_config.json`).
-2. Add the read-the-skill one-liner to `AGENTS.md`.
-3. Paste a prompt from [`demos/`](demos/).
+See **[docs/agent-setup.md](docs/agent-setup.md)** for the two integration
+routes and step-by-step setup for Claude Code, OpenAI Codex, Cursor, Gemini
+CLI, and Google Antigravity — all instructions work on macOS and Linux.
 
 ## Demos — try it with your AI agent
 
@@ -169,7 +101,8 @@ arcade-faithful Invaders with sound, waves, and a packaged disk image, and
 Ms. Muncher — a four-maze arcade chase with cutscenes and a self-playing
 demo mode ([`demos/muncher/`](demos/muncher/)). To use one:
 
-1. Set up your agent (one section up — or use any shell agent with no setup).
+1. [Set up your agent](docs/agent-setup.md) — or use any shell agent, which
+   needs no setup at all.
 2. Open a demo file and copy its prompt.
 3. Paste it into your agent and watch it write, run, and debug real PET
    software on the emulated machine.

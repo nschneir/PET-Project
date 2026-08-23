@@ -112,17 +112,6 @@
         font-family:var(--mono);font-size:.72rem;letter-spacing:.1em;padding:3px 8px;cursor:pointer}
   .copy:hover,.copy:focus-visible{background:var(--p);color:var(--room);outline:none}
 
-  /* tabs */
-  .tabs{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 0}
-  .tab{border:2px solid var(--p-faint);background:transparent;color:var(--p);font-family:var(--mono);
-       font-size:.85rem;letter-spacing:.06em;padding:.4em .8em;cursor:pointer;border-bottom:none;text-shadow:var(--glow)}
-  .tab[aria-selected="true"]{background:var(--p);color:var(--room);border-color:var(--p);text-shadow:none}
-  .tab:focus-visible{outline:none;border-color:var(--p-bright)}
-  .tabpanel{border:2px solid var(--p);padding:16px}
-  .tabpanel[hidden]{display:none}
-  .tabpanel ol{margin:.2em 0;padding-left:1.4em}
-  .tabpanel li{margin:.4em 0}
-
   /* demos table */
   table{width:100%;border-collapse:collapse;margin:10px 0;font-size:.92rem}
   th,td{border:1px solid var(--p-faint);padding:.5em .7em;text-align:left}
@@ -222,53 +211,13 @@ pet step 5 &amp;&amp; pet reg             <span class="cm"># single-step, inspec
 
     <section class="reveal" id="agents">
       <h2><span class="mk">&#x2500;&#x2500;</span> USE WITH AN AI AGENT <span class="mk">&#x2500;&#x2500;</span></h2>
-      <p><b>Any agent with a shell needs zero setup</b> &mdash; the CLI plus <code>--json</code>
-      is the whole integration. For MCP-native clients, <code>pet-tools-mcp</code> exposes
-      the same operations. Pick your agent:</p>
-
-      <div class="tabs" role="tablist" aria-label="AI agent setup">
-        <button class="tab" role="tab" id="t-claude" aria-controls="p-claude" aria-selected="true">Claude Code</button>
-        <button class="tab" role="tab" id="t-codex" aria-controls="p-codex" aria-selected="false">Codex</button>
-        <button class="tab" role="tab" id="t-cursor" aria-controls="p-cursor" aria-selected="false">Cursor</button>
-        <button class="tab" role="tab" id="t-gemini" aria-controls="p-gemini" aria-selected="false">Gemini CLI</button>
-        <button class="tab" role="tab" id="t-anti" aria-controls="p-anti" aria-selected="false">Antigravity</button>
-      </div>
-
-      <div class="tabpanel" role="tabpanel" id="p-claude" aria-labelledby="t-claude">
-        <ol>
-          <li>Install the skills: <code>mkdir -p .claude/skills &amp;&amp; cp -R skills/* .claude/skills/</code></li>
-          <li>Optional MCP: <code>claude mcp add pet-tools -- pet-tools-mcp</code></li>
-          <li>Ask for what you want &mdash; e.g. paste a prompt from <code>demos/</code>.</li>
-        </ol>
-        <p><small>No CLAUDE.md edits needed &mdash; installed skills load on demand.</small></p>
-      </div>
-      <div class="tabpanel" role="tabpanel" id="p-codex" aria-labelledby="t-codex" hidden>
-        <ol>
-          <li>Add the MCP: <code>codex mcp add pet-tools -- pet-tools-mcp</code></li>
-          <li>In <code>AGENTS.md</code>: &ldquo;For PET work, first read skills/pet-development/SKILL.md and docs/cli.md.&rdquo;</li>
-          <li>Paste a prompt from <code>demos/</code>.</li>
-        </ol>
-      </div>
-      <div class="tabpanel" role="tabpanel" id="p-cursor" aria-labelledby="t-cursor" hidden>
-        <ol>
-          <li>Add the standard <code>mcpServers</code> block to <code>.cursor/mcp.json</code>.</li>
-          <li>Add a rule (<code>.cursor/rules/pet.mdc</code>) pointing at skills/pet-development/SKILL.md.</li>
-          <li>Paste a prompt from <code>demos/</code>.</li>
-        </ol>
-      </div>
-      <div class="tabpanel" role="tabpanel" id="p-gemini" aria-labelledby="t-gemini" hidden>
-        <ol>
-          <li>Add the <code>mcpServers</code> block to <code>.gemini/settings.json</code>.</li>
-          <li>Add the read-the-skill one-liner to <code>GEMINI.md</code>.</li>
-          <li>Paste a prompt from <code>demos/</code>.</li>
-        </ol>
-      </div>
-      <div class="tabpanel" role="tabpanel" id="p-anti" aria-labelledby="t-anti" hidden>
-        <ol>
-          <li>MCP store &rarr; Manage MCP Servers &rarr; View raw config &rarr; add the <code>mcpServers</code> block.</li>
-          <li>Add the read-the-skill one-liner to <code>AGENTS.md</code>.</li>
-          <li>Paste a prompt from <code>demos/</code>.</li>
-        </ol>
+      <p class="lead"><b>Any agent with a shell needs zero setup</b> &mdash; the CLI plus
+      <code>--json</code> is the whole integration. For MCP-native clients,
+      <code>pet-tools-mcp</code> exposes the same operations. Step-by-step setup for
+      Claude Code, OpenAI Codex, Cursor, Gemini CLI and Google Antigravity is in the
+      guide &mdash; every step works on macOS and Linux.</p>
+      <div class="btns">
+        <a class="btn primary" href="https://github.com/nschneir/PET-Project/blob/main/docs/agent-setup.md">AGENT SETUP GUIDE &#x25B8;</a>
       </div>
     </section>
 
@@ -402,28 +351,6 @@ pet step 5 &amp;&amp; pet reg             <span class="cm"># single-step, inspec
       else { setTimeout(showHero, 260); }
     })();
   }
-
-  // Tabs
-  var tabs = Array.prototype.slice.call(document.querySelectorAll('[role="tab"]'));
-  function select(tab){
-    tabs.forEach(function(t){
-      var sel = t === tab;
-      t.setAttribute("aria-selected", sel ? "true" : "false");
-      t.tabIndex = sel ? 0 : -1;
-      document.getElementById(t.getAttribute("aria-controls")).hidden = !sel;
-    });
-  }
-  tabs.forEach(function(t,idx){
-    t.tabIndex = idx === 0 ? 0 : -1;
-    t.addEventListener("click", function(){ select(t); });
-    t.addEventListener("keydown", function(e){
-      var d = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
-      if(!d) return;
-      e.preventDefault();
-      var n = (idx + d + tabs.length) % tabs.length;
-      tabs[n].focus(); select(tabs[n]);
-    });
-  });
 
   // Copy buttons
   document.querySelectorAll(".copy").forEach(function(btn){

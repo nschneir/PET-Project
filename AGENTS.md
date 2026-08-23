@@ -13,7 +13,8 @@ drive the same session machinery.
 
 Where things are documented (don't duplicate them here):
 
-- `README.md` — install, quickstart, supported PET models, per-agent setup.
+- `README.md` — install, quickstart, supported PET models.
+- `docs/agent-setup.md` — per-agent setup (CLI and MCP routes), macOS + Linux.
 - `docs/cli.md` — the full CLI reference (man page), one entry per command.
 - `skills/pet-development/` + `skills/6502-assembly/` — PET/6502 domain
   knowledge: workflows, memory maps, zero page, ROM routines, cookbook.

@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 
 from tests.doc_helpers import (
@@ -9,6 +10,7 @@ from tests.doc_helpers import (
 )
 
 README = Path("README.md")
+AGENT_SETUP = Path("docs/agent-setup.md")
 
 
 def test_install_section_near_top():
@@ -18,30 +20,70 @@ def test_install_section_near_top():
     assert "apt install vice cc65" in text
 
 
-def test_agents_section_covers_the_majors():
+def test_readme_agents_section_links_to_the_setup_guide():
+    """The README keeps the two-route pitch; the per-agent steps live in
+    docs/agent-setup.md, and the section must point at it."""
     text = README.read_text()
     idx = text.index("## Using with AI coding agents")
-    section = text[idx:]
+    section = text[idx:text.index("\n## ", idx + 1)]
+    assert "docs/agent-setup.md" in section, \
+        "agents section must link to docs/agent-setup.md"
+    assert AGENT_SETUP.exists(), "docs/agent-setup.md is missing"
+    for route in ("--json", "pet-tools-mcp"):
+        assert route in section, f"agents section missing the {route} route"
+
+
+def test_agent_setup_guide_covers_the_majors():
+    guide = AGENT_SETUP.read_text()
     for agent in ("Claude Code", "Codex", "Cursor", "Gemini", "Antigravity"):
-        assert agent in section, f"agents section missing {agent}"
+        assert agent in guide, f"agent-setup.md missing {agent}"
     for path in ("CLAUDE.md", "AGENTS.md", "GEMINI.md", ".cursor/mcp.json",
-                 "config.toml", "mcp_config.json", ".gemini/settings.json"):
-        assert path in section, f"agents section missing {path}"
+                 "config.toml", "mcp_config.json", ".gemini/settings.json",
+                 "skills/pet-development/SKILL.md"):
+        assert path in guide, f"agent-setup.md missing {path}"
 
 
-def test_readme_mcp_json_snippet_parses():
-    text = README.read_text()
-    blocks = code_blocks(text, "json")
-    for block in blocks:
-        json.loads(block)  # every fenced JSON snippet must be valid
-    assert any("pet-tools-mcp" in b for b in blocks), \
-        "agents section needs a fenced json mcpServers snippet using pet-tools-mcp"
+def test_agent_setup_guide_works_on_macos_and_linux():
+    """The guide is the only per-agent setup doc, so it must not read as
+    macOS-only: it names both platforms and stays off macOS-only tooling."""
+    guide = AGENT_SETUP.read_text()
+    assert "macOS" in guide and "Linux" in guide, \
+        "agent-setup.md must state it applies to macOS and Linux"
+    for macos_only in ("brew ", "/Library/", "Applications/", "defaults write"):
+        assert macos_only not in guide, \
+            f"agent-setup.md has a macOS-only instruction: {macos_only!r}"
+
+
+def test_agent_setup_relative_links_resolve():
+    """Every relative markdown link in the guide points at a real file/dir."""
+    guide = AGENT_SETUP.read_text()
+    targets = re.findall(r"\]\(([^)]+)\)", guide)
+    broken = []
+    for target in targets:
+        if target.startswith(("http://", "https://", "#")):
+            continue
+        path = (AGENT_SETUP.parent / target.split("#", 1)[0]).resolve()
+        if not path.exists():
+            broken.append(target)
+    assert not broken, f"agent-setup.md has broken relative links: {broken}"
+
+
+def test_mcp_json_snippet_parses():
+    """Every fenced JSON snippet in the README and the setup guide is valid,
+    and the guide carries the mcpServers block agents copy."""
+    for doc in (README, AGENT_SETUP):
+        for block in code_blocks(doc.read_text(), "json"):
+            json.loads(block)  # raises if the snippet is not valid JSON
+    guide_blocks = code_blocks(AGENT_SETUP.read_text(), "json")
+    assert any("pet-tools-mcp" in b for b in guide_blocks), \
+        "agent-setup.md needs a fenced json mcpServers snippet using pet-tools-mcp"
 
 
 def test_readme_pet_commands_exist():
     valid = valid_mention_paths()  # leaf commands plus bare group names
-    unknown = {c for c in mentioned_commands(README.read_text()) if c not in valid}
-    assert not unknown, f"README mentions nonexistent commands: {sorted(unknown)}"
+    for doc in (README, AGENT_SETUP):
+        unknown = {c for c in mentioned_commands(doc.read_text()) if c not in valid}
+        assert not unknown, f"{doc} mentions nonexistent commands: {sorted(unknown)}"
 
 
 def test_supported_machines_table_matches_profiles():

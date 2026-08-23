@@ -32,7 +32,8 @@ def test_headless_is_not_described_as_unconditionally_dummied():
     """`--headless` sets SDL_VIDEODRIVER/SDL_AUDIODRIVER=dummy, which only
     SDL builds of VICE honour; the GTK3 build Debian and Ubuntu package
     ignores it. No doc or help string may claim the effect unqualified."""
-    for path in (DOC, Path("skills/pet-development/SKILL.md")):
+    for path in (DOC, Path("src/petlib/cli.py"),
+                 Path("skills/pet-development/SKILL.md")):
         assert "video/audio dummied" not in path.read_text(), \
             f"{path}: unqualified '--headless' claim"
     text = DOC.read_text()

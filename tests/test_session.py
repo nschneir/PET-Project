@@ -1,6 +1,9 @@
 import json
+import os
+import signal
 import subprocess
 import sys
+import time
 from unittest.mock import Mock, patch
 
 import pytest
@@ -107,6 +110,9 @@ def test_launch_disk8_args(home, tmp_path, monkeypatch):
     class FakeProc:
         pid = 999_999_990  # never a live pid, so record pruning stays deterministic
 
+        def poll(self):
+            return None    # still running: the launch wait keeps waiting
+
         def terminate(self):
             pass
 
@@ -143,9 +149,10 @@ def test_launch_disk8_args(home, tmp_path, monkeypatch):
 
 
 def test_launch_retries_transient_monitor_failure(home, monkeypatch):
-    """A first slow/failed monitor connect should be retried, the failed proc
-    killed (no orphan), and a second attempt succeed."""
+    """A first xpet whose monitor never answers should be retried on a fresh
+    port, the failed proc killed (no orphan), and a second attempt succeed."""
     monkeypatch.setenv("PET_TOOLS_NO_DAEMON", "1")  # xpet retry logic, not the daemon
+    monkeypatch.setenv("PET_TOOLS_LAUNCH_DEADLINE", "0.3")  # the wait is sliced now
     procs = []
 
     class FakeProc:
@@ -156,6 +163,9 @@ def test_launch_retries_transient_monitor_failure(home, monkeypatch):
             self.pid = 900000 + FakeProc._n
             self.killed = False
             procs.append(self)
+
+        def poll(self):
+            return None                   # alive, just slow to open the monitor
 
         def terminate(self):
             self.killed = True
@@ -177,7 +187,7 @@ def test_launch_retries_transient_monitor_failure(home, monkeypatch):
         def __exit__(self, *a): ...
         def connect(self, deadline=0):
             calls["n"] += 1
-            if calls["n"] == 1:
+            if len(procs) == 1:           # the first xpet never answers
                 raise TimeoutError("monitor slow")
         def ping(self): ...
         def resume(self): ...
@@ -187,7 +197,8 @@ def test_launch_retries_transient_monitor_failure(home, monkeypatch):
     s = Session.launch(model="pet4032", name="retry")
     assert s.pid == procs[1].pid          # the second proc won
     assert procs[0].killed is True        # the first was cleaned up
-    assert calls["n"] == 2                # exactly one retry
+    assert len(procs) == 2                # exactly one retry
+    assert calls["n"] >= 2
 
 
 def test_launch_exhausts_attempts_and_kills_all(home, monkeypatch):
@@ -199,6 +210,9 @@ def test_launch_exhausts_attempts_and_kills_all(home, monkeypatch):
             self.killed = False
             procs.append(self)
 
+        def poll(self):
+            return None                   # alive throughout; just never answers
+
         def terminate(self):
             self.killed = True
 
@@ -209,6 +223,7 @@ def test_launch_exhausts_attempts_and_kills_all(home, monkeypatch):
             self.killed = True
 
     monkeypatch.setenv("PET_TOOLS_LAUNCH_ATTEMPTS", "2")
+    monkeypatch.setenv("PET_TOOLS_LAUNCH_DEADLINE", "0.3")  # the wait is sliced now
     monkeypatch.setattr("petlib.session.subprocess.Popen", lambda *a, **k: FakeProc())
     monkeypatch.setattr("petlib.session.shutil.which", lambda n: "/usr/bin/xpet")
 
@@ -226,6 +241,134 @@ def test_launch_exhausts_attempts_and_kills_all(home, monkeypatch):
     with pytest.raises(SessionError, match="never answered after 2"):
         Session.launch(model="pet4032", name="doomed")
     assert len(procs) == 2 and all(p.killed for p in procs)   # both cleaned up
+
+
+# --- launch diagnostics ---------------------------------------------------
+#
+# The scripts below stand in for xpet. They write to STDOUT because that is
+# where VICE puts its log by default (verified against VICE 3.10: a missing
+# ROM set prints "PETMEM: Error - Couldn't load ROM `...'" on stdout and
+# exits 255) — capturing only stderr would still discard everything.
+
+# What VICE 3.10 actually prints when its PET ROMs are missing.
+ROM_FAILURE_OUTPUT = """\
+*** VICE Version 3.10 ***
+Main: VICE system file search path: '/usr/share/vice'.
+PETMEM: Error - Couldn't load ROM `basic-4.901465-23-20-21.bin'.
+Error - Machine initialization failed."""
+
+
+def _fake_xpet(tmp_path, name, body):
+    """An executable standing in for xpet, running `body` as /bin/sh."""
+    p = tmp_path / name
+    p.write_text("#!/bin/sh\n" + body)
+    p.chmod(0o755)
+    return str(p)
+
+
+def _dying_xpet(tmp_path, name, output, status=255):
+    quoted = output.replace("\\", "\\\\").replace("'", "'\\''")
+    return _fake_xpet(tmp_path, name, f"printf '%s\\n' '{quoted}'\nexit {status}\n")
+
+
+class _WorkingMon:
+    """A monitor that answers at once — isolates the process-watching logic."""
+
+    def __init__(self, *a, **k): ...
+    def __enter__(self): return self
+    def __exit__(self, *a): ...
+    def connect(self, deadline=0): ...
+    def ping(self): ...
+    def resume(self): ...
+
+
+def test_launch_fails_fast_when_vice_exits(home, tmp_path, monkeypatch):
+    """An xpet that dies at startup must be noticed immediately, not waited
+    out. Before this, the connect loop ignored the child and burned the full
+    deadline on every attempt (~40 s) before reporting only that the monitor
+    never answered — the standard first-run experience on Debian/Ubuntu,
+    where the packaged VICE has no ROMs."""
+    monkeypatch.setenv("PET_TOOLS_NO_DAEMON", "1")
+    monkeypatch.setenv("PET_TOOLS_LAUNCH_ATTEMPTS", "2")
+    monkeypatch.setenv("PET_TOOLS_LAUNCH_DEADLINE", "20")
+    monkeypatch.setenv(
+        "PET_TOOLS_XPET", _dying_xpet(tmp_path, "xpet-dead", ROM_FAILURE_OUTPUT)
+    )
+
+    started = time.monotonic()
+    with pytest.raises(SessionError) as excinfo:
+        Session.launch(model="pet4032", name="dead")
+    elapsed = time.monotonic() - started
+
+    assert elapsed < 5.0, (
+        f"launch took {elapsed:.1f}s; a dead xpet must not wait out the "
+        f"2 x 20s deadline"
+    )
+    msg = str(excinfo.value)
+    assert "255" in msg, f"exit status missing from: {msg}"
+    assert "Couldn't load ROM" in msg, f"VICE's own output missing from: {msg}"
+
+
+def test_launch_failure_hints_at_rom_install(home, tmp_path, monkeypatch):
+    """A ROM-load failure is the Debian/Ubuntu trap, so it earns a pointer
+    to the install docs."""
+    monkeypatch.setenv("PET_TOOLS_NO_DAEMON", "1")
+    monkeypatch.setenv("PET_TOOLS_LAUNCH_ATTEMPTS", "1")
+    monkeypatch.setenv(
+        "PET_TOOLS_XPET", _dying_xpet(tmp_path, "xpet-noroms", ROM_FAILURE_OUTPUT)
+    )
+    with pytest.raises(SessionError) as excinfo:
+        Session.launch(model="pet4032", name="noroms")
+    msg = str(excinfo.value)
+    assert "README" in msg, f"no pointer to the install docs in: {msg}"
+    assert "Debian" in msg or "apt" in msg, f"no Debian/Ubuntu context in: {msg}"
+
+
+def test_launch_failure_without_rom_trouble_gets_no_rom_hint(
+    home, tmp_path, monkeypatch
+):
+    """The hint must stay out of unrelated failures — a display problem is
+    not a ROM problem, and guessing wrong sends users down a dead end."""
+    monkeypatch.setenv("PET_TOOLS_NO_DAEMON", "1")
+    monkeypatch.setenv("PET_TOOLS_LAUNCH_ATTEMPTS", "1")
+    monkeypatch.setenv(
+        "PET_TOOLS_XPET",
+        _dying_xpet(tmp_path, "xpet-nodisplay",
+                    "Gtk-WARNING **: cannot open display: \nError - "
+                    "Machine initialization failed.", status=1),
+    )
+    with pytest.raises(SessionError) as excinfo:
+        Session.launch(model="pet4032", name="nodisplay")
+    msg = str(excinfo.value)
+    assert "cannot open display" in msg, f"VICE's own output missing from: {msg}"
+    assert "README" not in msg, f"ROM hint leaked into a display failure: {msg}"
+
+
+def test_launch_succeeds_and_keeps_vice_output(home, tmp_path, monkeypatch):
+    """Capturing VICE's output must not disturb a normal startup, and the
+    captured log has to actually hold what VICE wrote."""
+    monkeypatch.setenv("PET_TOOLS_NO_DAEMON", "1")
+    monkeypatch.setenv(
+        "PET_TOOLS_XPET",
+        _fake_xpet(tmp_path, "xpet-alive",
+                   'printf "*** VICE Version 3.10 ***\\n"\nexec sleep 30\n'),
+    )
+    monkeypatch.setattr("petlib.session.MonitorClient", _WorkingMon)
+
+    s = Session.launch(model="pet4032", name="ok")
+    try:
+        assert s.is_alive()
+        log = sessions_dir() / "ok.vice.log"
+        assert log.exists(), "VICE's output was not captured anywhere"
+        # The stub monitor answers instantly, so the child may not have
+        # flushed yet; the point is that the output lands here at all rather
+        # than in /dev/null.
+        end = time.monotonic() + 5.0
+        while "VICE Version" not in log.read_text() and time.monotonic() < end:
+            time.sleep(0.05)
+        assert "VICE Version" in log.read_text()
+    finally:
+        os.kill(s.pid, signal.SIGKILL)
 
 
 def test_pid_alive_permission_error_means_alive(monkeypatch):

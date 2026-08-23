@@ -80,6 +80,11 @@ Daemon output goes to `<sessions-dir>/<name>.daemon.log`; a crashed daemon
 is respawned automatically by the next command (repeated crashes error out
 and ask for a session restart). `PET_TOOLS_NO_DAEMON=1` disables it.
 
+VICE's own output is captured to `<sessions-dir>/<name>.vice.log` (rewritten
+on each launch attempt). If `xpet` exits before its monitor answers, the
+command fails immediately — no waiting out the connect deadline — and quotes
+the exit status and the tail of that log.
+
 ### `pet session ensure`
 
 Attach to a running session, or start one if none exists. Idempotent:

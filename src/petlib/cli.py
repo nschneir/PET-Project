@@ -130,7 +130,10 @@ def session() -> None:
 @click.option("--name", "-s", default=None,
               help="Session name (defaults to the model name).")
 @click.option("--headless", is_flag=True,
-              help="Run without a VICE window (video/audio dummied).")
+              help="Run without a VICE window. Sets SDL_VIDEODRIVER/"
+                   "SDL_AUDIODRIVER=dummy, which only SDL builds of VICE "
+                   "honour; GTK3 builds (Debian/Ubuntu) ignore it — use "
+                   "xvfb-run on a display-less machine.")
 @click.option("--warp", is_flag=True,
               help="Run at maximum speed — recommended for automation.")
 @click.option("--disk", "disk8", default=None, help="Attach a d64/d80/d82 image to drive 8.")

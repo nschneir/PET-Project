@@ -3,6 +3,29 @@
 All notable changes to PET Project (`pet-tools` / `petlib`). Dates are the
 day the release was tagged.
 
+## [1.4.0] — 2026-08-23
+
+A docs-and-site release: the two flagship demos are now playable in a
+browser, one click from the README. No petlib behavior changed.
+
+### Added
+- **Play in the browser** — `play.html` on the project site boots Invaders
+  and Ms. Muncher on an emulated PET 4032: click-to-boot tiles, live
+  keyboard steering (held keys, the way the games read them), one-voice
+  CB2 sound through Web Audio (AudioWorklet), and a download/VICE fallback
+  for anyone who'd rather run the real thing. The emulator lives in a
+  separate repo, [pet2001web](https://github.com/nschneir/pet2001web) — an
+  adaptation of Thomas Skibo's BSD-2-Clause JS PET emulator with the ROM 4
+  image rebuilt from VICE's true 4032 ROM set, so the browser machine
+  matches this project's reference `pet4032`. No ROMs live in this repo.
+
+### Documentation
+- Screenshots and play links in README, `demos/README.md`, and the landing
+  page — fresh 640×400 title stills in `img/play/`, captured with the
+  project's own `pet screen --png`.
+- `demos/muncher`'s `.prg` and `.d64` are now tracked (previously
+  gitignored), so the demo's download links resolve.
+
 ## [1.3.0] — 2026-07-21
 
 Routine-level unit testing and a debugging playbook — the two additions a

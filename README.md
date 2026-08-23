@@ -210,7 +210,7 @@ Neither artifact contains ROMs or anything from this toolset.
 
 ## Status
 
-Stable — current release **v1.3.0**. Full history: [CHANGELOG.md](CHANGELOG.md).
+Stable — current release **v1.4.0**. Full history: [CHANGELOG.md](CHANGELOG.md).
 
 ## Related projects
 

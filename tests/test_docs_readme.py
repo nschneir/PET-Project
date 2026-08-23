@@ -31,8 +31,15 @@ def test_install_section_covers_the_linux_reality():
                    "pipx", "xvfb-run"):
         assert needle in section, \
             f"README Install section no longer mentions {needle!r}"
-    assert "~/.local/share/vice/PET" in section, \
+    assert "$HOME/.local/share/vice/PET" in section, \
         "Install section must name a directory on VICE's sysfile search path"
+    assert "~/.local/share/vice" in section, \
+        "Install section must show where to copy the ROMs"
+    # Debian strips every ROM, DRIVES included — copying only data/PET boots
+    # the machine but leaves the drive DOS ROMs missing, and `pet disk` needs
+    # them.
+    assert "DRIVES" in section, \
+        "Install section must tell Linux users to install the DRIVES ROMs too"
     assert "3.10" in section, \
         "Install section must flag Ubuntu 22.04's Python 3.10 vs the 3.11 floor"
 

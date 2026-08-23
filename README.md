@@ -26,6 +26,9 @@ this package.
     pip install -e .
 
 Homebrew's VICE bundles the Commodore ROM images, so that is the whole setup.
+If `pip` answers `error: externally-managed-environment`, Homebrew's Python is
+marked externally managed (PEP 668) like Debian's — use the same venv route as
+below: `python3 -m venv .venv && .venv/bin/pip install -e .`
 
 ### Debian / Ubuntu
 
@@ -47,27 +50,32 @@ that edit for you on the older `sources.list` format; it does not handle the
 deb822 one.) On Ubuntu `vice` is in `multiverse`, enabled by default, so
 `sudo apt install vice cc65` is enough on its own.
 
-**2. Install the PET ROMs — the step with no macOS equivalent.** Debian's
-package is in `contrib` *because* it deliberately omits the Commodore ROM
-images: "This package does not contain the various ROM images needed to
-actually use the emulators; they are available separately from other
-locations". Ubuntu's package is built from the same source. Without the ROMs,
-`xpet` exits immediately with `Couldn't load ROM` and no PET ever boots. Take
-them from the upstream VICE release tarball:
+**2. Install the ROMs — the step with no macOS equivalent.** Debian's package
+is in `contrib` *because* it deliberately omits the Commodore ROM images:
+"This package does not contain the various ROM images needed to actually use
+the emulators; they are available separately from other locations". Ubuntu's
+package is built from the same source. (The stripping is thorough: the
+packaged VICE contains no `.bin` files at all.) Without the ROMs, `xpet` exits
+immediately with `Couldn't load ROM` and no PET ever boots. Take them from the
+upstream VICE release tarball:
 
     curl -L -o vice.tar.gz https://sourceforge.net/projects/vice-emu/files/releases/vice-3.9.tar.gz/download
     tar xf vice.tar.gz
-    mkdir -p ~/.local/share/vice/PET
-    cp vice-3.9/data/PET/* ~/.local/share/vice/PET/
+    mkdir -p ~/.local/share/vice
+    cp -r vice-3.9/data/PET vice-3.9/data/DRIVES ~/.local/share/vice/
+
+Both directories matter: `PET` holds the machine ROMs (BASIC, kernal, editor,
+character generator) and `DRIVES` holds the drive DOS ROMs that the emulated
+2031/4040/8050 units need, so leaving it out costs you hardware-level drive
+emulation — which is what every `pet disk` command and `--disk` boot relies on.
 
 VICE searches for system files in `$HOME/.local/share/vice/PET`, then
 `PREFIX/share/vice/PET` (`/usr/share/vice/PET` for the Debian/Ubuntu package),
-then the emulator binary's own directory. The `~/.local/…` entry is the one
-that needs no root, which is why it is used above. The system path is
-version-dependent — Debian's older VICE 3.3 package used `/usr/lib/vice`
-instead — so if your VICE predates 3.5, check the path it actually uses:
-`xpet` prints
-`VICE system file search path: …` in its startup log, and `xpet -directory
+then a `PET` subdirectory of the directory holding the `xpet` binary — and the
+matching `DRIVES` directory alongside each. The `~/.local/…` entry is the one
+that needs no root, which is why it is used above. To confirm what your build
+actually searches, run `xpet` and look for the
+`VICE system file search path: …` line in its startup log; `xpet -directory
 <path>` overrides it.
 
 **3. Install pet-tools in a virtualenv.** Debian 12+ and Ubuntu 23.04+ mark
@@ -165,7 +173,8 @@ calls. There are two ways an agent can use it — pick either or both:
 
 See **[docs/agent-setup.md](docs/agent-setup.md)** for the two integration
 routes and step-by-step setup for Claude Code, OpenAI Codex, Cursor, Gemini
-CLI, and Google Antigravity — all instructions work on macOS and Linux.
+CLI, and Google Antigravity — all instructions work on macOS and Linux (see
+[Install](#install) for the extra Debian/Ubuntu steps).
 
 ## Demos — try it with your AI agent
 

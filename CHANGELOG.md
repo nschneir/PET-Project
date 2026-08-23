@@ -39,10 +39,11 @@ failed launches, which now fail fast and say why.
   (not enabled by default), the package deliberately ships without the
   Commodore ROM images, and Debian 12+/Ubuntu 23.04+ refuse `pip install`
   into the system Python (PEP 668). The README's Install section now walks
-  all three — enabling `contrib`, copying the PET ROMs from the upstream
-  VICE tarball into VICE's documented sysfile search path, and installing
-  into a venv — plus the Python 3.11 floor (Ubuntu 22.04 ships 3.10) and
-  `xvfb-run` for display-less machines.
+  all three — enabling `contrib`, copying both the PET machine ROMs and the
+  `DRIVES` drive-DOS ROMs from the upstream VICE tarball into VICE's
+  documented sysfile search path, and installing into a venv — plus the
+  Python 3.11 floor (Ubuntu 22.04 ships 3.10) and `xvfb-run` for
+  display-less machines.
 - **`--headless` described accurately.** It sets `SDL_VIDEODRIVER`/
   `SDL_AUDIODRIVER` to `dummy`, which only SDL builds of VICE honour; the
   GTK3 build that Debian and Ubuntu package ignores it. `docs/cli.md`, the

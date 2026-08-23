@@ -17,6 +17,9 @@ They're graded — start at 01 if you're new:
 | 06 | Invaders | 6502 assembly | Arcade-fidelity spec, CB2 sound, review loop, packaging | ✅ passed |
 | 07 | Ms. Muncher | 6502 assembly | Full spec→plan→implement workflow: half-cell actor engine, 4 mazes, cutscenes, demo mode, high scores | ✅ passed |
 
+Demos 06 and 07 are playable in the browser — no install — at
+[nschneir.github.io/PET-Project/play.html](https://nschneir.github.io/PET-Project/play.html).
+
 Demo 07 has no prompt file: it was built interactively through the
 brainstorm → spec → plan → implement workflow rather than from a single
 pasted prompt. The playable result and its deterministic test suite live

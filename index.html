@@ -107,6 +107,7 @@
   .code pre{margin:0;padding:14px 46px 14px 16px;overflow-x:auto;font-size:.9rem;line-height:1.65;color:var(--p)}
   .code .cm{color:var(--p-dim)}
   .code .pr{color:var(--p-bright)}
+  kbd{font-family:var(--mono);font-size:.92em;padding:.05em .38em;border:1px solid var(--p-dim);background:rgba(59,243,75,.12);color:var(--p-bright);text-shadow:none;white-space:nowrap}
   .copy{position:absolute;top:8px;right:8px;border:1px solid var(--p-dim);background:var(--screen);color:var(--p);
         font-family:var(--mono);font-size:.72rem;letter-spacing:.1em;padding:3px 8px;cursor:pointer}
   .copy:hover,.copy:focus-visible{background:var(--p);color:var(--room);outline:none}
@@ -268,6 +269,33 @@ pet step 5 &amp;&amp; pet reg             <span class="cm"># single-step, inspec
           <li>Add the read-the-skill one-liner to <code>AGENTS.md</code>.</li>
           <li>Paste a prompt from <code>demos/</code>.</li>
         </ol>
+      </div>
+    </section>
+
+    <section class="reveal" id="play">
+      <h2><span class="mk">&#x2500;&#x2500;</span> PLAY THE DEMOS <span class="mk">&#x2500;&#x2500;</span></h2>
+      <p>The two flagship demos run in your browser on an emulated PET
+      (ROM&nbsp;4.0, 40 columns) &mdash; the same <code>.prg</code> files
+      checked into the repo, on <a href="play.html">the play page</a>.</p>
+      <div class="grid wide">
+        <div class="card">
+          <b>&#x25B8; INVADERS</b><small>6502 assembly / CB2 sound</small>
+          <a href="play.html" style="border-bottom:none"><img src="img/play/invaders.png"
+            alt="Invaders title screen"
+            style="width:100%;image-rendering:pixelated;border:1px solid var(--p-faint);margin:.4em 0"></a>
+          <p><kbd>A</kbd>/<kbd>D</kbd> move &middot; <kbd>SPACE</kbd> fires &middot;
+          any key starts.</p>
+          <a class="go" href="play.html">PLAY IN THE BROWSER &#x25B8;</a>
+        </div>
+        <div class="card">
+          <b>&#x25B8; MS. MUNCHER</b><small>4 mazes / cutscenes / demo mode</small>
+          <a href="play.html" style="border-bottom:none"><img src="img/play/muncher.png"
+            alt="Ms. Muncher title screen"
+            style="width:100%;image-rendering:pixelated;border:1px solid var(--p-faint);margin:.4em 0"></a>
+          <p><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> steer &middot;
+          <kbd>SPACE</kbd> starts.</p>
+          <a class="go" href="play.html">PLAY IN THE BROWSER &#x25B8;</a>
+        </div>
       </div>
     </section>
 
